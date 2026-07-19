@@ -1,0 +1,1878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Ashes · Fantasy XI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Libre+Franklin:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --turf:#0F3D2E;
+    --turf-dark:#0A2B20;
+    --turf-deeper:#081F18;
+    --parchment:#EFE3BE;
+    --parchment-dim:#E4D6AC;
+    --parchment-panel:#F6EFD9;
+    --gilt:#C9973B;
+    --gilt-bright:#E3BE72;
+    --oxblood:#7A1F2B;
+    --oxblood-bright:#9C2C3A;
+    --ink:#1C2321;
+    --chalk:#F7F2E4;
+    --line:#2C5C46;
+    --font-display:'Fraunces', serif;
+    --font-body:'Libre Franklin', sans-serif;
+    --font-mono:'Space Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--turf-deeper);
+    color:var(--chalk);
+    font-family:var(--font-body);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select{font-family:inherit;}
+
+  ::selection{background:var(--gilt); color:var(--turf-deeper);}
+
+  /* ---------- layout shell ---------- */
+  .app{max-width:1180px;margin:0 auto;padding:0 20px 80px;}
+
+  /* ---------- sticky top bar (brand + nav + auth + countdown) ---------- */
+  .topbar{
+    position:sticky;
+    top:0;
+    z-index:900;
+    background:linear-gradient(180deg, var(--turf) 0%, var(--turf-dark) 100%);
+    border-bottom:3px solid var(--gilt);
+  }
+  .topbar-main{
+    max-width:1180px; margin:0 auto;
+    display:flex; align-items:center; gap:18px;
+    padding:12px 20px;
+  }
+  .topbar-brand{
+    font-family:var(--font-display); font-weight:700; font-size:21px; color:var(--chalk);
+    letter-spacing:.01em; white-space:nowrap; margin:0;
+  }
+
+  .tabnav{
+    display:flex; align-items:center; gap:2px;
+    flex:1; min-width:0; overflow-x:auto;
+  }
+  .tab-btn{
+    background:none;
+    border:none;
+    color:var(--parchment-dim);
+    padding:10px 14px;
+    font-size:13.5px;
+    font-weight:600;
+    letter-spacing:.03em;
+    white-space:nowrap;
+    border-bottom:3px solid transparent;
+    cursor:pointer;
+  }
+  .tab-btn.active{color:var(--gilt-bright); border-bottom-color:var(--gilt);}
+  .tab-btn:hover{color:var(--chalk);}
+
+  .topbar-auth{display:flex; align-items:center; gap:8px; flex-wrap:wrap; flex-shrink:0;}
+
+  .hamburger-btn{
+    display:none;
+    background:none; border:1px solid var(--gilt); border-radius:5px;
+    width:36px; height:32px; padding:0; cursor:pointer; flex-shrink:0;
+    flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  }
+  .hamburger-btn span{width:16px; height:2px; background:var(--gilt-bright); display:block;}
+  .drawer-close-btn{display:none;}
+  .tabnav-backdrop{display:none;}
+
+  @media (max-width:760px){
+    .topbar-brand{font-size:16px;}
+    .topbar-main{gap:10px; padding:10px 14px; flex-wrap:wrap;}
+    .topbar-auth{order:3; width:100%; gap:6px; font-size:12px;}
+    .topbar-auth .current-team-pill{max-width:60vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+    .hamburger-btn{display:flex;}
+    .tabnav{
+      position:fixed; top:0; left:0; height:100vh; width:250px; max-width:78vw;
+      background:var(--turf-dark); border-right:2px solid var(--gilt);
+      flex-direction:column; align-items:stretch; gap:0; overflow-y:auto; overflow-x:hidden;
+      padding:56px 0 20px;
+      transform:translateX(-100%);
+      transition:transform .22s ease;
+      z-index:1100;
+    }
+    .tabnav.open{transform:translateX(0);}
+    .tabnav .tab-btn{
+      padding:14px 22px; text-align:left; border-bottom:none; border-left:3px solid transparent;
+    }
+    .tabnav .tab-btn.active{border-left-color:var(--gilt); border-bottom-color:transparent;}
+    .drawer-close-btn{
+      display:block; position:absolute; top:8px; right:10px;
+      background:none; border:none; color:var(--chalk); font-size:26px; line-height:1;
+      cursor:pointer; padding:8px;
+    }
+    .tabnav-backdrop{
+      display:block; position:fixed; inset:0; background:rgba(0,0,0,.5);
+      z-index:1050; opacity:0; pointer-events:none; transition:opacity .2s ease;
+    }
+    .tabnav-backdrop.open{opacity:1; pointer-events:auto;}
+
+    .countdown-strip{padding:0 14px 10px; gap:10px;}
+    .countdown-clock{gap:4px;}
+    .countdown-clock .seg{min-width:34px; padding:4px 5px;}
+    .countdown-clock .seg .n{font-size:14px;}
+    .countdown-meta{font-size:11px;}
+    .countdown-label{font-size:10px;}
+  }
+
+  @media (max-width:600px){
+    .app{padding:0 14px 60px;}
+    section.tab-panel{padding-top:18px;}
+    .panel-title{font-size:21px;}
+    .panel-sub{font-size:13px;}
+    .card{padding:15px;}
+    .honours-board{padding:16px 14px;}
+    .action-bar-main{flex-direction:column; align-items:stretch; padding:12px;}
+    .action-bar-buttons{margin-left:0; width:100%;}
+    .action-bar-buttons .btn{flex:1; min-width:0;}
+    .swap-status-row{gap:10px;}
+    .status-chip{flex:1; min-width:130px; padding:10px 12px;}
+    .status-chip .value{font-size:18px;}
+    .squad-card-controls button{width:28px; height:28px; font-size:11px;}
+    .squad-editor{gap:12px;}
+    .squad-zone{padding:11px;}
+    .overlay-box{padding:20px 18px;}
+    .overlay-title{font-size:18px;}
+    .admin-subnav{gap:0;}
+    .subtab-btn{padding:9px 11px; font-size:11px;}
+  }
+  .btn{
+    background:var(--gilt);
+    color:var(--turf-deeper);
+    border:none;
+    padding:9px 16px;
+    border-radius:4px;
+    font-weight:700;
+    font-size:13.5px;
+    letter-spacing:.02em;
+    transition:filter .15s ease, transform .1s ease;
+  }
+  .btn:hover{filter:brightness(1.08);}
+  .btn:active{transform:translateY(1px);}
+  .btn.secondary{background:var(--turf-dark); border:1px solid var(--gilt); color:var(--chalk);}
+  .btn.danger{background:var(--oxblood); color:var(--chalk);}
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+  .btn.small{padding:6px 11px; font-size:12px;}
+
+  .current-team-pill{
+    font-family:var(--font-mono);
+    background:var(--turf-dark);
+    border:1px solid var(--gilt);
+    color:var(--gilt-bright);
+    padding:6px 12px;
+    border-radius:20px;
+    font-size:12.5px;
+  }
+
+  /* countdown strip */
+  .countdown-strip{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    flex-wrap:wrap;
+    font-family:var(--font-mono);
+    max-width:1180px; margin:0 auto;
+    padding:0 20px 12px;
+  }
+  .countdown-label{font-size:11px; color:var(--parchment-dim); letter-spacing:.12em; text-transform:uppercase;}
+  .countdown-clock{
+    display:flex; gap:6px;
+  }
+  .countdown-clock .seg{
+    background:var(--turf-deeper);
+    border:1px solid var(--gilt);
+    border-radius:3px;
+    padding:5px 8px;
+    text-align:center;
+    min-width:44px;
+  }
+  .countdown-clock .seg .n{font-size:17px; font-weight:700; color:var(--chalk);}
+  .countdown-clock .seg .u{font-size:8px; color:var(--gilt-bright); letter-spacing:.1em;}
+  .countdown-meta{font-size:12.5px; color:var(--parchment);}
+
+  /* ---------- content sections ---------- */
+  section.tab-panel{display:none; padding-top:28px; animation:fadein .25s ease;}
+  section.tab-panel.active{display:block;}
+  @keyframes fadein{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+  @media (prefers-reduced-motion: reduce){
+    section.tab-panel{animation:none;}
+    .honours-row{animation:none !important;}
+  }
+
+  h2.panel-title{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:26px;
+    color:var(--chalk);
+    margin:0 0 4px;
+  }
+  p.panel-sub{color:var(--parchment-dim); font-size:14px; margin:0 0 22px; max-width:70ch;}
+
+  .card{
+    background:var(--parchment-panel);
+    color:var(--ink);
+    border-radius:8px;
+    padding:20px;
+    border:1px solid var(--parchment-dim);
+  }
+  .card + .card{margin-top:16px;}
+  /* .card + .card above is meant for cards STACKED vertically in normal flow.
+     Inside a grid row (cards sitting side-by-side, e.g. rules-grid), that same
+     selector still matches on DOM adjacency and pushes the second card down,
+     breaking the equal-height stretch. Cancel it there. */
+  .rules-grid > .card + .card{margin-top:0;}
+
+  .notice{
+    background:rgba(201,151,59,.12);
+    border:1px solid var(--gilt);
+    color:var(--parchment);
+    padding:12px 14px;
+    border-radius:6px;
+    font-size:13.5px;
+    margin-bottom:18px;
+  }
+  .notice.warn{background:rgba(122,31,43,.25); border-color:var(--oxblood-bright);}
+  .notice strong{color:var(--gilt-bright);}
+  .notice.warn strong{color:#ffb3b3;}
+
+  /* ---------- rules tab ---------- */
+  .rules-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:stretch;}
+  .rules-grid > .card{height:100%; box-sizing:border-box;}
+  @media (max-width:760px){.rules-grid{grid-template-columns:1fr;}}
+  .scoring-table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  .scoring-table th{
+    text-align:left; font-family:var(--font-mono); font-size:11px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--turf); border-bottom:2px solid var(--turf); padding:6px 4px;
+  }
+  .scoring-table td{padding:7px 4px; border-bottom:1px solid var(--parchment-dim);}
+  .scoring-table td:last-child{text-align:right; font-family:var(--font-mono); font-weight:700; color:var(--oxblood);}
+
+  ol.rules-list{padding-left:20px; font-size:14px;}
+  ol.rules-list li{margin-bottom:10px;}
+
+  /* ---------- player pool listings (used by Player Setup) ---------- */
+  .nation-block{margin-bottom:22px;}
+  .nation-heading{
+    display:flex; align-items:center; gap:10px;
+    font-family:var(--font-display); font-weight:600; font-size:18px;
+    color:var(--gilt-bright); margin-bottom:10px;
+  }
+  .nation-heading .flag-chip{
+    font-family:var(--font-mono); font-size:11px; padding:3px 8px; border-radius:3px;
+    letter-spacing:.05em;
+  }
+  .flag-chip.ENG{background:var(--oxblood); color:var(--chalk);}
+  .flag-chip.AUS{background:var(--gilt); color:var(--turf-deeper);}
+
+  .player-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    background:var(--parchment-panel); color:var(--ink);
+    border:1px solid var(--parchment-dim); border-radius:6px;
+    padding:10px 12px; margin-bottom:6px;
+  }
+  .player-row.added{border-color:var(--gilt); box-shadow:inset 0 0 0 1px var(--gilt);}
+  .player-name-wrap{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .player-name{font-weight:700; font-size:14.5px;}
+  .role-pill{
+    font-family:var(--font-mono); font-size:10px; letter-spacing:.06em;
+    background:var(--turf); color:var(--chalk); padding:2px 7px; border-radius:10px;
+  }
+
+  /* Add-a-player form: name / nationality / role / button */
+  .player-form-grid{display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:14px; align-items:end;}
+  .player-form-grid input[type=text]{width:100%; padding:9px; border:1px solid var(--parchment-dim); border-radius:5px;}
+  .player-form-grid button{height:38px;}
+  @media (max-width:640px){
+    .player-form-grid{grid-template-columns:1fr; gap:10px;}
+    .player-form-grid button{width:100%;}
+  }
+
+  /* Inline edit-in-place row for an existing player */
+  .player-edit-fields{display:flex; gap:6px; flex-wrap:wrap; flex:1; min-width:0;}
+  .player-edit-fields input[type=text]{padding:7px 8px; border:1px solid var(--parchment-dim); border-radius:4px; font-size:13px; width:160px; max-width:100%;}
+  .player-edit-fields select{width:auto; padding:7px 8px;}
+  .player-row-actions{display:flex; gap:6px; flex-shrink:0;}
+  @media (max-width:520px){
+    .player-row.added{flex-direction:column; align-items:stretch;}
+    .player-edit-fields{flex-direction:column; align-items:stretch;}
+    .player-edit-fields input[type=text],
+    .player-edit-fields select{width:100%;}
+    .player-row-actions{width:100%;}
+    .player-row-actions button{flex:1;}
+  }
+
+  /* ---------- honours board ---------- */
+  .honours-board{
+    background:
+      repeating-linear-gradient(180deg, var(--turf) 0px, var(--turf) 2px, var(--turf-dark) 2px, var(--turf-dark) 44px);
+    border:6px solid var(--gilt);
+    border-radius:4px;
+    padding:26px 28px;
+    box-shadow:0 10px 30px rgba(0,0,0,.4), inset 0 0 40px rgba(0,0,0,.35);
+  }
+  .honours-board-title{
+    font-family:var(--font-mono); font-size:11px; letter-spacing:.2em; text-transform:uppercase;
+    color:var(--gilt-bright); text-align:center; margin-bottom:14px;
+  }
+  .honours-row{
+    display:flex; align-items:center; justify-content:space-between;
+    font-family:var(--font-display); font-size:19px; color:var(--gilt-bright);
+    padding:6px 4px; opacity:0; transform:translateX(-6px);
+    animation:carvein .4s ease forwards;
+  }
+  @keyframes carvein{to{opacity:1; transform:none;}}
+  .honours-row .hr-name{display:flex; align-items:center; gap:10px;}
+  .honours-row .hr-tags{font-family:var(--font-mono); font-size:10.5px; color:var(--parchment-dim); letter-spacing:.04em;}
+  .honours-star{color:var(--gilt); font-size:15px;}
+  .bench-list{margin-top:16px; padding-top:14px; border-top:1px dashed rgba(230,197,120,.35);}
+  .bench-list .honours-row{font-size:15px; color:var(--parchment-dim); opacity:.85 !important; transform:none !important;}
+  .bench-list .honours-board-title{margin-bottom:8px;}
+
+  /* ---------- swaps ---------- */
+  .swap-status-row{display:flex; gap:18px; flex-wrap:wrap; margin-bottom:20px;}
+  .status-chip{
+    background:var(--turf-dark); border:1px solid var(--line); border-radius:6px;
+    padding:12px 16px; min-width:150px;
+  }
+  .status-chip .label{font-family:var(--font-mono); font-size:10.5px; color:var(--parchment-dim); letter-spacing:.08em; text-transform:uppercase;}
+  .status-chip .value{font-family:var(--font-display); font-size:22px; color:var(--gilt-bright); margin-top:2px;}
+
+  select.pick{
+    width:100%; padding:9px; border-radius:5px; border:1px solid var(--parchment-dim);
+    background:var(--chalk); color:var(--ink); font-size:13.5px;
+  }
+  .field-label{font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--turf); margin-bottom:5px; display:block;}
+
+  /* ---------- match centre ---------- */
+  .fixture-row{
+    display:grid; grid-template-columns:36px 1fr 1fr 1fr auto; gap:10px; align-items:center;
+    padding:8px 0; border-bottom:1px solid var(--parchment-dim); font-size:13.5px;
+  }
+  .fixture-row input{padding:7px 8px; border:1px solid var(--parchment-dim); border-radius:4px; font-size:13px; min-width:0;}
+  .fixture-num{font-family:var(--font-mono); font-weight:700; color:var(--oxblood);}
+  @media (max-width:640px){
+    .fixture-row{grid-template-columns:1fr 1fr; grid-template-areas:"num num" "venue venue" "date deadline" "label label"; padding:12px 0;}
+    .fixture-row .fixture-num{grid-area:num;}
+    .fixture-row input[data-f="venue"]{grid-area:venue;}
+    .fixture-row input[data-f="date"]{grid-area:date;}
+    .fixture-row input[data-f="deadline"]{grid-area:deadline;}
+    .fixture-row .muted-on-light{grid-area:label;}
+  }
+
+  table.stat-entry{width:100%; border-collapse:collapse; font-size:12.5px; margin-top:14px;}
+  table.stat-entry th{
+    font-family:var(--font-mono); font-size:9.5px; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--turf); border-bottom:2px solid var(--turf); padding:6px 4px; text-align:center;
+  }
+  table.stat-entry th:first-child{text-align:left;}
+  table.stat-entry td{padding:5px 4px; border-bottom:1px solid var(--parchment-dim); text-align:center;}
+  table.stat-entry td:first-child{text-align:left; font-weight:600;}
+  table.stat-entry input[type=number]{width:48px; padding:4px; border:1px solid var(--parchment-dim); border-radius:3px; text-align:center;}
+  table.stat-entry input[type=checkbox]{width:16px; height:16px;}
+  .table-scroll{overflow-x:auto;}
+
+  .teamnews-row{display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--parchment-dim); font-size:13.5px;}
+
+  /* ---------- leaderboard ---------- */
+  /* Rows sit inside .honours-board, which paints its own 44px repeating stripes as
+     the row divider — an extra per-row border here would drift out of sync with
+     those stripes and visually cut through the text. Instead we align each row's
+     box height to that same 44px rhythm and let the stripes do the dividing. */
+  .leaderboard-row{
+    display:grid; grid-template-columns:40px 1fr auto; gap:14px; align-items:center;
+    min-height:44px; box-sizing:border-box;
+    padding:0 14px; cursor:pointer; border-radius:3px;
+  }
+  .leaderboard-row:hover{background:rgba(255,255,255,.06);}
+  .lb-rank{font-family:var(--font-mono); font-size:17px; color:var(--parchment-dim); text-align:center; line-height:1;}
+  .leaderboard-row.rank-1 .lb-rank{color:var(--gilt); font-size:20px;}
+  .lb-name{font-family:var(--font-display); font-size:16px; line-height:1.2;}
+  .lb-points{font-family:var(--font-mono); font-size:16px; color:var(--gilt-bright); font-weight:700; line-height:1; white-space:nowrap;}
+  .lb-detail{padding:8px 14px 16px 54px; font-size:12.5px; color:var(--parchment-dim); display:none;}
+  .lb-detail.open{display:block;}
+  .lb-detail table{width:100%; border-collapse:collapse; margin-top:6px;}
+  .lb-detail td{padding:4px 6px; line-height:1.3; border-bottom:1px solid rgba(255,255,255,.08);}
+
+  .empty-state{
+    text-align:center; padding:50px 20px; color:var(--parchment-dim); font-size:14px;
+  }
+  .empty-state .big{font-family:var(--font-display); font-size:20px; color:var(--gilt-bright); margin-bottom:8px;}
+
+  footer.app-footer{
+    text-align:center; padding:30px 20px 10px; color:var(--parchment-dim); font-size:12px; font-family:var(--font-mono);
+  }
+
+  .role-legend{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:16px; font-size:12px; color:var(--parchment-dim);}
+  .role-legend span{font-family:var(--font-mono);}
+
+  .flex-between{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;}
+  .muted{color:var(--parchment-dim);}
+  /* Use on light .card/.parchment-panel backgrounds — plain .muted (parchment-dim on
+     parchment-panel) fails WCAG contrast (1.26:1); this variant passes at 5.46:1. */
+  .muted-on-light{color:#6B5F45;}
+
+  /* Explicit placeholder colors so browser defaults can't fall below AA on our dark inputs */
+  .overlay-box input::placeholder{color:var(--parchment-dim); opacity:1;}
+
+  /* ---------- admin sub-navigation ---------- */
+  .admin-subnav{
+    display:flex; gap:2px; margin:4px 0 24px;
+    border-bottom:1px solid var(--line); flex-wrap:wrap;
+  }
+  .subtab-btn{
+    background:none; border:none; color:var(--parchment-dim);
+    padding:10px 16px 8px; font-family:var(--font-mono); font-size:12px;
+    font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+    border-bottom:3px solid transparent;
+  }
+  .subtab-btn.active{color:var(--gilt-bright); border-bottom-color:var(--gilt);}
+  .subtab-btn:hover{color:var(--chalk);}
+  .admin-subpanel{display:none;}
+  /* When this same tab bar sits on a light .card instead of the dark page
+     background, the default colors above fail contrast (1.26:1) — use this
+     variant instead, which passes AA (5.46:1 / 8.87:1). */
+  .light-subnav{border-bottom-color:var(--parchment-dim);}
+  .light-subnav .subtab-btn{color:#6B5F45;}
+  .light-subnav .subtab-btn.active{color:var(--oxblood); border-bottom-color:var(--oxblood);}
+  .light-subnav .subtab-btn:hover{color:var(--ink);}
+  .admin-subpanel.active{display:block;}
+  .save-bar{display:flex; gap:10px; margin-top:18px; flex-wrap:wrap;}
+
+  .auth-error{color:#f5a3a3; font-size:12.5px; margin-top:8px; width:100%;}
+  .auth-hint{color:var(--parchment-dim); font-size:11.5px; width:100%; margin-top:6px;}
+
+  /* ---------- overlay / modal system (replaces alert/confirm/prompt) ---------- */
+  .overlay-backdrop{
+    position:fixed; inset:0; background:rgba(6,20,15,.72);
+    display:flex; align-items:center; justify-content:center;
+    z-index:1000; padding:20px; backdrop-filter:blur(2px);
+  }
+  .overlay-box{
+    background:linear-gradient(180deg, var(--turf) 0%, var(--turf-dark) 100%);
+    border:2px solid var(--gilt);
+    border-radius:8px;
+    max-width:420px; width:100%;
+    padding:26px 28px;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+    position:relative;
+    animation:overlayIn .2s ease;
+  }
+  @keyframes overlayIn{from{opacity:0; transform:translateY(8px) scale(.98);} to{opacity:1; transform:none;}}
+  @media (prefers-reduced-motion: reduce){ .overlay-box{animation:none;} }
+  .overlay-close{
+    position:absolute; top:10px; right:12px; background:none; border:none;
+    color:var(--parchment-dim); font-size:22px; line-height:1; padding:6px; border-radius:4px;
+  }
+  .overlay-close:hover{color:var(--chalk);}
+  .overlay-title{font-family:var(--font-display); font-weight:600; font-size:20px; color:var(--gilt-bright); margin:0 0 10px; padding-right:20px;}
+  .overlay-message{font-size:14px; color:var(--parchment); line-height:1.5; margin-bottom:16px;}
+  .overlay-actions{display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; margin-top:6px;}
+  .overlay-box .field-group{margin-bottom:14px;}
+  .overlay-box label{display:block; font-family:var(--font-mono); font-size:11px; color:var(--parchment-dim); letter-spacing:.06em; text-transform:uppercase; margin-bottom:5px;}
+  .overlay-box input[type=email], .overlay-box input[type=password], .overlay-box input[type=text]{
+    width:100%; background:var(--turf-deeper); border:1px solid var(--line); color:var(--chalk);
+    padding:9px 10px; border-radius:4px; font-size:14px;
+  }
+  .overlay-lock-icon{font-size:28px; margin-bottom:8px; display:block;}
+
+  /* ---------- squad editor (My XI: drag-drop XI/bench + player cards) ---------- */
+  .squad-editor{display:grid; grid-template-columns:1.6fr 1fr; gap:18px; margin-top:6px;}
+  @media (max-width:820px){.squad-editor{grid-template-columns:1fr;}}
+  .squad-zone{
+    background:var(--turf-dark); border:1px solid var(--line); border-radius:8px; padding:14px;
+    transition:outline-color .15s ease;
+  }
+  .squad-zone.drop-hover{outline:2px dashed var(--gilt); outline-offset:-2px;}
+  .zone-title{
+    font-family:var(--font-mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--gilt-bright); margin-bottom:10px;
+  }
+  .zone-slots{display:flex; flex-direction:column; gap:7px; min-height:44px;}
+
+  .squad-card{
+    display:flex; align-items:center; gap:8px;
+    background:var(--parchment-panel); border:1px solid var(--parchment-dim); border-radius:6px;
+    padding:8px 9px; cursor:grab;
+  }
+  .squad-card:active{cursor:grabbing;}
+  .squad-card.dragging{opacity:.35;}
+  .squad-card.empty{
+    justify-content:center; background:transparent; border:1px dashed var(--line); color:var(--parchment-dim);
+    cursor:default; padding:13px;
+  }
+  .squad-card.empty button{
+    background:none; border:none; color:var(--gilt-bright); font-family:var(--font-mono);
+    font-size:11.5px; font-weight:700; letter-spacing:.04em; cursor:pointer; padding:4px;
+  }
+  .squad-card.empty button:hover{color:var(--chalk);}
+  .squad-card-drag-handle{color:#9a8f77; font-size:14px; flex-shrink:0; line-height:1;}
+  .squad-card-info{flex:1; min-width:0;}
+  .squad-card-name{
+    font-weight:700; font-size:13px; color:var(--ink);
+    display:flex; align-items:center; gap:5px; flex-wrap:wrap;
+  }
+  .squad-card-name .honours-star{font-size:12px;}
+  .squad-card-tags{font-family:var(--font-mono); font-size:10px; color:#6B5F45; margin-top:1px;}
+  .squad-card-controls{display:flex; gap:4px; flex-shrink:0;}
+  .squad-card-controls button{
+    width:24px; height:24px; border-radius:4px; border:1px solid var(--parchment-dim); background:var(--chalk);
+    color:var(--turf); font-family:var(--font-mono); font-size:10px; font-weight:700; cursor:pointer; padding:0;
+  }
+  .squad-card-controls button:hover{filter:brightness(0.97);}
+  .squad-card-controls button.active-cap{background:var(--gilt); border-color:var(--gilt); color:var(--turf-deeper);}
+  .squad-card-controls button.active-vc{background:var(--gilt-bright); border-color:var(--gilt-bright); color:var(--turf-deeper);}
+
+  .action-bar-main{
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-top:18px;
+    background:var(--turf-dark); border:1px solid var(--line); border-radius:8px; padding:14px 16px;
+  }
+  .action-bar-main .status-chip{background:var(--turf-deeper);}
+  .action-bar-buttons{display:flex; gap:10px; flex-wrap:wrap; margin-left:auto;}
+  .action-bar-secondary{margin-top:8px; text-align:right;}
+  .link-btn{
+    background:none; border:none; color:var(--parchment-dim); font-size:12px; text-decoration:underline;
+    cursor:pointer; padding:4px;
+  }
+  .link-btn:hover{color:var(--chalk);}
+
+  .picker-list{max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin:14px 0;}
+  .picker-row{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    background:var(--turf-deeper); border:1px solid var(--line); border-radius:6px;
+    padding:10px 12px; color:var(--chalk); font-size:13.5px; cursor:pointer; text-align:left; width:100%;
+    font-family:var(--font-body);
+  }
+  .picker-row:hover{border-color:var(--gilt);}
+</style>
+</head>
+<body>
+
+<header class="topbar" id="topbar">
+  <div class="topbar-main">
+    <h1 class="topbar-brand">The Fantasy Ashes</h1>
+
+    <div class="tabnav-backdrop" id="tabnavBackdrop"></div>
+    <nav class="tabnav" id="tabnav">
+      <button class="drawer-close-btn" id="drawerCloseBtn" aria-label="Close menu">&times;</button>
+      <button class="tab-btn active" data-tab="rules">Rules</button>
+      <button class="tab-btn" data-tab="myxi">My XI</button>
+      <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
+      <button class="tab-btn" data-tab="admin">Admin</button>
+    </nav>
+
+    <div class="topbar-auth" id="authRow"><span class="muted">Loading&hellip;</span></div>
+
+    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Open menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div class="countdown-strip" id="countdownStrip"></div>
+</header>
+
+<div class="app">
+
+
+  <!-- RULES -->
+  <section class="tab-panel active" id="tab-rules">
+    <h2 class="panel-title">How it works</h2>
+    <p class="panel-sub">One squad for the whole series, tied to your account. Your job is to manage it well as team news and form change.</p>
+
+    <div class="notice">
+      <strong>No live data feed.</strong> Ball-tracking APIs need a paid key this hobby app doesn't have, so match stats are entered by hand under <strong>Admin &rarr; Match Setup</strong> after each day's play, and every player's fantasy points are calculated automatically from what's entered. Fixture dates are placeholders — edit them under <strong>Admin &rarr; Series Setup</strong> for the series you're actually tracking. The player pool is fully editable under <strong>Admin &rarr; Player Setup</strong>.
+    </div>
+    <div class="notice">
+      <strong>Real accounts.</strong> Sign up with an email and password to build your squad — it's backed by a real Supabase database with row-level security, so only you can edit your own squad. The <strong>Admin</strong> tab (Series Setup, Match Setup, Player Setup) is only visible to admin accounts; anyone signed in can still browse everything else.
+    </div>
+
+    <div class="rules-grid">
+      <div class="card">
+        <h3 style="font-family:var(--font-display); margin-top:0;">Squad rules</h3>
+        <ol class="rules-list">
+          <li><strong>14-man squad</strong>, picked once at the start of the series from the England &amp; Australia pools.</li>
+          <li>At least <strong>5 players from each nationality</strong> — no all-English or all-Australian raids on the pool.</li>
+          <li>At least <strong>one wicketkeeper</strong> in your squad, and your starting XI must always include one.</li>
+          <li>No budget cap — pick on judgement, not salary.</li>
+          <li>From your 14, name a <strong>starting XI</strong> — the other 3 sit on the bench. Free to change anytime in My XI.</li>
+          <li>Choose a <strong>Captain (2&times; points)</strong> and <strong>Vice-Captain (1.5&times; points)</strong> from your XI.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3 style="font-family:var(--font-display); margin-top:0;">Between Tests</h3>
+        <ol class="rules-list">
+          <li>Your <strong>starting XI</strong> (11 of your 14) can be changed freely in <strong>My XI</strong> at any time — it never counts as a transfer.</li>
+          <li><strong>Transfers</strong> — swapping a player out of your 14 for anyone else in the pool — are limited to <strong>2 per Test</strong>, measured against your last locked squad. There's <strong>no limit at all before your first Test locks</strong> — chop and change your initial squad as much as you like right up to that first deadline. Committing just declares your intended squad; it's never blocked by the transfer count, but going over 2 (once the limit applies) without your wildcard is against the rules, so keep an eye on the count shown in My XI before each deadline.</li>
+          <li>Once per series, arm your <strong>Wildcard</strong> to lift that 2-transfer limit. It's only actually spent if you commit while it's armed and your squad is still locked in that way when the deadline passes — arming and backing out costs nothing.</li>
+          <li>Selection <strong>locks at 10:00am</strong> local time on the morning of Day 1 of each Test — see the countdown at the top of the page. Whatever you last committed becomes your new baseline for the next round of transfers.</li>
+          <li>Captain / Vice-Captain can be reassigned anytime among your current XI, free of charge.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h3 style="font-family:var(--font-display); margin-top:0;">Scoring</h3>
+      <div class="rules-grid">
+        <table class="scoring-table">
+          <tr><th colspan="2">Batting</th></tr>
+          <tr><td>Per run</td><td>+1</td></tr>
+          <tr><td>50 scored</td><td>+8</td></tr>
+          <tr><td>100 scored (replaces 50 bonus)</td><td>+16</td></tr>
+          <tr><td>Dismissed for a duck</td><td>&minus;2</td></tr>
+        </table>
+        <table class="scoring-table">
+          <tr><th colspan="2">Bowling &amp; fielding</th></tr>
+          <tr><td>Per wicket</td><td>+20</td></tr>
+          <tr><td>4-wicket haul</td><td>+8</td></tr>
+          <tr><td>5-wicket haul (replaces 4-fer bonus)</td><td>+16</td></tr>
+          <tr><td>Per catch</td><td>+8</td></tr>
+          <tr><td>Per stumping</td><td>+12</td></tr>
+          <tr><td>Per run-out</td><td>+8</td></tr>
+        </table>
+      </div>
+      <p class="muted-on-light" style="font-size:12.5px; margin-top:10px;">Captain multiplies their total match points by 2&times;, Vice-Captain by 1.5&times;.</p>
+    </div>
+  </section>
+
+  <!-- MY XI -->
+  <section class="tab-panel" id="tab-myxi">
+    <div id="myxiContent"></div>
+  </section>
+
+  <!-- LEADERBOARD -->
+  <section class="tab-panel" id="tab-leaderboard">
+    <div id="leaderboardContent"></div>
+  </section>
+
+  <!-- ADMIN (nested: Series Setup / Match Setup / Player Setup) -->
+  <section class="tab-panel" id="tab-admin">
+    <h2 class="panel-title">Admin</h2>
+    <p class="panel-sub">League administration — visible only to admin accounts.</p>
+    <div class="admin-subnav" id="adminSubnav">
+      <button class="subtab-btn active" data-subtab="series">Series Setup</button>
+      <button class="subtab-btn" data-subtab="match">Match Setup</button>
+      <button class="subtab-btn" data-subtab="players">Player Setup</button>
+    </div>
+    <div class="admin-subpanel active" id="adminsub-series"><div id="seriesSetupContent"></div></div>
+    <div class="admin-subpanel" id="adminsub-match"><div id="matchSetupContent"></div></div>
+    <div class="admin-subpanel" id="adminsub-players"><div id="playerSetupContent"></div></div>
+  </section>
+
+</div>
+
+<footer class="app-footer">Fan-made, not affiliated with ECB, Cricket Australia or the ICC &middot; data lives in your own Supabase project</footer>
+
+<script>
+/* ============================================================
+   CONFIG — paste your own Supabase project values here.
+   Project Settings → API in your Supabase dashboard.
+   ============================================================ */
+const SUPABASE_URL = 'https://ytrjksnzzmuwjvziywqo.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_F63dU3b1GnW9YXUB0rqmBQ_wFqVVzWy';
+
+const supabaseClient = (SUPABASE_URL.startsWith('http'))
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
+/* ================= STATIC LOOKUPS ================= */
+const ROLE_LABEL = {BAT:'Batter', BOWL:'Bowler', AR:'All-rounder', WK:'Wicketkeeper'};
+
+/* ================= STATE ================= */
+let PLAYERS = [];
+let PLAYER_MAP = {};
+let session = null;       // Supabase auth session
+let isAdmin = false;      // whether the signed-in user can manage the Players pool
+let mySquad = null;       // this user's squad row (camelCase JS object) or null
+let fixtures = [];        // [{test, venue, date, deadline}]
+
+function buildPlayerMap(){ return Object.fromEntries(PLAYERS.map(p=>[p.id,p])); }
+function getPlayer(id){ return PLAYER_MAP[id] || {id, name:'(removed player)', nat:'?', role:'BAT'}; }
+function playerName(id){ return getPlayer(id).name; }
+function fmtDate(d){
+  try{ return new Date(d).toLocaleDateString(undefined, {day:'numeric', month:'short', year:'numeric'}); }
+  catch(e){ return d; }
+}
+function toDatetimeLocalValue(iso){
+  try{ return new Date(iso).toISOString().slice(0,16); }
+  catch(e){ return ''; }
+}
+function slugify(name, nat){
+  const base = (nat==='ENG'?'eng_':'aus_') + name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+  let id = base, n = 2;
+  while(PLAYERS.some(p=>p.id===id)){ id = base+'_'+n; n++; }
+  return id;
+}
+
+/* ================= SCORING ================= */
+function singleInningsPoints(inn){
+  if(!inn) return 0;
+  let pts = 0;
+  pts += (inn.runs||0) * 1;
+  if(inn.hundred) pts += 16;
+  else if(inn.fifty) pts += 8;
+  if(inn.duck) pts -= 2;
+  pts += (inn.wickets||0) * 20;
+  if(inn.fiveWkt) pts += 16;
+  else if(inn.fourWkt) pts += 8;
+  pts += (inn.catches||0) * 8;
+  pts += (inn.stumpings||0) * 12;
+  pts += (inn.runouts||0) * 8;
+  return pts;
+}
+function statPoints(s){
+  if(!s) return 0;
+  // New shape: {inn1:{...}, inn2:{...}} — sum both, so e.g. a century in each
+  // innings both earn the bonus. Falls back to treating s itself as a single
+  // innings for stats saved before per-innings entry existed.
+  if(s.inn1 || s.inn2){
+    return singleInningsPoints(s.inn1) + singleInningsPoints(s.inn2);
+  }
+  return singleInningsPoints(s);
+}
+function computeTestScore(lockedEntry, statsForTest){
+  if(!lockedEntry) return 0;
+  let total = 0;
+  (lockedEntry.xi||[]).forEach(pid=>{
+    let pts = statPoints(statsForTest ? statsForTest[pid] : null);
+    if(pid === lockedEntry.captain) pts *= 2;
+    else if(pid === lockedEntry.viceCaptain) pts *= 1.5;
+    total += pts;
+  });
+  return Math.round(total*10)/10;
+}
+
+/* ================= SQUAD ROW <-> JS MAPPING ================= */
+function rowToSquad(row){
+  if(!row) return null;
+  return {
+    id: row.id,
+    userId: row.user_id,
+    teamName: row.team_name,
+    squad14: row.squad14 || [],
+    xi11: row.xi11 || [],
+    bench3: row.bench3 || [],
+    captain: row.captain,
+    viceCaptain: row.vice_captain,
+    baselineSquad14: row.baseline_squad14 || [],
+    wildcardUsed: row.wildcard_used,
+    wildcardActiveNow: row.wildcard_active_now,
+    wildcardCommittedPending: row.wildcard_committed_pending,
+    lockedXiByTest: row.locked_xi_by_test || {},
+  };
+}
+function squadToRow(squad){
+  return {
+    user_id: squad.userId,
+    team_name: squad.teamName,
+    squad14: squad.squad14,
+    xi11: squad.xi11,
+    bench3: squad.bench3,
+    captain: squad.captain,
+    vice_captain: squad.viceCaptain,
+    baseline_squad14: squad.baselineSquad14,
+    wildcard_used: squad.wildcardUsed,
+    wildcard_active_now: squad.wildcardActiveNow,
+    wildcard_committed_pending: squad.wildcardCommittedPending,
+    locked_xi_by_test: squad.lockedXiByTest,
+  };
+}
+
+/* Count how many players differ between two same-length rosters. Since both
+   are the same size, "players in A not in B" equals "players in B not in A" —
+   that number is the number of transfers needed to turn one into the other. */
+function countChanges(rosterA, rosterB){
+  return rosterA.filter(id=>!rosterB.includes(id)).length;
+}
+
+/* Validates a 14-man squad against the league rules: exactly 14, at least 5
+   from each nationality, at least one wicketkeeper. Used by both Squad
+   Builder (initial pick) and My XI (ongoing transfers). */
+function validateSquad14(ids){
+  const engCount = ids.filter(id=>getPlayer(id).nat==='ENG').length;
+  const ausCount = ids.filter(id=>getPlayer(id).nat==='AUS').length;
+  const wkCount = ids.filter(id=>getPlayer(id).role==='WK').length;
+  const errors = [];
+  if(ids.length!==14) errors.push(`Squad has ${ids.length}/14 players`);
+  if(engCount<5) errors.push(`Only ${engCount} England players (need 5+)`);
+  if(ausCount<5) errors.push(`Only ${ausCount} Australia players (need 5+)`);
+  if(wkCount<1) errors.push('No wicketkeeper in the squad');
+  return {valid: errors.length===0, errors, engCount, ausCount, wkCount};
+}
+
+/* ================= DATA ACCESS ================= */
+async function loadPlayers(){
+  const {data, error} = await supabaseClient.from('players').select('*').order('nat').order('name');
+  if(error){ console.error(error); return; }
+  PLAYERS = data || [];
+  PLAYER_MAP = buildPlayerMap();
+}
+async function loadFixtures(){
+  const {data, error} = await supabaseClient.from('fixtures').select('*').order('test');
+  if(error){ console.error(error); return; }
+  fixtures = (data||[]).map(f=>({test:f.test, venue:f.venue, date:f.date, deadline: toDatetimeLocalValue(f.deadline)}));
+}
+async function loadMySquad(){
+  if(!session) { mySquad = null; return; }
+  const {data, error} = await supabaseClient.from('squads').select('*').eq('user_id', session.user.id).maybeSingle();
+  if(error){ console.error(error); mySquad = null; return; }
+  mySquad = rowToSquad(data);
+}
+async function saveMySquad(){
+  if(!mySquad) return;
+  const {error} = await supabaseClient.from('squads').update(squadToRow(mySquad)).eq('user_id', session.user.id);
+  if(error){ showAlert('Could not save: '+error.message); console.error(error); }
+}
+async function getStatsForTest(testNum){
+  const {data, error} = await supabaseClient.from('match_stats').select('stats').eq('test', testNum).maybeSingle();
+  if(error){ console.error(error); return {}; }
+  return (data && data.stats) || {};
+}
+
+/* ================= OVERLAY ENGINE (replaces alert / confirm / prompt) ================= */
+function closeOverlay(){
+  const existing = document.getElementById('appOverlay');
+  if(existing) existing.remove();
+}
+function openOverlay(innerHtml, {dismissible=true}={}){
+  closeOverlay();
+  const backdrop = document.createElement('div');
+  backdrop.className = 'overlay-backdrop';
+  backdrop.id = 'appOverlay';
+  backdrop.innerHTML = `<div class="overlay-box">${dismissible ? '<button type="button" class="overlay-close" data-overlay-close aria-label="Close">&times;</button>' : ''}${innerHtml}</div>`;
+  document.body.appendChild(backdrop);
+  return backdrop;
+}
+function showAlert(message, title='Notice'){
+  const backdrop = openOverlay(`
+    <div class="overlay-title">${title}</div>
+    <div class="overlay-message">${message}</div>
+    <div class="overlay-actions"><button class="btn" data-overlay-ok>OK</button></div>
+  `);
+  const done = ()=> closeOverlay();
+  backdrop.querySelector('[data-overlay-ok]').addEventListener('click', done);
+  backdrop.querySelector('[data-overlay-close]')?.addEventListener('click', done);
+  backdrop.addEventListener('click', e=>{ if(e.target===backdrop) done(); });
+}
+function showConfirm(message, title='Please confirm'){
+  return new Promise(resolve=>{
+    const backdrop = openOverlay(`
+      <div class="overlay-title">${title}</div>
+      <div class="overlay-message">${message}</div>
+      <div class="overlay-actions">
+        <button class="btn secondary" data-overlay-cancel>Cancel</button>
+        <button class="btn danger" data-overlay-confirm>Confirm</button>
+      </div>
+    `);
+    const finish = (val)=>{ closeOverlay(); resolve(val); };
+    backdrop.querySelector('[data-overlay-confirm]').addEventListener('click', ()=>finish(true));
+    backdrop.querySelector('[data-overlay-cancel]').addEventListener('click', ()=>finish(false));
+    backdrop.querySelector('[data-overlay-close]')?.addEventListener('click', ()=>finish(false));
+    backdrop.addEventListener('click', e=>{ if(e.target===backdrop) finish(false); });
+  });
+}
+function showLoginOverlay(dismissible=true){
+  const backdrop = openOverlay(`
+    <span class="overlay-lock-icon">&#127978;</span>
+    <div class="overlay-title">Sign in to The Ashes Fantasy XI</div>
+    <div class="overlay-message">One squad per account. You can browse Rules and the Leaderboard without one — building a squad needs a login.</div>
+    <div class="field-group"><label for="ovEmail">Email</label><input type="email" id="ovEmail" placeholder="you@example.com"></div>
+    <div class="field-group"><label for="ovPassword">Password</label><input type="password" id="ovPassword" placeholder="6+ characters"></div>
+    <div class="auth-error" id="ovError"></div>
+    <div class="overlay-actions" style="justify-content:space-between;">
+      <button class="btn secondary" data-overlay-signup>Sign up</button>
+      <button class="btn" data-overlay-login>Log in</button>
+    </div>
+  `, {dismissible});
+  const errBox = backdrop.querySelector('#ovError');
+  const run = async (mode)=>{
+    errBox.textContent = '';
+    const email = backdrop.querySelector('#ovEmail').value.trim();
+    const password = backdrop.querySelector('#ovPassword').value;
+    if(!email || password.length < 6){
+      errBox.textContent = 'Enter an email and a password of 6+ characters.';
+      return;
+    }
+    const {error} = mode === 'signup'
+      ? await supabaseClient.auth.signUp({email, password})
+      : await supabaseClient.auth.signInWithPassword({email, password});
+    if(error){ errBox.textContent = error.message; return; }
+    closeOverlay();
+    if(mode === 'signup'){
+      showAlert('Account created. If email confirmation is on for this project, check your inbox before logging in.', 'Almost there');
+    }
+  };
+  backdrop.querySelector('[data-overlay-login]').addEventListener('click', ()=> run('login'));
+  backdrop.querySelector('[data-overlay-signup]').addEventListener('click', ()=> run('signup'));
+  if(dismissible){
+    backdrop.querySelector('[data-overlay-close]').addEventListener('click', closeOverlay);
+    backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
+  }
+}
+
+/* Two-step lightbox: choose a nation, then pick a player not already in excludeIds.
+   Used for both adding a player into an empty slot and replacing an existing one. */
+function openPlayerPicker(excludeIds, onPick){
+  const backdrop = openOverlay(`
+    <div class="overlay-title">Pick a player</div>
+    <div id="pickerBody"></div>
+  `);
+  backdrop.querySelector('[data-overlay-close]').addEventListener('click', closeOverlay);
+  backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
+
+  function renderNationChoice(){
+    document.getElementById('pickerBody').innerHTML = `
+      <div class="overlay-message">Choose a nation to browse.</div>
+      <div class="overlay-actions" style="justify-content:center; gap:14px;">
+        <button class="btn" data-nation="ENG">England</button>
+        <button class="btn" data-nation="AUS">Australia</button>
+      </div>
+    `;
+    document.querySelectorAll('#pickerBody [data-nation]').forEach(btn=>{
+      btn.addEventListener('click', ()=> renderPlayerList(btn.dataset.nation));
+    });
+  }
+
+  function renderPlayerList(nation){
+    const avail = PLAYERS.filter(p=>p.nat===nation && !excludeIds.includes(p.id));
+    document.getElementById('pickerBody').innerHTML = `
+      <div class="overlay-message">${nation==='ENG'?'England':'Australia'} players available:</div>
+      <div class="picker-list">
+        ${avail.length ? avail.map(p=>`
+          <button type="button" class="picker-row" data-pid="${p.id}">
+            <span>${p.name}</span><span class="role-pill">${ROLE_LABEL[p.role]}</span>
+          </button>`).join('') : '<p class="auth-hint">No available players left from this nation.</p>'}
+      </div>
+      <div class="overlay-actions"><button class="btn secondary" data-back>&larr; Back</button></div>
+    `;
+    document.querySelectorAll('#pickerBody .picker-row').forEach(btn=>{
+      btn.addEventListener('click', ()=>{ closeOverlay(); onPick(btn.dataset.pid); });
+    });
+    document.querySelector('#pickerBody [data-back]').addEventListener('click', renderNationChoice);
+  }
+
+  renderNationChoice();
+}
+
+/* ================= AUTH ================= */
+function renderAuthRow(){
+  const box = document.getElementById('authRow');
+  if(!supabaseClient){
+    box.innerHTML = `<span class="auth-error">Supabase isn't configured yet — paste your Project URL and anon key into SUPABASE_URL / SUPABASE_ANON_KEY near the top of the script.</span>`;
+    return;
+  }
+  if(session){
+    box.innerHTML = `
+      <span class="current-team-pill">Signed in: ${session.user.email}${isAdmin?' &middot; admin':''}</span>
+      ${mySquad ? `<span class="current-team-pill">Team: ${mySquad.teamName}</span>` : `<span class="muted">No squad yet — build one in My XI</span>`}
+      <button class="btn secondary small" id="logoutBtn">Log out</button>
+    `;
+    document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+      await supabaseClient.auth.signOut();
+    });
+  } else {
+    box.innerHTML = `<span class="muted">Not signed in.</span> <button class="btn small" id="openLoginBtn">Log in / Sign up</button>`;
+    document.getElementById('openLoginBtn').addEventListener('click', ()=> showLoginOverlay(true));
+  }
+}
+
+async function loadIsAdmin(){
+  if(!session){ isAdmin = false; return; }
+  const {data, error} = await supabaseClient.from('profiles').select('is_admin').eq('user_id', session.user.id).maybeSingle();
+  if(error){ console.error(error); isAdmin = false; return; }
+  isAdmin = !!(data && data.is_admin);
+}
+
+function updateAdminTabVisibility(){
+  const btn = document.querySelector('.tab-btn[data-tab="admin"]');
+  if(!btn) return;
+  btn.style.display = isAdmin ? '' : 'none';
+  if(!isAdmin && document.getElementById('tab-admin').classList.contains('active')){
+    switchTab('rules');
+  }
+}
+
+function switchAdminSubtab(subtab){
+  document.querySelectorAll('.subtab-btn').forEach(b=> b.classList.toggle('active', b.dataset.subtab===subtab));
+  document.querySelectorAll('.admin-subpanel').forEach(p=> p.classList.remove('active'));
+  document.getElementById('adminsub-'+subtab).classList.add('active');
+  if(subtab==='series') renderSeriesSetup();
+  if(subtab==='match') renderMatchSetup();
+  if(subtab==='players') renderPlayerSetup();
+}
+
+/* ================= INIT ================= */
+async function init(){
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      switchTab(btn.dataset.tab);
+      closeMobileDrawer();
+    });
+  });
+  document.querySelectorAll('.subtab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> switchAdminSubtab(btn.dataset.subtab));
+  });
+
+  const hamburgerBtn = document.getElementById('hamburgerBtn');
+  const drawerCloseBtn = document.getElementById('drawerCloseBtn');
+  const tabnavBackdrop = document.getElementById('tabnavBackdrop');
+  hamburgerBtn.addEventListener('click', openMobileDrawer);
+  drawerCloseBtn.addEventListener('click', closeMobileDrawer);
+  tabnavBackdrop.addEventListener('click', closeMobileDrawer);
+  window.addEventListener('resize', ()=>{ if(window.innerWidth > 760) closeMobileDrawer(); });
+
+  if(!supabaseClient){
+    renderAuthRow();
+    return;
+  }
+
+  try{
+    const {data, error} = await supabaseClient.auth.getSession();
+    if(error) throw error;
+    session = data.session;
+  }catch(e){
+    console.error('getSession failed', e);
+  }
+  renderAuthRow(); // show something immediately, don't wait on the rest
+  if(!session) showLoginOverlay(true); // dismissible — Rules & Leaderboard are still browsable without an account
+
+  supabaseClient.auth.onAuthStateChange(async (_event, newSession)=>{
+    session = newSession;
+    try{ await loadMySquad(); }catch(e){ console.error(e); }
+    try{ await loadIsAdmin(); }catch(e){ console.error(e); }
+    renderAuthRow();
+    updateAdminTabVisibility();
+    renderAll();
+  });
+
+  try{
+    await Promise.all([loadPlayers(), loadFixtures()]);
+    await loadMySquad();
+    await loadIsAdmin();
+  }catch(e){
+    console.error('Initial data load failed', e);
+    const box = document.getElementById('authRow');
+    box.innerHTML += `<span class="auth-error">Could not reach the database — check the schema has been run and the URL/key are correct (${e.message||e}).</span>`;
+  }
+
+  renderAuthRow();
+  updateAdminTabVisibility();
+  renderAll();
+  startCountdown();
+}
+
+function openMobileDrawer(){
+  document.getElementById('tabnav').classList.add('open');
+  document.getElementById('tabnavBackdrop').classList.add('open');
+  document.getElementById('hamburgerBtn').setAttribute('aria-expanded', 'true');
+}
+function closeMobileDrawer(){
+  document.getElementById('tabnav').classList.remove('open');
+  document.getElementById('tabnavBackdrop').classList.remove('open');
+  document.getElementById('hamburgerBtn').setAttribute('aria-expanded', 'false');
+}
+
+function switchTab(tab){
+  if(tab==='admin' && !isAdmin) tab = 'rules';
+  document.querySelectorAll('.tab-btn').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
+  document.querySelectorAll('.tab-panel').forEach(p=> p.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  if(tab==='leaderboard') renderLeaderboard();
+  if(tab==='myxi') renderMyXI();
+  if(tab==='admin') switchAdminSubtab('series');
+}
+
+function renderAll(){
+  if(isAdmin){ renderSeriesSetup(); renderMatchSetup(); renderPlayerSetup(); }
+  renderMyXI();
+  renderLeaderboard();
+}
+
+/* ================= COUNTDOWN ================= */
+function nextDeadline(){
+  const now = new Date();
+  return fixtures
+    .map(f=>({...f, dl:new Date(f.deadline)}))
+    .filter(f=> f.dl > now)
+    .sort((a,b)=> a.dl - b.dl)[0] || null;
+}
+function startCountdown(){ renderCountdown(); setInterval(renderCountdown, 1000); }
+function renderCountdown(){
+  const box = document.getElementById('countdownStrip');
+  const nd = nextDeadline();
+  if(!nd){
+    box.innerHTML = `<span class="countdown-meta">No upcoming lock deadlines — all fixtures editable under Admin &rarr; Series Setup.</span>`;
+    return;
+  }
+  const diff = Math.max(0, nd.dl - new Date());
+  const d = Math.floor(diff/86400000);
+  const h = Math.floor(diff%86400000/3600000);
+  const m = Math.floor(diff%3600000/60000);
+  const sec = Math.floor(diff%60000/1000);
+  box.innerHTML = `
+    <span class="countdown-label">Selection locks &mdash; Test ${nd.test}, ${nd.venue}</span>
+    <div class="countdown-clock">
+      <div class="seg"><div class="n">${d}</div><div class="u">DAYS</div></div>
+      <div class="seg"><div class="n">${String(h).padStart(2,'0')}</div><div class="u">HRS</div></div>
+      <div class="seg"><div class="n">${String(m).padStart(2,'0')}</div><div class="u">MIN</div></div>
+      <div class="seg"><div class="n">${String(sec).padStart(2,'0')}</div><div class="u">SEC</div></div>
+    </div>
+    <span class="countdown-meta">10:00am, ${fmtDate(nd.date)}</span>
+  `;
+}
+
+/* ================= PLAYER SETUP (add / edit / remove) ================= */
+let editingPlayerId = null;
+function renderPlayerSetup(){
+  const c = document.getElementById('playerSetupContent');
+  if(!c) return;
+  if(!supabaseClient){ c.innerHTML = `<div class="empty-state">Configure Supabase to manage players.</div>`; return; }
+  if(!isAdmin){
+    c.innerHTML = `<div class="empty-state"><div class="big">Admins only</div>Player Setup is restricted to league admins. Ask whoever set up this app to grant your account admin access if you need to manage the pool.</div>`;
+    return;
+  }
+
+  const rowHtml = (p)=>{
+    if(editingPlayerId === p.id){
+      return `
+        <div class="player-row added" data-pid="${p.id}">
+          <div class="player-edit-fields">
+            <input type="text" id="editName" value="${p.name}">
+            <select id="editNat" class="pick">
+              <option value="ENG" ${p.nat==='ENG'?'selected':''}>ENG</option>
+              <option value="AUS" ${p.nat==='AUS'?'selected':''}>AUS</option>
+            </select>
+            <select id="editRole" class="pick">
+              ${Object.keys(ROLE_LABEL).map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${ROLE_LABEL[r]}</option>`).join('')}
+            </select>
+          </div>
+          <div class="player-row-actions">
+            <button class="btn small" data-action="saveEdit" data-pid="${p.id}">Save</button>
+            <button class="btn small secondary" data-action="cancelEdit">Cancel</button>
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="player-row" data-pid="${p.id}">
+        <div class="player-name-wrap">
+          <span class="player-name">${p.name}</span>
+          <span class="role-pill">${ROLE_LABEL[p.role]}</span>
+        </div>
+        <div class="player-row-actions">
+          <button class="btn small secondary" data-action="edit" data-pid="${p.id}" ${session?'':'disabled'}>Edit</button>
+          <button class="btn small danger" data-action="remove" data-pid="${p.id}" ${session?'':'disabled'}>Remove</button>
+        </div>
+      </div>`;
+  };
+
+  c.innerHTML = `
+    <h2 class="panel-title">Players</h2>
+    <p class="panel-sub">Add, edit or remove players from the pool that My XI and Match Setup draw from. Changes are shared with everyone using this app.</p>
+    ${session ? '' : '<div class="notice">Log in to add, edit or remove players — everyone can browse the pool, only signed-in users can change it.</div>'}
+    <div class="notice">Removing a player already picked in someone's squad won't delete their squad — it just shows as "(removed player)" there, so remove sparingly once the series is underway.</div>
+
+    <div class="card">
+      <h3 style="margin-top:0; font-family:var(--font-display);">Add a player</h3>
+      <div class="player-form-grid">
+        <div>
+          <label class="field-label">Name</label>
+          <input type="text" id="newPlayerName" placeholder="e.g. Sam Konstas" ${session?'':'disabled'}>
+        </div>
+        <div>
+          <label class="field-label">Nationality</label>
+          <select id="newPlayerNat" class="pick" ${session?'':'disabled'}><option value="ENG">England</option><option value="AUS">Australia</option></select>
+        </div>
+        <div>
+          <label class="field-label">Role</label>
+          <select id="newPlayerRole" class="pick" ${session?'':'disabled'}>${Object.keys(ROLE_LABEL).map(r=>`<option value="${r}">${ROLE_LABEL[r]}</option>`).join('')}</select>
+        </div>
+        <div><button class="btn" id="addPlayerBtn" ${session?'':'disabled'}>Add player</button></div>
+      </div>
+    </div>
+
+    <div class="rules-grid" style="margin-top:16px;">
+      <div class="nation-block">
+        <div class="nation-heading"><span class="flag-chip ENG">ENG</span> England pool (${PLAYERS.filter(p=>p.nat==='ENG').length})</div>
+        ${PLAYERS.filter(p=>p.nat==='ENG').map(rowHtml).join('') || '<p class="muted">No England players yet.</p>'}
+      </div>
+      <div class="nation-block">
+        <div class="nation-heading"><span class="flag-chip AUS">AUS</span> Australia pool (${PLAYERS.filter(p=>p.nat==='AUS').length})</div>
+        ${PLAYERS.filter(p=>p.nat==='AUS').map(rowHtml).join('') || '<p class="muted">No Australia players yet.</p>'}
+      </div>
+    </div>
+  `;
+
+  if(!session) return;
+
+  document.getElementById('addPlayerBtn').addEventListener('click', async ()=>{
+    const name = document.getElementById('newPlayerName').value.trim();
+    const nat = document.getElementById('newPlayerNat').value;
+    const role = document.getElementById('newPlayerRole').value;
+    if(!name){ showAlert('Enter a player name.'); return; }
+    const id = slugify(name, nat);
+    const {error} = await supabaseClient.from('players').insert({id, name, nat, role});
+    if(error){ showAlert(error.message); return; }
+    await loadPlayers();
+    renderPlayerSetup();
+  });
+
+  c.querySelectorAll('[data-action="edit"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ editingPlayerId = btn.dataset.pid; renderPlayerSetup(); });
+  });
+  c.querySelectorAll('[data-action="cancelEdit"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ editingPlayerId = null; renderPlayerSetup(); });
+  });
+  c.querySelectorAll('[data-action="saveEdit"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const pid = btn.dataset.pid;
+      const name = document.getElementById('editName').value.trim();
+      const nat = document.getElementById('editNat').value;
+      const role = document.getElementById('editRole').value;
+      const {error} = await supabaseClient.from('players').update({name, nat, role}).eq('id', pid);
+      if(error){ showAlert(error.message); return; }
+      editingPlayerId = null;
+      await loadPlayers();
+      renderPlayerSetup();
+    });
+  });
+  c.querySelectorAll('[data-action="remove"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const pid = btn.dataset.pid;
+      const p = PLAYER_MAP[pid];
+      if(!(await showConfirm(`Remove ${p ? p.name : pid} from the pool?`, 'Remove player'))) return;
+      const {error} = await supabaseClient.from('players').delete().eq('id', pid);
+      if(error){ showAlert(error.message); return; }
+      await loadPlayers();
+      renderPlayerSetup();
+    });
+  });
+}
+
+/* ================= MY XI ================= */
+let draft = null; // local, unsaved editing state for My XI: {_squadId, squad14, xi11, captain, viceCaptain}
+function ensureDraft(){
+  const key = mySquad ? mySquad.id : 'new';
+  if(!draft || draft._squadId !== key){
+    draft = {
+      _squadId: key,
+      squad14: mySquad ? [...mySquad.squad14] : [],
+      xi11: mySquad ? [...mySquad.xi11] : [],
+      captain: mySquad ? mySquad.captain : null,
+      viceCaptain: mySquad ? mySquad.viceCaptain : null,
+    };
+  }
+}
+
+function squadCardHtml(id, zone, baselineSquad14){
+  const p = getPlayer(id);
+  const isCap = id===draft.captain, isVc = id===draft.viceCaptain;
+  const isNew = !baselineSquad14.includes(id);
+  const capVcControls = zone==='xi' ? `
+    <button type="button" data-action="cap" data-pid="${id}" class="${isCap?'active-cap':''}" title="Make captain">C</button>
+    <button type="button" data-action="vc" data-pid="${id}" class="${isVc?'active-vc':''}" title="Make vice-captain">V</button>` : '';
+  return `
+    <div class="squad-card" draggable="true" data-pid="${id}" data-zone="${zone}">
+      <span class="squad-card-drag-handle" title="Drag to move">&#10021;</span>
+      <div class="squad-card-info">
+        <div class="squad-card-name">${isCap?'<span class="honours-star">&#9733;</span>':''}${p.name}${isVc?' <span style="font-family:var(--font-mono); font-size:9.5px;">VC</span>':''}${isNew?' <span style="color:var(--gilt-bright); font-family:var(--font-mono); font-size:9px;">NEW</span>':''}</div>
+        <div class="squad-card-tags">${p.nat} &middot; ${ROLE_LABEL[p.role]}</div>
+      </div>
+      <div class="squad-card-controls">
+        ${capVcControls}
+        <button type="button" data-action="replace" data-pid="${id}" data-zone="${zone}" title="Replace this player">&#8646;</button>
+      </div>
+    </div>`;
+}
+function emptySlotHtml(zone){
+  return `<div class="squad-card empty" data-empty-zone="${zone}"><button type="button" data-action="add" data-zone="${zone}">+ Add player</button></div>`;
+}
+
+function renderMyXI(){
+  const c = document.getElementById('myxiContent');
+  if(!session){ c.innerHTML = `<div class="empty-state"><div class="big">Log in to see your XI</div></div>`; return; }
+
+  ensureDraft();
+  const squad = mySquad;
+  const isBuilding = !squad;
+  const hasLockedOnce = !!(squad && squad.lockedXiByTest && Object.keys(squad.lockedXiByTest).length > 0);
+  const baselineSquad14 = (squad && squad.baselineSquad14 && squad.baselineSquad14.length) ? squad.baselineSquad14 : draft.squad14;
+  const transfers = (isBuilding || !hasLockedOnce) ? 0 : countChanges(draft.squad14, baselineSquad14);
+  const overLimit = hasLockedOnce && transfers > 2;
+  const squad14Check = validateSquad14(draft.squad14);
+  const xiHasWK = draft.xi11.some(id=>getPlayer(id).role==='WK');
+  const xiFull = draft.xi11.length===11;
+  // Commit just declares your intended squad for the upcoming Test — it's never
+  // blocked by the transfer count. The 2-transfer limit (and the wildcard) only
+  // actually gets evaluated when the Test locks at the deadline, and only starts
+  // applying once your squad has been through its first lock — before that (i.e.
+  // right up to the very first Test's deadline) there's no limit at all.
+  const canCommit = squad14Check.valid && xiFull && xiHasWK;
+  const draftBench = draft.squad14.filter(id=>!draft.xi11.includes(id));
+  const draftDiffersFromCommitted = !squad ? draft.squad14.length>0 :
+    JSON.stringify([...draft.squad14].sort()) !== JSON.stringify([...squad.squad14].sort()) ||
+    JSON.stringify([...draft.xi11].sort()) !== JSON.stringify([...squad.xi11].sort()) ||
+    draft.captain !== squad.captain || draft.viceCaptain !== squad.viceCaptain;
+
+  const xiSlotsHtml = Array.from({length:11}, (_,i)=> draft.xi11[i] ? squadCardHtml(draft.xi11[i], 'xi', baselineSquad14) : emptySlotHtml('xi')).join('');
+  const benchSlotsHtml = Array.from({length:3}, (_,i)=> draftBench[i] ? squadCardHtml(draftBench[i], 'bench', baselineSquad14) : emptySlotHtml('bench')).join('');
+
+  c.innerHTML = `
+    <h2 class="panel-title">My XI</h2>
+    <p class="panel-sub">${isBuilding
+      ? "Build your 14-man squad: add players, arrange your starting XI, set a captain and vice-captain, then commit."
+      : !hasLockedOnce
+        ? "No transfer limit yet — chop and change as much as you like right up to the first Test's deadline. The 2-transfer limit starts from the window after that."
+        : "Drag players between XI and bench anytime — that's always free. Commit any time to declare your squad for the upcoming Test; only the deadline actually evaluates your transfer count."}</p>
+
+    ${isBuilding ? `
+      <div class="card" style="margin-bottom:16px;">
+        <label class="field-label">Team name</label>
+        <input type="text" id="teamNameField" placeholder="e.g. Bodyline Bandits" maxlength="30" value="${window.__pendingTeamName||''}" style="width:100%; max-width:360px; padding:9px; border:1px solid var(--parchment-dim); border-radius:5px;">
+        <p class="muted-on-light" style="font-size:12px; margin-top:6px;">Must be unique across the whole league — this is what shows on the leaderboard.</p>
+      </div>
+    ` : ''}
+
+    ${!isBuilding && hasLockedOnce ? `
+      <div class="swap-status-row">
+        <div class="status-chip"><div class="label">Transfers vs last locked squad</div><div class="value">${transfers} / 2</div></div>
+        <div class="status-chip"><div class="label">Wildcard</div><div class="value">${squad.wildcardUsed?'Used':(squad.wildcardActiveNow?'Armed':'Available')}</div></div>
+      </div>
+      ${overLimit && !squad.wildcardActiveNow ? `<div class="notice warn">This draft differs from your last locked squad by <strong>${transfers} players</strong> — more than the free 2. You can still commit and preview it, but you'll want to arm your wildcard or trim it back to 2 before the deadline: the league rule is enforced by whoever locks the Test, not automatically by this notice.</div>` : ''}
+    ` : ''}
+    ${!isBuilding && !hasLockedOnce ? `
+      <div class="swap-status-row">
+        <div class="status-chip"><div class="label">Wildcard</div><div class="value">${squad.wildcardUsed?'Used':(squad.wildcardActiveNow?'Armed':'Available')}</div></div>
+      </div>
+    ` : ''}
+    ${draft.squad14.length>0 ? squad14Check.errors.map(e=>`<div class="notice warn">${e}</div>`).join('') : ''}
+    ${xiFull && !xiHasWK ? `<div class="notice warn">Your starting XI needs a wicketkeeper.</div>` : ''}
+    ${draftDiffersFromCommitted ? `<div class="notice">You have uncommitted changes below — they won't count for scoring until you hit <strong>Commit changes</strong>.</div>` : ''}
+
+    <div class="squad-editor">
+      <div class="squad-zone" id="xiZone" data-zone="xi">
+        <div class="zone-title">Starting XI (${draft.xi11.length}/11)</div>
+        <div class="zone-slots" data-zone-slots="xi">${xiSlotsHtml}</div>
+      </div>
+      <div class="squad-zone" id="benchZone" data-zone="bench">
+        <div class="zone-title">Bench (${draftBench.length}/3)</div>
+        <div class="zone-slots" data-zone-slots="bench">${benchSlotsHtml}</div>
+      </div>
+    </div>
+
+    <div class="action-bar-main">
+      ${!isBuilding ? `
+        ${squad.wildcardUsed
+          ? `<button class="btn secondary" disabled>Wildcard used</button>`
+          : squad.wildcardActiveNow
+            ? `<button class="btn danger" id="wildcardCancelBtn">Cancel wildcard</button>`
+            : `<button class="btn danger" id="wildcardBtn">Activate wildcard</button>`}
+      ` : ''}
+      <div class="action-bar-buttons">
+        <button class="btn secondary" id="revertBtn">${isBuilding ? 'Clear all' : 'Revert to last committed squad'}</button>
+        <button class="btn" id="commitBtn" ${canCommit?'':'disabled'}>${isBuilding ? 'Create squad' : 'Commit changes'}</button>
+      </div>
+    </div>
+    ${!isBuilding ? `<div class="action-bar-secondary"><button class="link-btn" id="resetSquadBtn">Reset squad entirely</button></div>` : ''}
+  `;
+
+  /* ---- persist team name field across re-renders (every card action re-renders this panel) ---- */
+  const teamNameFieldEl = document.getElementById('teamNameField');
+  if(teamNameFieldEl){
+    teamNameFieldEl.addEventListener('input', ()=>{ window.__pendingTeamName = teamNameFieldEl.value; });
+  }
+
+  /* ---- card action buttons: captain / vice-captain / replace / add ---- */
+  c.querySelectorAll('[data-action="cap"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const pid = btn.dataset.pid;
+      draft.captain = (draft.captain===pid) ? null : pid;
+      if(draft.viceCaptain===draft.captain) draft.viceCaptain = null;
+      renderMyXI();
+    });
+  });
+  c.querySelectorAll('[data-action="vc"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const pid = btn.dataset.pid;
+      draft.viceCaptain = (draft.viceCaptain===pid) ? null : pid;
+      if(draft.captain===draft.viceCaptain) draft.captain = null;
+      renderMyXI();
+    });
+  });
+  c.querySelectorAll('[data-action="replace"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const outId = btn.dataset.pid;
+      openPlayerPicker(draft.squad14, (newId)=>{
+        const newSquad14 = draft.squad14.filter(id=>id!==outId).concat([newId]);
+        const check = validateSquad14(newSquad14);
+        if(!check.valid){
+          showAlert(`That would leave your squad invalid: ${check.errors.join(' ')}`, "Can't make that change");
+          return;
+        }
+        draft.squad14 = newSquad14;
+        if(draft.xi11.includes(outId)){
+          const proposedXi = draft.xi11.filter(id=>id!==outId).concat([newId]);
+          draft.xi11 = proposedXi.some(id=>getPlayer(id).role==='WK') ? proposedXi : draft.xi11.filter(id=>id!==outId);
+        }
+        if(draft.captain===outId) draft.captain = null;
+        if(draft.viceCaptain===outId) draft.viceCaptain = null;
+        renderMyXI();
+      });
+    });
+  });
+  c.querySelectorAll('[data-action="add"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const zone = btn.dataset.zone;
+      if(draft.squad14.length>=14){ showAlert('Your squad already has 14 players.'); return; }
+      if(zone==='xi' && draft.xi11.length>=11){ showAlert('Your starting XI already has 11 players.'); return; }
+      openPlayerPicker(draft.squad14, (newId)=>{
+        draft.squad14.push(newId);
+        if(zone==='xi') draft.xi11.push(newId);
+        renderMyXI();
+      });
+    });
+  });
+
+  /* ---- drag and drop between zones (and onto a card to swap) ---- */
+  function moveOrSwap(draggedId, targetZone, targetId){
+    if(!draggedId || draggedId===targetId) return;
+    const draggedInXi = draft.xi11.includes(draggedId);
+    const draggedZone = draggedInXi ? 'xi' : 'bench';
+
+    if(targetId){
+      // dropped onto another card — swap the two players' zones
+      const targetInXi = draft.xi11.includes(targetId);
+      const targetZoneActual = targetInXi ? 'xi' : 'bench';
+      if(draggedZone === targetZoneActual) return; // same zone, nothing to do
+      if(draggedZone==='bench' && targetZoneActual==='xi'){
+        draft.xi11 = draft.xi11.filter(id=>id!==targetId).concat([draggedId]);
+      } else {
+        draft.xi11 = draft.xi11.filter(id=>id!==draggedId).concat([targetId]);
+      }
+      renderMyXI();
+      return;
+    }
+
+    // dropped on empty zone space
+    if(draggedZone === targetZone) return;
+    if(targetZone==='xi'){
+      if(draft.xi11.length>=11){ showAlert('Your starting XI already has 11 — drop onto a starter to swap instead.'); return; }
+      draft.xi11.push(draggedId);
+    } else {
+      draft.xi11 = draft.xi11.filter(id=>id!==draggedId);
+    }
+    renderMyXI();
+  }
+
+  c.querySelectorAll('.squad-card[draggable="true"]').forEach(card=>{
+    card.addEventListener('dragstart', e=>{
+      e.dataTransfer.setData('text/plain', card.dataset.pid);
+      e.dataTransfer.effectAllowed = 'move';
+      card.classList.add('dragging');
+    });
+    card.addEventListener('dragend', ()=> card.classList.remove('dragging'));
+    card.addEventListener('dragover', e=> e.preventDefault());
+    card.addEventListener('drop', e=>{
+      e.preventDefault(); e.stopPropagation();
+      moveOrSwap(e.dataTransfer.getData('text/plain'), card.dataset.zone, card.dataset.pid);
+    });
+  });
+  c.querySelectorAll('[data-zone-slots]').forEach(zoneEl=>{
+    zoneEl.addEventListener('dragover', e=>{ e.preventDefault(); zoneEl.closest('.squad-zone').classList.add('drop-hover'); });
+    zoneEl.addEventListener('dragleave', ()=> zoneEl.closest('.squad-zone').classList.remove('drop-hover'));
+    zoneEl.addEventListener('drop', e=>{
+      e.preventDefault();
+      zoneEl.closest('.squad-zone').classList.remove('drop-hover');
+      moveOrSwap(e.dataTransfer.getData('text/plain'), zoneEl.dataset.zoneSlots, null);
+    });
+  });
+
+  /* ---- wildcard ---- */
+  const wcBtn = document.getElementById('wildcardBtn');
+  if(wcBtn) wcBtn.addEventListener('click', async ()=>{
+    if(!(await showConfirm("This lifts the 2-transfer limit for your commits. It's only actually used up if you commit while it's armed and your squad locks in that way — you can cancel it beforehand at no cost.", 'Activate your one-time wildcard?'))) return;
+    squad.wildcardActiveNow = true;
+    await saveMySquad();
+    renderMyXI();
+  });
+  const wcCancelBtn = document.getElementById('wildcardCancelBtn');
+  if(wcCancelBtn) wcCancelBtn.addEventListener('click', async ()=>{
+    squad.wildcardActiveNow = false;
+    squad.wildcardCommittedPending = false;
+    await saveMySquad();
+    renderMyXI();
+  });
+
+  /* ---- revert / clear / reset ---- */
+  document.getElementById('revertBtn').addEventListener('click', async ()=>{
+    if(isBuilding){
+      draft.squad14 = []; draft.xi11 = []; draft.captain = null; draft.viceCaptain = null;
+      renderMyXI();
+      return;
+    }
+    if(!(await showConfirm('Discard your draft edits and go back to your last committed squad?', 'Revert changes?'))) return;
+    draft.squad14 = [...squad.squad14];
+    draft.xi11 = [...squad.xi11];
+    draft.captain = squad.captain;
+    draft.viceCaptain = squad.viceCaptain;
+    renderMyXI();
+  });
+  const resetBtn = document.getElementById('resetSquadBtn');
+  if(resetBtn) resetBtn.addEventListener('click', async ()=>{
+    if(!(await showConfirm('Reset your whole squad? This cannot be undone.', 'Reset squad'))) return;
+    const {error} = await supabaseClient.from('squads').delete().eq('user_id', session.user.id);
+    if(error){ showAlert(error.message); return; }
+    mySquad = null;
+    draft = null;
+    window.__pendingTeamName = '';
+    renderAll();
+  });
+
+  /* ---- commit ---- */
+  document.getElementById('commitBtn').addEventListener('click', async ()=>{
+    const check = validateSquad14(draft.squad14);
+    if(!check.valid){ showAlert(check.errors.join(' '), 'Squad is invalid'); return; }
+    if(draft.xi11.length!==11){ showAlert('Your starting XI must have exactly 11 players.'); return; }
+    if(!draft.xi11.some(id=>getPlayer(id).role==='WK')){
+      showAlert('Your XI must include a wicketkeeper.'); return;
+    }
+    if(!draft.captain || !draft.viceCaptain){
+      showAlert('Choose both a Captain and a Vice-Captain before committing.'); return;
+    }
+    if(draft.captain === draft.viceCaptain){
+      showAlert('Captain and Vice-Captain must be different players.'); return;
+    }
+
+    if(isBuilding){
+      const nameField = document.getElementById('teamNameField');
+      const teamName = nameField ? nameField.value.trim() : '';
+      if(!teamName){ showAlert('Enter a team name first.'); return; }
+
+      const {data:userData, error:userErr} = await supabaseClient.auth.getUser();
+      if(userErr || !userData || !userData.user){
+        showAlert('Your session looks out of date. Please log out and log back in, then try again.', 'Session problem');
+        return;
+      }
+      const bench = draft.squad14.filter(id=>!draft.xi11.includes(id));
+      const {error} = await supabaseClient.from('squads').insert({
+        user_id: userData.user.id,
+        team_name: teamName,
+        squad14: draft.squad14, xi11: draft.xi11, bench3: bench,
+        captain: draft.captain, vice_captain: draft.viceCaptain,
+        baseline_squad14: draft.squad14,
+        wildcard_committed_pending: false,
+      });
+      if(error){
+        if(error.code === '23503'){
+          showAlert('Your account session is out of sync with the database. Please log out, log back in, and try again.', 'Could not create squad');
+        } else if(error.code === '23505'){
+          showAlert('That team name is already taken — pick a different one.', 'Could not create squad');
+        } else {
+          showAlert('Could not create squad: '+error.message, 'Error');
+        }
+        return;
+      }
+      draft = null;
+      window.__pendingTeamName = '';
+      await loadMySquad();
+      renderAuthRow();
+      renderAll();
+      showAlert('Squad created — this is what will be scored once the first Test locks.', 'Squad created');
+      return;
+    }
+
+    squad.squad14 = [...draft.squad14];
+    squad.xi11 = [...draft.xi11];
+    squad.bench3 = draft.squad14.filter(id=>!draft.xi11.includes(id));
+    squad.captain = draft.captain;
+    squad.viceCaptain = draft.viceCaptain;
+    if(squad.wildcardActiveNow) squad.wildcardCommittedPending = true;
+    await saveMySquad();
+    const transferCount = countChanges(draft.squad14, baselineSquad14);
+    const commitMsg = (hasLockedOnce && transferCount > 2 && !squad.wildcardActiveNow)
+      ? `Committed — but this is ${transferCount} transfers from your last locked squad, over the free limit of 2. It's still what will be scored if the Test locks right now, so trim it back or arm your wildcard before the deadline if that's not what you intend.`
+      : "Committed — this is what will be scored if the next Test locks right now. You can keep adjusting and re-committing until the deadline.";
+    showAlert(commitMsg, 'Squad committed');
+    renderMyXI();
+  });
+}
+
+/* ================= MATCH CENTRE ================= */
+/* ================= ADMIN: SERIES SETUP (fixtures) ================= */
+async function renderSeriesSetup(){
+  const c = document.getElementById('seriesSetupContent');
+  if(!c) return;
+  if(!supabaseClient){ c.innerHTML = `<div class="empty-state">Configure Supabase first.</div>`; return; }
+  if(!isAdmin){ c.innerHTML = `<div class="empty-state"><div class="big">Admins only</div></div>`; return; }
+
+  c.innerHTML = `
+    <h3 style="margin-top:0; font-family:var(--font-display);">Series fixtures</h3>
+    <p class="panel-sub">Set the venue, date and 10am lock deadline for each Test.</p>
+    <div class="card">
+      <div id="fixtureRows"></div>
+      <div class="save-bar"><button class="btn secondary" id="saveFixturesBtn">Save fixtures</button></div>
+    </div>
+  `;
+
+  const fixRows = document.getElementById('fixtureRows');
+  fixRows.innerHTML = fixtures.map(f=>`
+    <div class="fixture-row">
+      <span class="fixture-num">T${f.test}</span>
+      <input type="text" data-f="venue" data-test="${f.test}" value="${f.venue}">
+      <input type="date" data-f="date" data-test="${f.test}" value="${f.date}">
+      <input type="datetime-local" data-f="deadline" data-test="${f.test}" value="${f.deadline}">
+      <span class="muted-on-light" style="font-size:11px;">deadline</span>
+    </div>
+  `).join('');
+
+  document.getElementById('saveFixturesBtn').addEventListener('click', async ()=>{
+    const updates = fixtures.map(f=>({...f}));
+    document.querySelectorAll('#fixtureRows input').forEach(inp=>{
+      const f = updates.find(x=>x.test==inp.dataset.test);
+      if(f) f[inp.dataset.f] = inp.value;
+    });
+    const rows = updates.map(f=>({test:f.test, venue:f.venue, date:f.date, deadline: new Date(f.deadline).toISOString()}));
+    const {error} = await supabaseClient.from('fixtures').upsert(rows);
+    if(error){ showAlert(error.message); return; }
+    await loadFixtures();
+    renderCountdown();
+    showAlert('Fixtures saved.');
+  });
+}
+
+/* ================= ADMIN: MATCH SETUP (stats + lock) ================= */
+async function renderMatchSetup(){
+  const c = document.getElementById('matchSetupContent');
+  if(!c) return;
+  if(!supabaseClient){ c.innerHTML = `<div class="empty-state">Configure Supabase first.</div>`; return; }
+  if(!isAdmin){ c.innerHTML = `<div class="empty-state"><div class="big">Admins only</div></div>`; return; }
+
+  c.innerHTML = `
+    <h3 style="margin-top:0; font-family:var(--font-display);">Enter match stats &amp; lock a Test</h3>
+    <p class="panel-sub">Enter each player's numbers after a Test finishes, then lock it in for scoring.</p>
+    <div class="card">
+      <label class="field-label">Test</label>
+      <select class="pick" id="statsTestSelect" style="max-width:260px;">
+        ${fixtures.map(f=>`<option value="${f.test}">Test ${f.test} — ${f.venue}</option>`).join('')}
+      </select>
+      <div id="statsTableWrap"></div>
+      <div class="save-bar">
+        <button class="btn secondary" id="saveStatsBtn">Save stats (don't lock yet)</button>
+        <button class="btn" id="lockTestBtn">Save stats &amp; lock this Test for all teams</button>
+      </div>
+      <p class="muted-on-light" style="font-size:12px; margin-top:8px;">Locking snapshots every saved squad's current XI/captain into this Test's scoring record and resets everyone's 2-swap window for the next Test.</p>
+    </div>
+  `;
+
+  const testSelect = document.getElementById('statsTestSelect');
+  testSelect.addEventListener('change', ()=> renderStatsTable(parseInt(testSelect.value)));
+  if(fixtures.length) renderStatsTable(fixtures[0].test);
+}
+
+let currentStatsDraft = {};
+const STAT_COLUMN_GROUPS = {
+  batting: [
+    {key:'runs', label:'Runs', type:'number'},
+    {key:'duck', label:'Duck', type:'checkbox'},
+    {key:'fifty', label:'50', type:'checkbox'},
+    {key:'hundred', label:'100', type:'checkbox'},
+  ],
+  bowling: [
+    {key:'wickets', label:'Wkts', type:'number'},
+    {key:'fourWkt', label:'4-fer', type:'checkbox'},
+    {key:'fiveWkt', label:'5-fer', type:'checkbox'},
+  ],
+  fielding: [
+    {key:'catches', label:'Ct', type:'number'},
+    {key:'stumpings', label:'St', type:'number'},
+    {key:'runouts', label:'RO', type:'number'},
+  ],
+};
+const INNINGS_TABS = [
+  {key:'ENG_inn1', nat:'ENG', inn:'inn1', label:'England · Inn 1'},
+  {key:'ENG_inn2', nat:'ENG', inn:'inn2', label:'England · Inn 2'},
+  {key:'AUS_inn1', nat:'AUS', inn:'inn1', label:'Australia · Inn 1'},
+  {key:'AUS_inn2', nat:'AUS', inn:'inn2', label:'Australia · Inn 2'},
+];
+
+function buildStatTable(nat, inn, category){
+  const cols = STAT_COLUMN_GROUPS[category];
+  const players = PLAYERS.filter(p=>p.nat===nat);
+  return `
+    <div class="table-scroll">
+    <table class="stat-entry">
+      <tr><th>Player</th>${cols.map(c=>`<th>${c.label}</th>`).join('')}</tr>
+      ${players.map(p=>{
+        const playerStats = currentStatsDraft[p.id] || {};
+        const s = playerStats[inn] || {};
+        return `<tr data-pid="${p.id}" data-inn="${inn}">
+          <td>${p.name}</td>
+          ${cols.map(c=> c.type==='checkbox'
+            ? `<td><input type="checkbox" data-k="${c.key}" ${s[c.key]?'checked':''} ${session?'':'disabled'}></td>`
+            : `<td><input type="number" min="0" data-k="${c.key}" value="${s[c.key]||0}" ${session?'':'disabled'}></td>`
+          ).join('')}
+        </tr>`;
+      }).join('')}
+    </table>
+    </div>`;
+}
+
+function buildInningsPanel(tab, isFirst){
+  return `
+    <div class="admin-subpanel${isFirst?' active':''}" data-inningspanel="${tab.key}">
+      <div class="admin-subnav light-subnav" style="margin:6px 0 10px;">
+        <button class="subtab-btn active" data-statcat="batting">Batting</button>
+        <button class="subtab-btn" data-statcat="bowling">Bowling</button>
+        <button class="subtab-btn" data-statcat="fielding">Fielding</button>
+      </div>
+      <div class="admin-subpanel active" data-statpanel="batting">${buildStatTable(tab.nat, tab.inn, 'batting')}</div>
+      <div class="admin-subpanel" data-statpanel="bowling">${buildStatTable(tab.nat, tab.inn, 'bowling')}</div>
+      <div class="admin-subpanel" data-statpanel="fielding">${buildStatTable(tab.nat, tab.inn, 'fielding')}</div>
+    </div>`;
+}
+
+async function renderStatsTable(testNum){
+  const wrap = document.getElementById('statsTableWrap');
+  const existing = await getStatsForTest(testNum);
+  currentStatsDraft = JSON.parse(JSON.stringify(existing));
+
+  wrap.innerHTML = `
+    <p class="muted-on-light" style="font-size:12px; margin:12px 0 4px;">Runs/wickets/catches etc. are tracked per innings and summed automatically for scoring — a century in each innings both count.</p>
+    <div class="admin-subnav light-subnav" style="margin-top:6px;">
+      ${INNINGS_TABS.map((t,i)=>`<button class="subtab-btn${i===0?' active':''}" data-inningskey="${t.key}">${t.label}</button>`).join('')}
+    </div>
+    ${INNINGS_TABS.map((t,i)=> buildInningsPanel(t, i===0)).join('')}
+  `;
+
+  // outer: country + innings tabs
+  wrap.querySelectorAll('[data-inningskey]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      wrap.querySelectorAll('[data-inningskey]').forEach(b=> b.classList.toggle('active', b===btn));
+      wrap.querySelectorAll('[data-inningspanel]').forEach(p=> p.classList.toggle('active', p.dataset.inningspanel===btn.dataset.inningskey));
+    });
+  });
+
+  // inner: batting/bowling/fielding tabs, scoped to their own innings panel
+  wrap.querySelectorAll('[data-inningspanel]').forEach(panel=>{
+    panel.querySelectorAll('[data-statcat]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        panel.querySelectorAll('[data-statcat]').forEach(b=> b.classList.toggle('active', b===btn));
+        panel.querySelectorAll('[data-statpanel]').forEach(p=> p.classList.toggle('active', p.dataset.statpanel===btn.dataset.statcat));
+      });
+    });
+  });
+
+  wrap.querySelectorAll('tr[data-pid]').forEach(row=>{
+    const pid = row.dataset.pid;
+    const inn = row.dataset.inn;
+    row.querySelectorAll('input').forEach(inp=>{
+      inp.addEventListener('input', ()=>{
+        if(!currentStatsDraft[pid]) currentStatsDraft[pid] = {};
+        if(!currentStatsDraft[pid][inn]) currentStatsDraft[pid][inn] = {};
+        const k = inp.dataset.k;
+        currentStatsDraft[pid][inn][k] = inp.type==='checkbox' ? inp.checked : parseInt(inp.value)||0;
+      });
+    });
+  });
+
+  document.getElementById('saveStatsBtn').onclick = async ()=>{
+    const {error} = await supabaseClient.from('match_stats').upsert({test: testNum, stats: currentStatsDraft});
+    if(error){ showAlert(error.message); return; }
+    showAlert('Stats saved for Test '+testNum+'.');
+  };
+  document.getElementById('lockTestBtn').onclick = async ()=> lockTest(testNum);
+}
+
+async function lockTest(testNum){
+  if(!(await showConfirm(`This snapshots every team's committed XI for scoring, and becomes their new baseline for the next round of changes.`, `Lock Test ${testNum}?`))) return;
+  const {error: statsErr} = await supabaseClient.from('match_stats').upsert({test: testNum, stats: currentStatsDraft});
+  if(statsErr){ showAlert(statsErr.message); return; }
+
+  const {error} = await supabaseClient.rpc('lock_test', {p_test: testNum});
+  if(error){ showAlert('Could not lock Test: '+error.message); return; }
+
+  await loadMySquad();
+  showAlert(`Test ${testNum} locked. All team lineups snapshotted and scored.`);
+  renderAll();
+}
+
+/* ================= LEADERBOARD ================= */
+async function renderLeaderboard(){
+  const c = document.getElementById('leaderboardContent');
+  if(!supabaseClient){ c.innerHTML = `<div class="empty-state">Configure Supabase first.</div>`; return; }
+  c.innerHTML = `<div class="empty-state">Loading leaderboard&hellip;</div>`;
+
+  const {data: squadRows, error} = await supabaseClient.from('squads').select('*');
+  if(error){ c.innerHTML = `<div class="empty-state">Could not load leaderboard: ${error.message}</div>`; return; }
+  if(!squadRows || squadRows.length===0){
+    c.innerHTML = `<div class="empty-state"><div class="big">No teams yet</div>Build a squad to appear on the board.</div>`;
+    return;
+  }
+
+  const statsByTest = {};
+  for(const f of fixtures){
+    statsByTest[f.test] = await getStatsForTest(f.test);
+  }
+
+  const rows = squadRows.map(rowRaw=>{
+    const squad = rowToSquad(rowRaw);
+    let total = 0;
+    const byTest = {};
+    Object.keys(squad.lockedXiByTest||{}).forEach(t=>{
+      const pts = computeTestScore(squad.lockedXiByTest[t], statsByTest[t]);
+      byTest[t] = pts;
+      total += pts;
+    });
+    return {name: squad.teamName, total: Math.round(total*10)/10, byTest};
+  });
+  rows.sort((a,b)=> b.total - a.total);
+
+  c.innerHTML = `
+    <h2 class="panel-title">Leaderboard</h2>
+    <p class="panel-sub">Shared across everyone using this app. Tap a team to see their Test-by-Test breakdown.</p>
+    <div class="honours-board">
+      <div class="honours-board-title">Standings</div>
+      ${rows.map((r,i)=>`
+        <div class="leaderboard-row ${i===0?'rank-1':''}" data-idx="${i}" style="border-radius:4px;">
+          <div class="lb-rank">${i+1}</div>
+          <div class="lb-name">${r.name}</div>
+          <div class="lb-points">${r.total} pts</div>
+        </div>
+        <div class="lb-detail" id="lbdetail-${i}">
+          ${Object.keys(r.byTest).length===0 ? '<span class="muted">No Tests locked yet for this team.</span>' :
+            `<table>${Object.keys(r.byTest).sort((a,b)=>a-b).map(t=>`<tr><td>Test ${t}</td><td>${r.byTest[t]} pts</td></tr>`).join('')}</table>`}
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  c.querySelectorAll('.leaderboard-row').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const idx = row.dataset.idx;
+      document.getElementById('lbdetail-'+idx).classList.toggle('open');
+    });
+  });
+}
+
+init().catch(e=>{
+  console.error('Fatal init error', e);
+  const box = document.getElementById('authRow');
+  if(box) box.innerHTML = `<span class="auth-error">Failed to start: ${e.message||e}. Check the browser console for details.</span>`;
+});
+
+</script>
+</body>
+</html>
