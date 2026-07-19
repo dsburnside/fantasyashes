@@ -85,10 +85,19 @@ create policy "fixtures_write_admin" on public.fixtures
   with check (exists (select 1 from public.profiles where user_id = auth.uid() and is_admin));
 
 -- ---------- match_stats (one row per Test, stats blob keyed by player id) ----------
+-- playing_xi holds the real-world Playing XI announced for that Test (player ids,
+-- both nations combined). It's what drives automatic substitutions: any fantasy
+-- team's locked XI player missing from this list is treated as not having played,
+-- and scoring swaps in their first bench player (in squad order) who is on this
+-- list. An empty array means "not announced yet" — no subs are applied for that
+-- Test until an admin fills it in.
 create table if not exists public.match_stats (
-  test  int primary key references public.fixtures(test) on delete cascade,
-  stats jsonb not null default '{}'::jsonb
+  test        int primary key references public.fixtures(test) on delete cascade,
+  stats       jsonb not null default '{}'::jsonb,
+  playing_xi  jsonb not null default '[]'::jsonb
 );
+
+alter table public.match_stats add column if not exists playing_xi jsonb not null default '[]'::jsonb;
 
 alter table public.match_stats enable row level security;
 

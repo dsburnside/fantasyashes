@@ -84,6 +84,17 @@ written to skip anything that already exists.
 
 ## What changed since the last version
 
+- **Automatic substitutions.** Admin → Match Setup now has a "Playing XI &amp;
+  automatic substitutions" panel: tick which of the 28 pool players actually
+  took the field for a given Test once the real teams are announced. Any
+  fantasy team whose locked XI includes someone who wasn't ticked gets that
+  player automatically replaced by their first bench player (in squad order)
+  who was, mirroring Fantasy Premier League's autosubs. If a captain didn't
+  play, the armband's 2x bonus passes to the vice-captain instead (only lost
+  entirely if neither played). A Test with nothing ticked yet scores as
+  before — no subs are applied until you fill it in. **This needs the schema
+  re-run** — it adds a `playing_xi` column to `match_stats`, safe to run
+  alongside your existing data.
 - **Squad Builder is gone as a separate tab — it's all in My XI now.** Whether
   you're building your squad for the first time or managing it mid-series,
   it's the same interface: an 11-slot Starting XI zone and a 3-slot Bench

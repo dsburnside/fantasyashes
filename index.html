@@ -739,13 +739,40 @@ function statPoints(s){
   }
   return singleInningsPoints(s);
 }
-function computeTestScore(lockedEntry, statsForTest){
+/* Works out who actually took the field for a locked XI once the real Playing XI
+   is known. Anyone locked in who isn't on `playingXi` is treated as a non-player
+   and replaced by their team's first bench player (in squad order) who is on
+   `playingXi` — same idea as Fantasy Premier League's automatic substitutions.
+   An empty/unset `playingXi` means "not announced yet", so nothing is subbed. */
+function resolveEffectiveXi(lockedEntry, playingXi){
+  const xi = lockedEntry.xi || [];
+  const announced = Array.isArray(playingXi) && playingXi.length > 0;
+  if(!announced){
+    return {effectiveXi: xi.map(pid=>({pid, subFor:null})), captainDidNotPlay:false};
+  }
+  const played = new Set(playingXi);
+  const benchQueue = [...(lockedEntry.bench||[])];
+  const effectiveXi = xi.map(outPid=>{
+    if(played.has(outPid)) return {pid:outPid, subFor:null};
+    const idx = benchQueue.findIndex(bid=>played.has(bid));
+    if(idx===-1) return {pid:null, subFor:outPid};
+    return {pid: benchQueue.splice(idx,1)[0], subFor:outPid};
+  });
+  const captainDidNotPlay = !!lockedEntry.captain && !played.has(lockedEntry.captain);
+  return {effectiveXi, captainDidNotPlay};
+}
+function computeTestScore(lockedEntry, statsForTest, playingXi){
   if(!lockedEntry) return 0;
+  const {effectiveXi, captainDidNotPlay} = resolveEffectiveXi(lockedEntry, playingXi);
+  // If the captain didn't play (and was subbed off), the armband's 2x bonus
+  // passes to the vice-captain instead — but only if the VC actually played too;
+  // otherwise the bonus is simply lost, same as if neither had played.
   let total = 0;
-  (lockedEntry.xi||[]).forEach(pid=>{
+  effectiveXi.forEach(({pid})=>{
+    if(!pid) return;
     let pts = statPoints(statsForTest ? statsForTest[pid] : null);
-    if(pid === lockedEntry.captain) pts *= 2;
-    else if(pid === lockedEntry.viceCaptain) pts *= 1.5;
+    if(pid === lockedEntry.captain && !captainDidNotPlay) pts *= 2;
+    else if(pid === lockedEntry.viceCaptain) pts *= captainDidNotPlay ? 2 : 1.5;
     total += pts;
   });
   return Math.round(total*10)/10;
@@ -832,10 +859,10 @@ async function saveMySquad(){
   const {error} = await supabaseClient.from('squads').update(squadToRow(mySquad)).eq('user_id', session.user.id);
   if(error){ showAlert('Could not save: '+error.message); console.error(error); }
 }
-async function getStatsForTest(testNum){
-  const {data, error} = await supabaseClient.from('match_stats').select('stats').eq('test', testNum).maybeSingle();
-  if(error){ console.error(error); return {}; }
-  return (data && data.stats) || {};
+async function getMatchDataForTest(testNum){
+  const {data, error} = await supabaseClient.from('match_stats').select('stats, playing_xi').eq('test', testNum).maybeSingle();
+  if(error){ console.error(error); return {stats:{}, playingXi:[]}; }
+  return {stats: (data && data.stats) || {}, playingXi: (data && data.playing_xi) || []};
 }
 
 /* ================= OVERLAY ENGINE (replaces alert / confirm / prompt) ================= */
@@ -1670,14 +1697,30 @@ async function renderMatchSetup(){
       </div>
       <p class="muted-on-light" style="font-size:12px; margin-top:8px;">Locking snapshots every saved squad's current XI/captain into this Test's scoring record and resets everyone's 2-swap window for the next Test.</p>
     </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h4 style="margin:0 0 4px; font-family:var(--font-display);">Playing XI &amp; automatic substitutions</h4>
+      <p class="muted-on-light" style="font-size:12px; margin:0 0 10px;">Tick who actually took the field once the real teams are announced. Anyone in a fantasy team's locked XI who isn't ticked here is automatically replaced by their first bench player (in squad order) who is — same idea as Fantasy Premier League's autosubs. If a captain didn't play, the armband's bonus passes to the vice-captain instead. Leave everyone unticked until the real teams are out; nothing is subbed for a Test with no ticks.</p>
+      <div id="playingXiWrap"></div>
+      <div class="save-bar"><button class="btn secondary" id="savePlayingXiBtn">Save playing XI</button></div>
+    </div>
   `;
 
   const testSelect = document.getElementById('statsTestSelect');
-  testSelect.addEventListener('change', ()=> renderStatsTable(parseInt(testSelect.value)));
-  if(fixtures.length) renderStatsTable(fixtures[0].test);
+  testSelect.addEventListener('change', ()=> loadAndRenderMatchSetup(parseInt(testSelect.value)));
+  if(fixtures.length) loadAndRenderMatchSetup(fixtures[0].test);
+}
+
+async function loadAndRenderMatchSetup(testNum){
+  const {stats, playingXi} = await getMatchDataForTest(testNum);
+  currentStatsDraft = JSON.parse(JSON.stringify(stats));
+  currentPlayingXiDraft = [...playingXi];
+  renderStatsTable(testNum);
+  renderPlayingXiTable(testNum);
 }
 
 let currentStatsDraft = {};
+let currentPlayingXiDraft = [];
 const STAT_COLUMN_GROUPS = {
   batting: [
     {key:'runs', label:'Runs', type:'number'},
@@ -1739,10 +1782,8 @@ function buildInningsPanel(tab, isFirst){
     </div>`;
 }
 
-async function renderStatsTable(testNum){
+function renderStatsTable(testNum){
   const wrap = document.getElementById('statsTableWrap');
-  const existing = await getStatsForTest(testNum);
-  currentStatsDraft = JSON.parse(JSON.stringify(existing));
 
   wrap.innerHTML = `
     <p class="muted-on-light" style="font-size:12px; margin:12px 0 4px;">Runs/wickets/catches etc. are tracked per innings and summed automatically for scoring — a century in each innings both count.</p>
@@ -1791,9 +1832,49 @@ async function renderStatsTable(testNum){
   document.getElementById('lockTestBtn').onclick = async ()=> lockTest(testNum);
 }
 
+/* Two-column ENG/AUS checklist of who actually took the field for a Test — this
+   is what resolveEffectiveXi() reads to work out automatic substitutions. */
+function renderPlayingXiTable(testNum){
+  const wrap = document.getElementById('playingXiWrap');
+  if(!wrap) return;
+  const rowHtml = (p)=> `
+    <label class="teamnews-row" style="cursor:pointer;">
+      <span>${p.name} <span class="role-pill">${ROLE_LABEL[p.role]}</span></span>
+      <input type="checkbox" data-pid="${p.id}" ${currentPlayingXiDraft.includes(p.id)?'checked':''}>
+    </label>`;
+  const engPlayed = PLAYERS.filter(p=>p.nat==='ENG' && currentPlayingXiDraft.includes(p.id)).length;
+  const ausPlayed = PLAYERS.filter(p=>p.nat==='AUS' && currentPlayingXiDraft.includes(p.id)).length;
+  wrap.innerHTML = `
+    <div class="rules-grid">
+      <div class="nation-block">
+        <div class="nation-heading"><span class="flag-chip ENG">ENG</span> England XI (${engPlayed}/11 ticked)</div>
+        ${PLAYERS.filter(p=>p.nat==='ENG').map(rowHtml).join('')}
+      </div>
+      <div class="nation-block">
+        <div class="nation-heading"><span class="flag-chip AUS">AUS</span> Australia XI (${ausPlayed}/11 ticked)</div>
+        ${PLAYERS.filter(p=>p.nat==='AUS').map(rowHtml).join('')}
+      </div>
+    </div>`;
+  wrap.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const pid = cb.dataset.pid;
+      currentPlayingXiDraft = cb.checked
+        ? [...currentPlayingXiDraft.filter(id=>id!==pid), pid]
+        : currentPlayingXiDraft.filter(id=>id!==pid);
+      renderPlayingXiTable(testNum);
+    });
+  });
+  const saveBtn = document.getElementById('savePlayingXiBtn');
+  if(saveBtn) saveBtn.onclick = async ()=>{
+    const {error} = await supabaseClient.from('match_stats').upsert({test: testNum, playing_xi: currentPlayingXiDraft});
+    if(error){ showAlert(error.message); return; }
+    showAlert('Playing XI saved for Test '+testNum+'.');
+  };
+}
+
 async function lockTest(testNum){
   if(!(await showConfirm(`This snapshots every team's committed XI for scoring, and becomes their new baseline for the next round of changes.`, `Lock Test ${testNum}?`))) return;
-  const {error: statsErr} = await supabaseClient.from('match_stats').upsert({test: testNum, stats: currentStatsDraft});
+  const {error: statsErr} = await supabaseClient.from('match_stats').upsert({test: testNum, stats: currentStatsDraft, playing_xi: currentPlayingXiDraft});
   if(statsErr){ showAlert(statsErr.message); return; }
 
   const {error} = await supabaseClient.rpc('lock_test', {p_test: testNum});
@@ -1817,9 +1898,9 @@ async function renderLeaderboard(){
     return;
   }
 
-  const statsByTest = {};
+  const matchDataByTest = {};
   for(const f of fixtures){
-    statsByTest[f.test] = await getStatsForTest(f.test);
+    matchDataByTest[f.test] = await getMatchDataForTest(f.test);
   }
 
   const rows = squadRows.map(rowRaw=>{
@@ -1827,8 +1908,12 @@ async function renderLeaderboard(){
     let total = 0;
     const byTest = {};
     Object.keys(squad.lockedXiByTest||{}).forEach(t=>{
-      const pts = computeTestScore(squad.lockedXiByTest[t], statsByTest[t]);
-      byTest[t] = pts;
+      const lockedEntry = squad.lockedXiByTest[t];
+      const {stats, playingXi} = matchDataByTest[t] || {stats:{}, playingXi:[]};
+      const pts = computeTestScore(lockedEntry, stats, playingXi);
+      const {effectiveXi, captainDidNotPlay} = resolveEffectiveXi(lockedEntry, playingXi);
+      const subs = effectiveXi.filter(e=>e.subFor).map(e=>({out:e.subFor, in:e.pid}));
+      byTest[t] = {pts, subs, captainDidNotPlay};
       total += pts;
     });
     return {name: squad.teamName, total: Math.round(total*10)/10, byTest};
@@ -1848,7 +1933,15 @@ async function renderLeaderboard(){
         </div>
         <div class="lb-detail" id="lbdetail-${i}">
           ${Object.keys(r.byTest).length===0 ? '<span class="muted">No Tests locked yet for this team.</span>' :
-            `<table>${Object.keys(r.byTest).sort((a,b)=>a-b).map(t=>`<tr><td>Test ${t}</td><td>${r.byTest[t]} pts</td></tr>`).join('')}</table>`}
+            `<table>${Object.keys(r.byTest).sort((a,b)=>a-b).map(t=>{
+              const d = r.byTest[t];
+              const notes = [
+                ...d.subs.map(s=> `${playerName(s.out)} &rarr; ${s.in ? playerName(s.in) : 'no replacement available'} (auto-sub)`),
+                ...(d.captainDidNotPlay ? [`Captain didn't play — armband passed to vice-captain`] : []),
+              ];
+              const noteHtml = notes.length ? `<div style="font-size:11px; opacity:.8; margin-top:2px;">${notes.join('<br>')}</div>` : '';
+              return `<tr><td>Test ${t}${noteHtml}</td><td>${d.pts} pts</td></tr>`;
+            }).join('')}</table>`}
         </div>
       `).join('')}
     </div>
