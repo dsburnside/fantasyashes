@@ -320,8 +320,7 @@
 
   /* ---------- honours board ---------- */
   .honours-board{
-    background:
-      repeating-linear-gradient(180deg, var(--turf) 0px, var(--turf) 2px, var(--turf-dark) 2px, var(--turf-dark) 44px);
+    background:var(--turf-dark);
     border:6px solid var(--gilt);
     border-radius:4px;
     padding:26px 28px;
@@ -391,21 +390,24 @@
   .teamnews-row{display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--parchment-dim); font-size:13.5px;}
 
   /* ---------- leaderboard ---------- */
-  /* Rows sit inside .honours-board, which paints its own 44px repeating stripes as
-     the row divider — an extra per-row border here would drift out of sync with
-     those stripes and visually cut through the text. Instead we align each row's
-     box height to that same 44px rhythm and let the stripes do the dividing. */
+  /* Rows alternate background between two shades (set via .lb-row-a / .lb-row-b,
+     assigned by index in JS) instead of a repeating-gradient stripe pattern. The
+     expanded detail panel picks up its row's shade too, via the adjacent-sibling rules. */
   .leaderboard-row{
     display:grid; grid-template-columns:40px 1fr auto; gap:14px; align-items:center;
     min-height:44px; box-sizing:border-box;
     padding:0 14px; cursor:pointer; border-radius:3px;
   }
-  .leaderboard-row:hover{background:rgba(255,255,255,.06);}
+  .leaderboard-row.lb-row-a{background:var(--turf);}
+  .leaderboard-row.lb-row-b{background:var(--turf-dark);}
+  .leaderboard-row:hover{filter:brightness(1.18);}
   .lb-rank{font-family:var(--font-mono); font-size:17px; color:var(--parchment-dim); text-align:center; line-height:1;}
   .leaderboard-row.rank-1 .lb-rank{color:var(--gilt); font-size:20px;}
   .lb-name{font-family:var(--font-display); font-size:16px; line-height:1.2;}
   .lb-points{font-family:var(--font-mono); font-size:16px; color:var(--gilt-bright); font-weight:700; line-height:1; white-space:nowrap;}
   .lb-detail{padding:8px 14px 16px 54px; font-size:12.5px; color:var(--parchment-dim); display:none;}
+  .lb-row-a + .lb-detail{background:var(--turf);}
+  .lb-row-b + .lb-detail{background:var(--turf-dark);}
   .lb-detail.open{display:block;}
   .lb-detail table{width:100%; border-collapse:collapse; margin-top:6px;}
   .lb-detail td{padding:4px 6px; line-height:1.3; border-bottom:1px solid rgba(255,255,255,.08);}
@@ -593,13 +595,6 @@
   <section class="tab-panel active" id="tab-rules">
     <h2 class="panel-title">How it works</h2>
     <p class="panel-sub">One squad for the whole series, tied to your account. Your job is to manage it well as team news and form change.</p>
-
-    <div class="notice">
-      <strong>No live data feed.</strong> Ball-tracking APIs need a paid key this hobby app doesn't have, so match stats are entered by hand under <strong>Admin &rarr; Match Setup</strong> after each day's play, and every player's fantasy points are calculated automatically from what's entered. Fixture dates are placeholders — edit them under <strong>Admin &rarr; Series Setup</strong> for the series you're actually tracking. The player pool is fully editable under <strong>Admin &rarr; Player Setup</strong>.
-    </div>
-    <div class="notice">
-      <strong>Real accounts.</strong> Sign up with an email and password to build your squad — it's backed by a real Supabase database with row-level security, so only you can edit your own squad. The <strong>Admin</strong> tab (Series Setup, Match Setup, Player Setup) is only visible to admin accounts; anyone signed in can still browse everything else.
-    </div>
 
     <div class="rules-grid">
       <div class="card">
@@ -1846,7 +1841,7 @@ async function renderLeaderboard(){
     <div class="honours-board">
       <div class="honours-board-title">Standings</div>
       ${rows.map((r,i)=>`
-        <div class="leaderboard-row ${i===0?'rank-1':''}" data-idx="${i}" style="border-radius:4px;">
+        <div class="leaderboard-row ${i%2===0?'lb-row-a':'lb-row-b'} ${i===0?'rank-1':''}" data-idx="${i}" style="border-radius:4px;">
           <div class="lb-rank">${i+1}</div>
           <div class="lb-name">${r.name}</div>
           <div class="lb-points">${r.total} pts</div>
