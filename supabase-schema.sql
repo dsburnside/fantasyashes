@@ -166,6 +166,16 @@ insert into public.leagues (id, series_id, name, join_code)
 values ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'The Ashes 2026/27', 'ASHES2026')
 on conflict (id) do nothing;
 
+-- Snapshot of the creator's name at creation time, same idea as
+-- squads.manager_name below — profiles are select-own-only (see
+-- profiles_select_own), so this is the only way the My Leagues list can show
+-- "created by" without relaxing that privacy boundary.
+alter table public.leagues add column if not exists created_by_name text;
+update public.leagues l set created_by_name = (
+  select trim(coalesce(p.first_name,'') || ' ' || coalesce(p.last_name,''))
+  from public.profiles p where p.user_id = l.created_by
+) where (l.created_by_name is null or l.created_by_name = '') and l.created_by is not null;
+
 -- ---------- league_members (who's actually playing in a league) ----------
 -- Deliberately decoupled from squads: a squad belongs to a series (see
 -- squads, further down) and is shared across every league a user is in for
@@ -435,6 +445,15 @@ create table if not exists public.squads (
 
 alter table public.squads add column if not exists manager_name text;
 alter table public.squads add column if not exists series_id uuid references public.series(id) on delete cascade;
+
+-- Backfill for squads created before manager_name existed (or before
+-- signup captured first/last name) — this is a direct SQL migration run
+-- with owner privileges, so unlike the app it can read every profile
+-- regardless of profiles_select_own.
+update public.squads s set manager_name = (
+  select trim(coalesce(p.first_name,'') || ' ' || coalesce(p.last_name,''))
+  from public.profiles p where p.user_id = s.user_id
+) where manager_name is null or manager_name = '';
 
 -- Upgrade path from the per-league version: a squad used to belong to a
 -- single league; it now belongs to a series and is shared across every

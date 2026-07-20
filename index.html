@@ -991,9 +991,9 @@ async function loadMySquads(){
    loadMySquads() resolves currentSeriesId. */
 async function loadMyLeagues(){
   if(!session){ myLeagues = []; currentLeagueId = null; return; }
-  const {data, error} = await supabaseClient.from('league_members').select('league_id, leagues(id, name, series_id, join_code, created_by)').eq('user_id', session.user.id);
+  const {data, error} = await supabaseClient.from('league_members').select('league_id, leagues(id, name, series_id, join_code, created_by, created_by_name)').eq('user_id', session.user.id);
   if(error){ console.error(error); myLeagues = []; return; }
-  myLeagues = (data||[]).filter(m=>m.leagues).map(m=>({id:m.leagues.id, name:m.leagues.name, seriesId:m.leagues.series_id, joinCode:m.leagues.join_code, createdBy:m.leagues.created_by}));
+  myLeagues = (data||[]).filter(m=>m.leagues).map(m=>({id:m.leagues.id, name:m.leagues.name, seriesId:m.leagues.series_id, joinCode:m.leagues.join_code, createdBy:m.leagues.created_by, createdByName:m.leagues.created_by_name}));
   const stored = localStorage.getItem('currentLeagueId');
   if(!(currentLeagueId && myLeagues.some(l=>l.id===currentLeagueId))){
     currentLeagueId = (stored && myLeagues.some(l=>l.id===stored)) ? stored : (myLeagues[0] ? myLeagues[0].id : null);
@@ -1047,6 +1047,7 @@ function myLeaguesHtml(){
           <span class="player-name">${l.name}</span>
           <span class="role-pill">${seriesName}</span>
         </div>
+        ${l.createdByName ? `<div class="muted-on-light" style="width:100%; font-size:11px;">Created by ${l.createdByName}</div>` : ''}
         <div class="player-row-actions" style="align-items:center; gap:8px; flex-wrap:wrap;">
           <span class="muted-on-light" style="font-family:var(--font-mono); font-size:12.5px;">${l.joinCode||''}</span>
           <button class="btn small secondary" data-action="copyLink" data-code="${l.joinCode||''}">Copy invite link</button>
@@ -1142,7 +1143,8 @@ function wireMyLeagues(container){
     if(!name){ errBox.textContent = 'Enter a league name.'; return; }
     createBtn.disabled = true;
     const code = genJoinCode();
-    const {data, error} = await supabaseClient.from('leagues').insert({name, series_id: seriesId, join_code: code, created_by: session.user.id}).select().single();
+    const createdByName = [myFirstName, myLastName].filter(Boolean).join(' ') || null;
+    const {data, error} = await supabaseClient.from('leagues').insert({name, series_id: seriesId, join_code: code, created_by: session.user.id, created_by_name: createdByName}).select().single();
     if(error){ createBtn.disabled = false; errBox.textContent = error.message; return; }
     const {error: memberErr} = await supabaseClient.from('league_members').insert({league_id: data.id, user_id: session.user.id});
     if(memberErr) console.error(memberErr); // non-fatal — they can still join with the code themselves
@@ -2755,9 +2757,9 @@ async function renderLeaderboard(){
   // reassigning c.innerHTML afterward (e.g. via +=) would silently detach them.
   c.innerHTML = `
     <h2 class="panel-title">My Leagues</h2>
-    ${myLeaguesHtml()}
     <p class="panel-sub">Standings for ${league.name}. Tap a team to see their Test-by-Test breakdown.</p>
     <div id="leaderboardBody"><div class="empty-state">Loading leaderboard&hellip;</div></div>
+    ${myLeaguesHtml()}
   `;
   wireMyLeagues(c);
   const body = document.getElementById('leaderboardBody');
