@@ -54,7 +54,7 @@
   }
   .topbar-main{
     max-width:1180px; margin:0 auto;
-    display:flex; align-items:center; gap:18px;
+    display:flex; align-items:center; flex-wrap:wrap; gap:18px;
     padding:12px 20px;
   }
   .topbar-brand{
@@ -63,8 +63,8 @@
   }
 
   .tabnav{
-    display:flex; align-items:center; gap:2px;
-    flex:1; min-width:0; overflow-x:auto;
+    display:flex; align-items:center; flex-wrap:wrap; gap:2px;
+    flex:1; min-width:0;
   }
   .tab-btn{
     background:none;
@@ -81,7 +81,7 @@
   .tab-btn.active{color:var(--gilt-bright); border-bottom-color:var(--gilt);}
   .tab-btn:hover{color:var(--chalk);}
 
-  .topbar-auth{display:flex; align-items:center; gap:8px; flex-wrap:wrap; flex-shrink:0;}
+  .topbar-auth{display:flex; align-items:center; gap:8px; flex-wrap:wrap; flex-shrink:0; order:3; width:100%;}
 
   .hamburger-btn{
     display:none;
@@ -95,8 +95,8 @@
 
   @media (max-width:760px){
     .topbar-brand{font-size:16px;}
-    .topbar-main{gap:10px; padding:10px 14px; flex-wrap:wrap;}
-    .topbar-auth{order:3; width:100%; gap:6px; font-size:12px;}
+    .topbar-main{gap:10px; padding:10px 14px;}
+    .topbar-auth{gap:6px; font-size:12px;}
     .topbar-auth .current-team-pill{max-width:60vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
     .hamburger-btn{display:flex;}
     .tabnav{
@@ -224,6 +224,11 @@
     margin:0 0 4px;
   }
   p.panel-sub{color:var(--parchment-dim); font-size:14px; margin:0 0 22px; max-width:70ch;}
+  /* .panel-sub defaults to light-on-dark for the page background — several
+     admin/My Leagues/My XI cards reuse it inside a light .card, where it's
+     nearly invisible. Higher-specificity descendant selector fixes every
+     current and future case in one place instead of hand-tagging each. */
+  .card .panel-sub{color:#6B5F45;}
 
   .card{
     background:var(--parchment-panel);
@@ -267,7 +272,7 @@
   ol.rules-list{padding-left:20px; font-size:14px;}
   ol.rules-list li{margin-bottom:10px;}
 
-  /* ---------- player pool listings (used by Player Setup) ---------- */
+  /* ---------- player pool listings (used by Admin > Series Setup) ---------- */
   .nation-block{margin-bottom:22px;}
   .nation-heading{
     display:flex; align-items:center; gap:10px;
@@ -278,8 +283,8 @@
     font-family:var(--font-mono); font-size:11px; padding:3px 8px; border-radius:3px;
     letter-spacing:.05em;
   }
-  .flag-chip.ENG{background:var(--oxblood); color:var(--chalk);}
-  .flag-chip.AUS{background:var(--gilt); color:var(--turf-deeper);}
+  .flag-chip.team-a{background:var(--oxblood); color:var(--chalk);}
+  .flag-chip.team-b{background:var(--gilt); color:var(--turf-deeper);}
 
   .player-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
@@ -299,9 +304,14 @@
   .player-form-grid{display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:14px; align-items:end;}
   .player-form-grid input[type=text]{width:100%; padding:9px; border:1px solid var(--parchment-dim); border-radius:5px;}
   .player-form-grid button{height:38px;}
+  /* Add-a-fixture form: test number / venue / date / deadline / button */
+  .fixture-form-grid{display:grid; grid-template-columns:90px 2fr 1fr 1fr auto; gap:14px; align-items:end;}
+  .fixture-form-grid button{height:38px;}
   @media (max-width:640px){
     .player-form-grid{grid-template-columns:1fr; gap:10px;}
     .player-form-grid button{width:100%;}
+    .fixture-form-grid{grid-template-columns:1fr; gap:10px;}
+    .fixture-form-grid button{width:100%;}
   }
 
   /* Inline edit-in-place row for an existing player */
@@ -372,7 +382,7 @@
     .fixture-row input[data-f="venue"]{grid-area:venue;}
     .fixture-row input[data-f="date"]{grid-area:date;}
     .fixture-row input[data-f="deadline"]{grid-area:deadline;}
-    .fixture-row .muted-on-light{grid-area:label;}
+    .fixture-row .fixture-row-actions{grid-area:label;}
   }
 
   table.stat-entry{width:100%; border-collapse:collapse; font-size:12.5px; margin-top:14px;}
@@ -396,7 +406,7 @@
   .leaderboard-row{
     display:grid; grid-template-columns:40px 1fr auto; gap:14px; align-items:center;
     min-height:44px; box-sizing:border-box;
-    padding:0 14px; cursor:pointer; border-radius:3px;
+    padding:6px 14px; cursor:pointer; border-radius:3px;
   }
   .leaderboard-row.lb-row-a{background:var(--turf);}
   .leaderboard-row.lb-row-b{background:var(--turf-dark);}
@@ -404,6 +414,7 @@
   .lb-rank{font-family:var(--font-mono); font-size:17px; color:var(--parchment-dim); text-align:center; line-height:1;}
   .leaderboard-row.rank-1 .lb-rank{color:var(--gilt); font-size:20px;}
   .lb-name{font-family:var(--font-display); font-size:16px; line-height:1.2;}
+  .lb-manager{font-family:var(--font-body); font-size:11.5px; color:var(--parchment-dim); font-weight:400; margin-top:1px;}
   .lb-points{font-family:var(--font-mono); font-size:16px; color:var(--gilt-bright); font-weight:700; line-height:1; white-space:nowrap;}
   .lb-detail{padding:8px 14px 16px 54px; font-size:12.5px; color:var(--parchment-dim); display:none;}
   .lb-row-a + .lb-detail{background:var(--turf);}
@@ -416,6 +427,8 @@
     text-align:center; padding:50px 20px; color:var(--parchment-dim); font-size:14px;
   }
   .empty-state .big{font-family:var(--font-display); font-size:20px; color:var(--gilt-bright); margin-bottom:8px;}
+  .card .empty-state{color:#6B5F45;}
+  .card .empty-state .big{color:var(--oxblood);}
 
   footer.app-footer{
     text-align:center; padding:30px 20px 10px; color:var(--parchment-dim); font-size:12px; font-family:var(--font-mono);
@@ -426,6 +439,7 @@
 
   .flex-between{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;}
   .muted{color:var(--parchment-dim);}
+  .card .muted{color:#6B5F45;}
   /* Use on light .card/.parchment-panel backgrounds — plain .muted (parchment-dim on
      parchment-panel) fails WCAG contrast (1.26:1); this variant passes at 5.46:1. */
   .muted-on-light{color:#6B5F45;}
@@ -455,6 +469,13 @@
   .light-subnav .subtab-btn.active{color:var(--oxblood); border-bottom-color:var(--oxblood);}
   .light-subnav .subtab-btn:hover{color:var(--ink);}
   .admin-subpanel.active{display:block;}
+  .innings-tabrow{display:flex; align-items:center; gap:6px;}
+  .innings-add-btn{
+    background:none; border:1px dashed #6B5F45; color:#6B5F45; border-radius:5px;
+    width:26px; height:26px; line-height:1; font-size:15px; font-weight:700;
+    cursor:pointer; align-self:center;
+  }
+  .innings-add-btn:hover{color:var(--oxblood); border-color:var(--oxblood);}
   .save-bar{display:flex; gap:10px; margin-top:18px; flex-wrap:wrap;}
 
   .auth-error{color:#f5a3a3; font-size:12.5px; margin-top:8px; width:100%;}
@@ -553,6 +574,11 @@
     cursor:pointer; padding:4px;
   }
   .link-btn:hover{color:var(--chalk);}
+  /* .link-btn defaults to light-on-dark (parchment/chalk), which fails
+     contrast on a light .card — same issue .muted-on-light exists to fix
+     for plain text. Use this variant for link-btns on light backgrounds. */
+  .link-btn.on-light{color:#6B5F45;}
+  .link-btn.on-light:hover{color:var(--ink);}
 
   .picker-list{max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin:14px 0;}
   .picker-row{
@@ -575,7 +601,7 @@
       <button class="drawer-close-btn" id="drawerCloseBtn" aria-label="Close menu">&times;</button>
       <button class="tab-btn active" data-tab="rules">Rules</button>
       <button class="tab-btn" data-tab="myxi">My XI</button>
-      <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
+      <button class="tab-btn" data-tab="leaderboard">My Leagues</button>
       <button class="tab-btn" data-tab="admin">Admin</button>
     </nav>
 
@@ -594,14 +620,14 @@
   <!-- RULES -->
   <section class="tab-panel active" id="tab-rules">
     <h2 class="panel-title">How it works</h2>
-    <p class="panel-sub">One squad for the whole series, tied to your account. Your job is to manage it well as team news and form change.</p>
+    <p class="panel-sub">One squad per series, tied to your account — pick a team in My XI, no league required. Leagues (create or join under My Leagues) are an optional way to compare your team against friends; join several on the same series and it's the same squad on every one of their leaderboards. Your job is to manage it well as team news and form change.</p>
 
     <div class="rules-grid">
       <div class="card">
         <h3 style="font-family:var(--font-display); margin-top:0;">Squad rules</h3>
         <ol class="rules-list">
-          <li><strong>14-man squad</strong>, picked once at the start of the series from the England &amp; Australia pools.</li>
-          <li>At least <strong>5 players from each nationality</strong> — no all-English or all-Australian raids on the pool.</li>
+          <li><strong>14-man squad</strong>, picked once at the start of the series from the two contesting teams' pools.</li>
+          <li>At least <strong>5 players from each team</strong> — no lopsided raids on either pool.</li>
           <li>At least <strong>one wicketkeeper</strong> in your squad, and your starting XI must always include one.</li>
           <li>No budget cap — pick on judgement, not salary.</li>
           <li>From your 14, name a <strong>starting XI</strong> — the other 3 sit on the bench. Free to change anytime in My XI.</li>
@@ -654,18 +680,16 @@
     <div id="leaderboardContent"></div>
   </section>
 
-  <!-- ADMIN (nested: Series Setup / Match Setup / Player Setup) -->
+  <!-- ADMIN (nested: Series Setup / Match Setup) -->
   <section class="tab-panel" id="tab-admin">
     <h2 class="panel-title">Admin</h2>
-    <p class="panel-sub">League administration — visible only to admin accounts.</p>
+    <p class="panel-sub">Series, fixtures and player pools — visible only to admin accounts. Leagues are self-service now: anyone can create or join one under My Leagues.</p>
     <div class="admin-subnav" id="adminSubnav">
-      <button class="subtab-btn active" data-subtab="series">Series Setup</button>
+      <button class="subtab-btn active" data-subtab="setup">Series Setup</button>
       <button class="subtab-btn" data-subtab="match">Match Setup</button>
-      <button class="subtab-btn" data-subtab="players">Player Setup</button>
     </div>
-    <div class="admin-subpanel active" id="adminsub-series"><div id="seriesSetupContent"></div></div>
+    <div class="admin-subpanel active" id="adminsub-setup"><div id="seriesSetupContent"></div></div>
     <div class="admin-subpanel" id="adminsub-match"><div id="matchSetupContent"></div></div>
-    <div class="admin-subpanel" id="adminsub-players"><div id="playerSetupContent"></div></div>
   </section>
 
 </div>
@@ -688,12 +712,39 @@ const supabaseClient = (SUPABASE_URL.startsWith('http'))
 const ROLE_LABEL = {BAT:'Batter', BOWL:'Bowler', AR:'All-rounder', WK:'Wicketkeeper'};
 
 /* ================= STATE ================= */
+// My XI's player-facing state, scoped to whichever series the user is
+// currently building/viewing a team for (currentSeriesId) — independent of
+// leagues entirely. A team only needs a series; joining a league is a
+// separate, optional step handled on the My Leagues tab.
 let PLAYERS = [];
 let PLAYER_MAP = {};
-let session = null;       // Supabase auth session
-let isAdmin = false;      // whether the signed-in user can manage the Players pool
-let mySquad = null;       // this user's squad row (camelCase JS object) or null
 let fixtures = [];        // [{test, venue, date, deadline}]
+let session = null;       // Supabase auth session
+let isAdmin = false;      // whether the signed-in user can manage series/fixtures/players/stats
+let myFirstName = '';     // signed-in user's first name (from profiles), copied onto squads.manager_name at creation
+let myLastName = '';      // signed-in user's last name (from profiles)
+let didInitialLoad = false; // true once init()'s own sequential first load has finished — see onAuthStateChange below
+
+let seriesList = [];        // every series (anyone picks a team from these; admin sets up their fixtures/players)
+let teamsList = [];         // every team (shared master data — a series picks two of these)
+let venuesList = [];        // every venue (shared master data — a fixture picks or adds one of these)
+let mySquads = [];          // every squad row (camelCase) the signed-in user holds — one per series they've picked a team for
+let currentSeriesId = null; // which series My XI is currently building/showing a team for
+let mySquad = null;         // the squad row (if any) for currentSeriesId
+
+// My Leagues tab state — entirely separate from the above: which league's
+// standings are being viewed can be for a different series than whatever
+// team My XI currently has open.
+let myLeagues = [];         // [{id, name, seriesId}] leagues the signed-in user is a member of, via league_members
+let currentLeagueId = null; // which league's standings the My Leagues tab is currently showing
+
+// Admin-editing state — deliberately separate from the player-facing state
+// above, since an admin might be setting up a series/league other than the
+// one they're currently playing in themselves.
+let adminSeriesId = null;   // which series Admin > Fixtures/Match Setup/Player Setup are currently editing
+let adminPlayers = [];
+let adminPlayerMap = {};
+let adminFixtures = [];
 
 function buildPlayerMap(){ return Object.fromEntries(PLAYERS.map(p=>[p.id,p])); }
 function getPlayer(id){ return PLAYER_MAP[id] || {id, name:'(removed player)', nat:'?', role:'BAT'}; }
@@ -706,10 +757,10 @@ function toDatetimeLocalValue(iso){
   try{ return new Date(iso).toISOString().slice(0,16); }
   catch(e){ return ''; }
 }
-function slugify(name, nat){
-  const base = (nat==='ENG'?'eng_':'aus_') + name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+function slugify(name, nat, existing){
+  const base = nat.toLowerCase().replace(/[^a-z0-9]+/g,'') + '_' + name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
   let id = base, n = 2;
-  while(PLAYERS.some(p=>p.id===id)){ id = base+'_'+n; n++; }
+  while(existing.some(p=>p.id===id)){ id = base+'_'+n; n++; }
   return id;
 }
 
@@ -784,7 +835,9 @@ function rowToSquad(row){
   return {
     id: row.id,
     userId: row.user_id,
+    seriesId: row.series_id,
     teamName: row.team_name,
+    managerName: row.manager_name,
     squad14: row.squad14 || [],
     xi11: row.xi11 || [],
     bench3: row.bench3 || [],
@@ -801,6 +854,7 @@ function squadToRow(squad){
   return {
     user_id: squad.userId,
     team_name: squad.teamName,
+    manager_name: squad.managerName,
     squad14: squad.squad14,
     xi11: squad.xi11,
     bench3: squad.bench3,
@@ -822,47 +876,299 @@ function countChanges(rosterA, rosterB){
 }
 
 /* Validates a 14-man squad against the league rules: exactly 14, at least 5
-   from each nationality, at least one wicketkeeper. Used by both Squad
-   Builder (initial pick) and My XI (ongoing transfers). */
+   from each of the series' two teams, at least one wicketkeeper. Used by both
+   Squad Builder (initial pick) and My XI (ongoing transfers). Teams are
+   derived from the full available PLAYERS pool (not just the selection) so a
+   team with zero players picked still gets flagged as short, rather than
+   silently passing because it never appears among the chosen ids. */
 function validateSquad14(ids){
-  const engCount = ids.filter(id=>getPlayer(id).nat==='ENG').length;
-  const ausCount = ids.filter(id=>getPlayer(id).nat==='AUS').length;
+  const poolNats = [...new Set(PLAYERS.map(p=>p.nat))];
+  const counts = {};
+  ids.forEach(id=>{ const n = getPlayer(id).nat; counts[n] = (counts[n]||0) + 1; });
   const wkCount = ids.filter(id=>getPlayer(id).role==='WK').length;
   const errors = [];
   if(ids.length!==14) errors.push(`Squad has ${ids.length}/14 players`);
-  if(engCount<5) errors.push(`Only ${engCount} England players (need 5+)`);
-  if(ausCount<5) errors.push(`Only ${ausCount} Australia players (need 5+)`);
+  poolNats.forEach(n=>{
+    const c = counts[n] || 0;
+    if(c < 5) errors.push(`Only ${c} ${teamNameForCode(n)} players (need 5+)`);
+  });
   if(wkCount<1) errors.push('No wicketkeeper in the squad');
-  return {valid: errors.length===0, errors, engCount, ausCount, wkCount};
+  return {valid: errors.length===0, errors, counts, wkCount};
 }
 
 /* ================= DATA ACCESS ================= */
-async function loadPlayers(){
-  const {data, error} = await supabaseClient.from('players').select('*').order('nat').order('name');
-  if(error){ console.error(error); return; }
-  PLAYERS = data || [];
+/* Players/fixtures both live per-series now. fetchPlayers/fetchFixtures are the
+   raw loaders; loadPlayers/loadFixtures point the player-facing PLAYERS/fixtures
+   globals at a series, while Admin's own tools keep a separate adminPlayers/
+   adminFixtures copy (see ADMIN state) so editing a different series than the
+   one you personally play in never clobbers your own My XI/Leaderboard view. */
+async function fetchPlayers(seriesId){
+  if(!seriesId) return [];
+  const {data, error} = await supabaseClient.from('players').select('*').eq('series_id', seriesId).order('nat').order('name');
+  if(error){ console.error(error); return []; }
+  return data || [];
+}
+async function fetchFixtures(seriesId){
+  if(!seriesId) return [];
+  const {data, error} = await supabaseClient.from('fixtures').select('*').eq('series_id', seriesId).order('test');
+  if(error){ console.error(error); return []; }
+  return (data||[]).map(f=>({test:f.test, venue:f.venue, date:f.date, deadline: toDatetimeLocalValue(f.deadline)}));
+}
+async function loadPlayers(seriesId){
+  PLAYERS = await fetchPlayers(seriesId);
   PLAYER_MAP = buildPlayerMap();
 }
-async function loadFixtures(){
-  const {data, error} = await supabaseClient.from('fixtures').select('*').order('test');
-  if(error){ console.error(error); return; }
-  fixtures = (data||[]).map(f=>({test:f.test, venue:f.venue, date:f.date, deadline: toDatetimeLocalValue(f.deadline)}));
+async function loadFixtures(seriesId){
+  fixtures = await fetchFixtures(seriesId);
 }
-async function loadMySquad(){
-  if(!session) { mySquad = null; return; }
-  const {data, error} = await supabaseClient.from('squads').select('*').eq('user_id', session.user.id).maybeSingle();
-  if(error){ console.error(error); mySquad = null; return; }
-  mySquad = rowToSquad(data);
+async function loadSeriesList(){
+  // Two FKs from series to teams (team_a_id/team_b_id) need the constraint
+  // name to disambiguate which is which — Postgres auto-names an inline
+  // `references` added via ALTER TABLE ADD COLUMN as <table>_<column>_fkey.
+  const {data, error} = await supabaseClient.from('series')
+    .select('*, teamA:teams!series_team_a_id_fkey(id,name,short_code), teamB:teams!series_team_b_id_fkey(id,name,short_code)')
+    .order('created_at');
+  if(error){ console.error(error); return; }
+  seriesList = data || [];
+}
+async function loadTeamsList(){
+  const {data, error} = await supabaseClient.from('teams').select('*').order('name');
+  if(error){ console.error(error); return; }
+  teamsList = data || [];
+}
+async function loadVenuesList(){
+  const {data, error} = await supabaseClient.from('venues').select('*').order('name');
+  if(error){ console.error(error); return; }
+  venuesList = data || [];
+}
+/* Resolves "the two teams" for a series — from its own team_a/team_b if set,
+   falling back to whatever nat codes actually appear in a given player pool
+   (only relevant for older data that predates the teams table). Returns up
+   to two {id, name, short_code} objects. */
+function resolveSeriesTeams(seriesId, playersPool){
+  const s = seriesList.find(x=>x.id===seriesId);
+  if(s && s.teamA && s.teamB) return [s.teamA, s.teamB];
+  const codes = [...new Set((playersPool||[]).map(p=>p.nat))];
+  return codes.map(code=>({id:null, name:code, short_code:code}));
+}
+function teamNameForCode(code){
+  const t = teamsList.find(t=>t.short_code===code);
+  return t ? t.name : code;
+}
+/* Loads every squad the signed-in user holds — one per series they've picked
+   a team for, entirely independent of league membership — and resolves
+   which one My XI is currently showing: whatever's still valid from before,
+   else what's saved in localStorage, else their first team, else null (no
+   team picked yet). */
+async function loadMySquads(){
+  if(!session){ mySquads = []; mySquad = null; currentSeriesId = null; return; }
+  const {data, error} = await supabaseClient.from('squads').select('*').eq('user_id', session.user.id);
+  if(error){ console.error(error); mySquads = []; mySquad = null; return; }
+  mySquads = (data||[]).map(rowToSquad);
+  const stored = localStorage.getItem('currentSeriesId');
+  if(!(currentSeriesId && mySquads.some(s=>s.seriesId===currentSeriesId))){
+    currentSeriesId = (stored && mySquads.some(s=>s.seriesId===stored)) ? stored : (mySquads[0] ? mySquads[0].seriesId : null);
+  }
+  if(currentSeriesId) localStorage.setItem('currentSeriesId', currentSeriesId);
+  mySquad = mySquads.find(s=>s.seriesId===currentSeriesId) || null;
+}
+/* Loads every league the signed-in user belongs to (via league_members —
+   entirely separate from mySquads/series, since a league is just an
+   optional leaderboard grouping, not a prerequisite for picking a team),
+   and resolves which one the My Leagues tab is currently showing standings
+   for, the same "keep valid, else localStorage, else first, else none" way
+   loadMySquads() resolves currentSeriesId. */
+async function loadMyLeagues(){
+  if(!session){ myLeagues = []; currentLeagueId = null; return; }
+  const {data, error} = await supabaseClient.from('league_members').select('league_id, leagues(id, name, series_id, join_code, created_by)').eq('user_id', session.user.id);
+  if(error){ console.error(error); myLeagues = []; return; }
+  myLeagues = (data||[]).filter(m=>m.leagues).map(m=>({id:m.leagues.id, name:m.leagues.name, seriesId:m.leagues.series_id, joinCode:m.leagues.join_code, createdBy:m.leagues.created_by}));
+  const stored = localStorage.getItem('currentLeagueId');
+  if(!(currentLeagueId && myLeagues.some(l=>l.id===currentLeagueId))){
+    currentLeagueId = (stored && myLeagues.some(l=>l.id===stored)) ? stored : (myLeagues[0] ? myLeagues[0].id : null);
+  }
+  if(currentLeagueId) localStorage.setItem('currentLeagueId', currentLeagueId);
 }
 async function saveMySquad(){
   if(!mySquad) return;
-  const {error} = await supabaseClient.from('squads').update(squadToRow(mySquad)).eq('user_id', session.user.id);
+  const {error} = await supabaseClient.from('squads').update(squadToRow(mySquad)).eq('user_id', session.user.id).eq('series_id', mySquad.seriesId);
   if(error){ showAlert('Could not save: '+error.message); console.error(error); }
 }
-async function getMatchDataForTest(testNum){
-  const {data, error} = await supabaseClient.from('match_stats').select('stats, playing_xi').eq('test', testNum).maybeSingle();
-  if(error){ console.error(error); return {stats:{}, playingXi:[]}; }
-  return {stats: (data && data.stats) || {}, playingXi: (data && data.playing_xi) || []};
+async function getMatchDataForTest(seriesId, testNum){
+  const {data, error} = await supabaseClient.from('match_stats').select('stats, playing_xi, innings').eq('series_id', seriesId).eq('test', testNum).maybeSingle();
+  if(error){ console.error(error); return {stats:{}, playingXi:[], innings:[]}; }
+  return {stats: (data && data.stats) || {}, playingXi: (data && data.playing_xi) || [], innings: (data && data.innings) || []};
+}
+
+/* Switches which series My XI is building/showing a team for — points the
+   player-facing PLAYERS/fixtures at it and resets any in-progress draft,
+   since it belonged to the previous series' squad. */
+async function switchToSeries(seriesId){
+  currentSeriesId = seriesId;
+  localStorage.setItem('currentSeriesId', seriesId);
+  mySquad = mySquads.find(s=>s.seriesId===seriesId) || null;
+  draft = null;
+  await Promise.all([loadPlayers(seriesId), loadFixtures(seriesId)]);
+  renderMyXI();
+  renderCountdown();
+}
+/* Switches which league the My Leagues tab shows standings for. Unlike
+   switchToSeries, this doesn't touch PLAYERS/fixtures/draft — renderLeaderboard()
+   fetches its own players/fixtures for the selected league's series, since
+   that can be a different series entirely from whatever My XI has open. */
+function switchToLeague(leagueId){
+  currentLeagueId = leagueId;
+  localStorage.setItem('currentLeagueId', leagueId);
+  renderLeaderboard();
+}
+
+/* ================= MY LEAGUES TAB (self-service create/join leagues + standings) ================= */
+function genJoinCode(){
+  return 'L' + Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+function myLeaguesHtml(){
+  const rows = myLeagues.map(l=>{
+    const seriesName = (seriesList.find(s=>s.id===l.seriesId)||{}).name || 'series';
+    const canManage = isAdmin || l.createdBy === (session && session.user.id);
+    return `
+      <div class="player-row${l.id===currentLeagueId?' added':''}" data-lid="${l.id}">
+        <div class="player-name-wrap">
+          <span class="player-name">${l.name}</span>
+          <span class="role-pill">${seriesName}</span>
+        </div>
+        <div class="player-row-actions" style="align-items:center; gap:8px; flex-wrap:wrap;">
+          <span class="muted-on-light" style="font-family:var(--font-mono); font-size:12.5px;">${l.joinCode||''}</span>
+          <button class="btn small secondary" data-action="copyCode" data-code="${l.joinCode||''}">Copy code</button>
+          ${l.id===currentLeagueId ? `<span class="muted-on-light" style="font-size:12px;">viewing</span>` : `<button class="btn small secondary" data-action="viewLeague" data-lid="${l.id}">View standings</button>`}
+          ${canManage ? `<button class="btn small secondary" data-action="regenCode" data-lid="${l.id}">New code</button><button class="btn small danger" data-action="deleteLeague" data-lid="${l.id}">Delete</button>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin-top:0; font-family:var(--font-display);">My Leagues</h3>
+      <p class="panel-sub" style="margin-top:0;">Leagues you've created or joined. Share a code so friends can join — leagues aren't otherwise visible to anyone outside them.</p>
+      ${rows || '<p class="muted">You\'re not in a league yet — join one below with its code, or create your own.</p>'}
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin-top:0; font-family:var(--font-display);">Create a league</h3>
+      <p class="panel-sub" style="margin-top:0;">Anyone can start a league for any series — no admin needed. You'll get a join code to share, and you're added to it automatically.</p>
+      ${seriesList.length===0 ? '<div class="empty-state">No series available yet — ask an admin to set one up.</div>' : `
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
+        <div>
+          <label class="field-label">Name</label>
+          <input type="text" id="newLeagueName" placeholder="e.g. Office League">
+        </div>
+        <div>
+          <label class="field-label">Series</label>
+          <select class="pick" id="newLeagueSeries">
+            ${seriesList.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn" id="createLeagueBtn">Create league</button>
+      </div>
+      <div class="auth-error" id="createLeagueError"></div>
+      `}
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin-top:0; font-family:var(--font-display);">Join a league</h3>
+      <p class="panel-sub" style="margin-top:0;">Ask whoever set up a league for its join code.</p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
+        <div>
+          <label class="field-label">Join code</label>
+          <input type="text" id="joinCodeInput" placeholder="e.g. ASHES2026" style="padding:9px; border:1px solid var(--parchment-dim); border-radius:5px; text-transform:uppercase;">
+        </div>
+        <button class="btn" id="joinCodeBtn">Join league</button>
+      </div>
+      <div class="auth-error" id="joinCodeError"></div>
+    </div>`;
+}
+/* Scoped to a container, not document.getElementById — this card could in
+   principle exist more than once in the DOM (only one tab panel is visible
+   at a time, others stay hidden), so an unscoped lookup could wire the wrong
+   copy and leave the visible one dead. */
+function wireMyLeagues(container){
+  container.querySelectorAll('[data-action="viewLeague"]').forEach(btn=>{
+    btn.addEventListener('click', ()=> switchToLeague(btn.dataset.lid));
+  });
+  container.querySelectorAll('[data-action="copyCode"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const code = btn.dataset.code;
+      try{
+        await navigator.clipboard.writeText(code);
+        showAlert(`Copied "${code}" to your clipboard.`, 'Copied');
+      }catch(e){
+        showAlert(`Join code: ${code}`, 'Join code');
+      }
+    });
+  });
+  container.querySelectorAll('[data-action="regenCode"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const {error} = await supabaseClient.from('leagues').update({join_code: genJoinCode()}).eq('id', btn.dataset.lid);
+      if(error){ showAlert(error.message); return; }
+      await loadMyLeagues();
+      renderLeaderboard();
+    });
+  });
+  container.querySelectorAll('[data-action="deleteLeague"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if(!(await showConfirm("Delete this league? Members' teams aren't affected — they're tied to the series, not this league — but this removes their membership and this league's leaderboard. This cannot be undone.", 'Delete league'))) return;
+      const {error} = await supabaseClient.from('leagues').delete().eq('id', btn.dataset.lid);
+      if(error){ showAlert(error.message); return; }
+      if(currentLeagueId===btn.dataset.lid) currentLeagueId = null;
+      await loadMyLeagues();
+      renderLeaderboard();
+    });
+  });
+
+  const createBtn = container.querySelector('#createLeagueBtn');
+  if(createBtn) createBtn.addEventListener('click', async ()=>{
+    const name = container.querySelector('#newLeagueName').value.trim();
+    const seriesId = container.querySelector('#newLeagueSeries').value;
+    const errBox = container.querySelector('#createLeagueError');
+    if(!name){ errBox.textContent = 'Enter a league name.'; return; }
+    createBtn.disabled = true;
+    const code = genJoinCode();
+    const {data, error} = await supabaseClient.from('leagues').insert({name, series_id: seriesId, join_code: code, created_by: session.user.id}).select().single();
+    if(error){ createBtn.disabled = false; errBox.textContent = error.message; return; }
+    const {error: memberErr} = await supabaseClient.from('league_members').insert({league_id: data.id, user_id: session.user.id});
+    if(memberErr) console.error(memberErr); // non-fatal — they can still join with the code themselves
+    createBtn.disabled = false;
+    currentLeagueId = data.id;
+    localStorage.setItem('currentLeagueId', currentLeagueId);
+    await loadMyLeagues();
+    renderLeaderboard();
+    showAlert(`League created — share this code so friends can join: ${code}`, `${name} created`);
+  });
+
+  const joinBtn = container.querySelector('#joinCodeBtn');
+  const input = container.querySelector('#joinCodeInput');
+  const joinErrBox = container.querySelector('#joinCodeError');
+  if(joinBtn) joinBtn.addEventListener('click', async ()=>{
+    const code = input.value.trim().toUpperCase();
+    if(!code){ joinErrBox.textContent = 'Enter a join code.'; return; }
+    joinBtn.disabled = true;
+    const {data, error} = await supabaseClient.rpc('resolve_join_code', {p_code: code});
+    if(error){ joinBtn.disabled = false; joinErrBox.textContent = error.message; return; }
+    if(!data || data.length===0){ joinBtn.disabled = false; joinErrBox.textContent = 'No league found for that code.'; return; }
+    const league = data[0];
+    const {error: memberErr} = await supabaseClient.from('league_members').insert({league_id: league.id, user_id: session.user.id});
+    joinBtn.disabled = false;
+    if(memberErr){
+      joinErrBox.textContent = memberErr.code==='23505' ? "You're already in that league." : memberErr.message;
+      return;
+    }
+    input.value = '';
+    currentLeagueId = league.id;
+    localStorage.setItem('currentLeagueId', currentLeagueId);
+    await loadMyLeagues();
+    renderLeaderboard();
+    const hasTeam = mySquads.some(s=>s.seriesId===league.series_id);
+    showAlert(hasTeam
+      ? `Joined ${league.name}.`
+      : `Joined ${league.name} — you don't have a team on this series yet. Pick one in My XI to appear on the leaderboard.`, 'Joined');
+  });
 }
 
 /* ================= OVERLAY ENGINE (replaces alert / confirm / prompt) ================= */
@@ -911,7 +1217,9 @@ function showLoginOverlay(dismissible=true){
   const backdrop = openOverlay(`
     <span class="overlay-lock-icon">&#127978;</span>
     <div class="overlay-title">Sign in to The Ashes Fantasy XI</div>
-    <div class="overlay-message">One squad per account. You can browse Rules and the Leaderboard without one — building a squad needs a login.</div>
+    <div class="overlay-message">Pick a team for any series, no league required — one squad per series, per account. Leagues (create or join under My Leagues) are an optional way to compare against friends. You can browse Rules without an account; My XI and My Leagues need a login. Signing up needs your first and last name too, so other players can see who manages which team on the leaderboard.</div>
+    <div class="field-group"><label for="ovFirstName">First name</label><input type="text" id="ovFirstName" placeholder="Jane"></div>
+    <div class="field-group"><label for="ovLastName">Last name</label><input type="text" id="ovLastName" placeholder="Doe"></div>
     <div class="field-group"><label for="ovEmail">Email</label><input type="email" id="ovEmail" placeholder="you@example.com"></div>
     <div class="field-group"><label for="ovPassword">Password</label><input type="password" id="ovPassword" placeholder="6+ characters"></div>
     <div class="auth-error" id="ovError"></div>
@@ -923,14 +1231,20 @@ function showLoginOverlay(dismissible=true){
   const errBox = backdrop.querySelector('#ovError');
   const run = async (mode)=>{
     errBox.textContent = '';
+    const firstName = backdrop.querySelector('#ovFirstName').value.trim();
+    const lastName = backdrop.querySelector('#ovLastName').value.trim();
     const email = backdrop.querySelector('#ovEmail').value.trim();
     const password = backdrop.querySelector('#ovPassword').value;
     if(!email || password.length < 6){
       errBox.textContent = 'Enter an email and a password of 6+ characters.';
       return;
     }
+    if(mode === 'signup' && (!firstName || !lastName)){
+      errBox.textContent = 'Enter your first and last name.';
+      return;
+    }
     const {error} = mode === 'signup'
-      ? await supabaseClient.auth.signUp({email, password})
+      ? await supabaseClient.auth.signUp({email, password, options:{data:{first_name:firstName, last_name:lastName}}})
       : await supabaseClient.auth.signInWithPassword({email, password});
     if(error){ errBox.textContent = error.message; return; }
     closeOverlay();
@@ -956,12 +1270,13 @@ function openPlayerPicker(excludeIds, onPick){
   backdrop.querySelector('[data-overlay-close]').addEventListener('click', closeOverlay);
   backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
 
+  const teams = resolveSeriesTeams(currentSeriesId, PLAYERS);
+
   function renderNationChoice(){
     document.getElementById('pickerBody').innerHTML = `
-      <div class="overlay-message">Choose a nation to browse.</div>
+      <div class="overlay-message">Choose a team to browse.</div>
       <div class="overlay-actions" style="justify-content:center; gap:14px;">
-        <button class="btn" data-nation="ENG">England</button>
-        <button class="btn" data-nation="AUS">Australia</button>
+        ${teams.map(t=>`<button class="btn" data-nation="${t.short_code}">${t.name}</button>`).join('')}
       </div>
     `;
     document.querySelectorAll('#pickerBody [data-nation]').forEach(btn=>{
@@ -971,13 +1286,14 @@ function openPlayerPicker(excludeIds, onPick){
 
   function renderPlayerList(nation){
     const avail = PLAYERS.filter(p=>p.nat===nation && !excludeIds.includes(p.id));
+    const teamName = (teams.find(t=>t.short_code===nation)||{}).name || nation;
     document.getElementById('pickerBody').innerHTML = `
-      <div class="overlay-message">${nation==='ENG'?'England':'Australia'} players available:</div>
+      <div class="overlay-message">${teamName} players available:</div>
       <div class="picker-list">
         ${avail.length ? avail.map(p=>`
           <button type="button" class="picker-row" data-pid="${p.id}">
             <span>${p.name}</span><span class="role-pill">${ROLE_LABEL[p.role]}</span>
-          </button>`).join('') : '<p class="auth-hint">No available players left from this nation.</p>'}
+          </button>`).join('') : '<p class="auth-hint">No available players left from this team.</p>'}
       </div>
       <div class="overlay-actions"><button class="btn secondary" data-back>&larr; Back</button></div>
     `;
@@ -1012,11 +1328,15 @@ function renderAuthRow(){
   }
 }
 
+/* Also loads first/last name alongside admin status — both live on the same
+   profiles row, so one query covers both. */
 async function loadIsAdmin(){
-  if(!session){ isAdmin = false; return; }
-  const {data, error} = await supabaseClient.from('profiles').select('is_admin').eq('user_id', session.user.id).maybeSingle();
+  if(!session){ isAdmin = false; myFirstName = ''; myLastName = ''; return; }
+  const {data, error} = await supabaseClient.from('profiles').select('is_admin, first_name, last_name').eq('user_id', session.user.id).maybeSingle();
   if(error){ console.error(error); isAdmin = false; return; }
   isAdmin = !!(data && data.is_admin);
+  myFirstName = (data && data.first_name) || '';
+  myLastName = (data && data.last_name) || '';
 }
 
 function updateAdminTabVisibility(){
@@ -1032,9 +1352,20 @@ function switchAdminSubtab(subtab){
   document.querySelectorAll('.subtab-btn').forEach(b=> b.classList.toggle('active', b.dataset.subtab===subtab));
   document.querySelectorAll('.admin-subpanel').forEach(p=> p.classList.remove('active'));
   document.getElementById('adminsub-'+subtab).classList.add('active');
-  if(subtab==='series') renderSeriesSetup();
+  if(subtab==='setup') renderSeriesSetup();
   if(subtab==='match') renderMatchSetup();
-  if(subtab==='players') renderPlayerSetup();
+}
+
+/* Points the player-facing PLAYERS/fixtures at whichever series My XI
+   currently has open (currentSeriesId, already resolved by loadMySquads()).
+   Shared by init() and the auth-state-change handler so login/logout always
+   leaves them in sync. */
+async function loadCurrentSeriesData(){
+  if(currentSeriesId){
+    await Promise.all([loadPlayers(currentSeriesId), loadFixtures(currentSeriesId)]);
+  } else {
+    PLAYERS = []; PLAYER_MAP = {}; fixtures = [];
+  }
 }
 
 /* ================= INIT ================= */
@@ -1070,26 +1401,42 @@ async function init(){
     console.error('getSession failed', e);
   }
   renderAuthRow(); // show something immediately, don't wait on the rest
-  if(!session) showLoginOverlay(true); // dismissible — Rules & Leaderboard are still browsable without an account
+  if(!session) showLoginOverlay(true); // dismissible — Rules is still browsable without an account
 
-  supabaseClient.auth.onAuthStateChange(async (_event, newSession)=>{
+  supabaseClient.auth.onAuthStateChange(async (event, newSession)=>{
     session = newSession;
-    try{ await loadMySquad(); }catch(e){ console.error(e); }
+    // Supabase fires one or more of these on startup (INITIAL_SESSION and/or
+    // others depending on version/scenario) on top of the sequential load
+    // below already handling first load — letting both run the full load
+    // concurrently is a race (whichever finishes last wins), and it
+    // flip-flopped isAdmin back to false in practice. Rather than guess at
+    // exact event names, just defer to the sequential flow entirely until
+    // it's finished; `session` above is still kept current in the meantime.
+    if(!didInitialLoad) return;
     try{ await loadIsAdmin(); }catch(e){ console.error(e); }
+    try{ await loadMySquads(); await loadMyLeagues(); await loadCurrentSeriesData(); }catch(e){ console.error(e); }
+    if(isAdmin && !adminSeriesId) adminSeriesId = seriesList[0] ? seriesList[0].id : null;
     renderAuthRow();
     updateAdminTabVisibility();
     renderAll();
+    renderCountdown();
   });
 
   try{
-    await Promise.all([loadPlayers(), loadFixtures()]);
-    await loadMySquad();
+    await loadTeamsList();
+    await loadVenuesList();
+    await loadSeriesList();
     await loadIsAdmin();
+    await loadMySquads();
+    await loadMyLeagues();
+    await loadCurrentSeriesData();
+    if(isAdmin && !adminSeriesId) adminSeriesId = seriesList[0] ? seriesList[0].id : null;
   }catch(e){
     console.error('Initial data load failed', e);
     const box = document.getElementById('authRow');
     box.innerHTML += `<span class="auth-error">Could not reach the database — check the schema has been run and the URL/key are correct (${e.message||e}).</span>`;
   }
+  didInitialLoad = true;
 
   renderAuthRow();
   updateAdminTabVisibility();
@@ -1115,11 +1462,11 @@ function switchTab(tab){
   document.getElementById('tab-'+tab).classList.add('active');
   if(tab==='leaderboard') renderLeaderboard();
   if(tab==='myxi') renderMyXI();
-  if(tab==='admin') switchAdminSubtab('series');
+  if(tab==='admin') switchAdminSubtab('setup');
 }
 
 function renderAll(){
-  if(isAdmin){ renderSeriesSetup(); renderMatchSetup(); renderPlayerSetup(); }
+  if(isAdmin){ renderSeriesSetup(); renderMatchSetup(); }
   renderMyXI();
   renderLeaderboard();
 }
@@ -1135,9 +1482,13 @@ function nextDeadline(){
 function startCountdown(){ renderCountdown(); setInterval(renderCountdown, 1000); }
 function renderCountdown(){
   const box = document.getElementById('countdownStrip');
+  if(!currentLeagueId){
+    box.innerHTML = `<span class="countdown-meta">Join a league in My XI to see its Test countdown.</span>`;
+    return;
+  }
   const nd = nextDeadline();
   if(!nd){
-    box.innerHTML = `<span class="countdown-meta">No upcoming lock deadlines — all fixtures editable under Admin &rarr; Series Setup.</span>`;
+    box.innerHTML = `<span class="countdown-meta">No upcoming lock deadlines — fixtures are edited under Admin &rarr; Series Setup.</span>`;
     return;
   }
   const diff = Math.max(0, nd.dl - new Date());
@@ -1157,16 +1508,134 @@ function renderCountdown(){
   `;
 }
 
-/* ================= PLAYER SETUP (add / edit / remove) ================= */
-let editingPlayerId = null;
-function renderPlayerSetup(){
-  const c = document.getElementById('playerSetupContent');
+/* ================= ADMIN: shared "which series am I editing" picker =================
+   Fixtures/Match Setup/Player Setup all edit one series at a time (adminSeriesId),
+   independent of whichever league/series the admin themself happens to be
+   playing in (currentLeagueId) — this picker is how they choose which. */
+function adminSeriesPickerHtml(){
+  if(seriesList.length===0){
+    return `<div class="notice">No series yet — create one under Admin &rarr; Series first.</div>`;
+  }
+  return `
+    <div class="card" style="margin-bottom:16px;">
+      <label class="field-label">Series being managed</label>
+      <select class="pick" id="adminSeriesSelect" style="max-width:320px;">
+        ${seriesList.map(s=>`<option value="${s.id}" ${s.id===adminSeriesId?'selected':''}>${s.name}</option>`).join('')}
+      </select>
+    </div>`;
+}
+/* Scoped to a container (not document.getElementById) because Fixtures/Match
+   Setup/Player Setup can all be in the DOM at once (renderAll() renders every
+   admin subpanel, not just the visible one) and each has its own picker with
+   this same id — an unscoped lookup would silently grab the wrong one. */
+function wireAdminSeriesPicker(container, onChange){
+  const sel = container.querySelector('#adminSeriesSelect');
+  if(sel) sel.addEventListener('change', ()=>{ adminSeriesId = sel.value; onChange(); });
+}
+
+/* ================= ADMIN: SERIES SETUP (series, teams, fixtures & players — one interface) ================= */
+async function renderSeriesSetup(){
+  const c = document.getElementById('seriesSetupContent');
   if(!c) return;
-  if(!supabaseClient){ c.innerHTML = `<div class="empty-state">Configure Supabase to manage players.</div>`; return; }
-  if(!isAdmin){
-    c.innerHTML = `<div class="empty-state"><div class="big">Admins only</div>Player Setup is restricted to league admins. Ask whoever set up this app to grant your account admin access if you need to manage the pool.</div>`;
+  if(!supabaseClient){ c.innerHTML = `<div class="empty-state">Configure Supabase first.</div>`; return; }
+  if(!isAdmin){ c.innerHTML = `<div class="empty-state"><div class="big">Admins only</div></div>`; return; }
+
+  if(!adminSeriesId) adminSeriesId = seriesList[0] ? seriesList[0].id : null;
+  const currentSeries = seriesList.find(s=>s.id===adminSeriesId);
+
+  const seriesListHtml = `
+    <div class="card">
+      <h3 style="margin-top:0; font-family:var(--font-display);">Series</h3>
+      <p class="panel-sub">A series is one real-world tour — its own teams, player pool, fixtures and match stats. Leagues (a separate tab) group friends competing within a series, and can share it with other leagues.</p>
+      ${seriesList.map(s=>`
+        <div class="player-row${s.id===adminSeriesId?' added':''}" data-sid="${s.id}">
+          <div class="player-name-wrap">
+            <span class="player-name">${s.name}</span>
+            <span class="role-pill">${s.teamA && s.teamB ? `${s.teamA.short_code} vs ${s.teamB.short_code}` : 'teams not set'}</span>
+          </div>
+          <div class="player-row-actions">
+            ${s.id===adminSeriesId ? '<span class="muted-on-light" style="font-size:12px; align-self:center;">managing</span>' : `<button class="btn small secondary" data-action="manageSeries" data-sid="${s.id}">Manage</button>`}
+            <button class="btn small secondary" data-action="renameSeries" data-sid="${s.id}">Rename</button>
+            <button class="btn small danger" data-action="removeSeries" data-sid="${s.id}">Delete</button>
+          </div>
+        </div>`).join('') || '<p class="muted">No series yet — create one below.</p>'}
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-top:14px;">
+        <div>
+          <label class="field-label">New series name</label>
+          <input type="text" id="newSeriesName" placeholder="e.g. India tour of Australia 2027">
+        </div>
+        <button class="btn" id="addSeriesBtn">Create series</button>
+      </div>
+    </div>
+  `;
+
+  if(!adminSeriesId){
+    c.innerHTML = `<h2 class="panel-title">Series Setup</h2>` + seriesListHtml;
+    wireSeriesListActions(c);
     return;
   }
+
+  adminPlayers = await fetchPlayers(adminSeriesId);
+  adminPlayerMap = Object.fromEntries(adminPlayers.map(p=>[p.id,p]));
+  adminFixtures = await fetchFixtures(adminSeriesId);
+  adminSeriesTeams = resolveSeriesTeams(adminSeriesId, adminPlayers);
+  const hasBothTeams = !!(currentSeries && currentSeries.teamA && currentSeries.teamB);
+
+  const teamPickerHtml = (slot, current)=> `
+    <div>
+      <label class="field-label">Team ${slot}</label>
+      <select class="pick" id="team${slot}Select" style="min-width:200px;">
+        <option value="">— choose —</option>
+        ${teamsList.map(t=>`<option value="${t.id}" ${current && current.id===t.id?'selected':''}>${t.name} (${t.short_code})</option>`).join('')}
+        <option value="__new__">+ Create new team</option>
+      </select>
+      <div id="team${slot}NewFields" style="display:none; margin-top:8px; gap:8px;">
+        <input type="text" id="team${slot}NewName" placeholder="Team name" style="padding:9px; border:1px solid var(--parchment-dim); border-radius:5px;">
+        <input type="text" id="team${slot}NewCode" placeholder="Code e.g. IND" maxlength="5" style="width:90px; padding:9px; border:1px solid var(--parchment-dim); border-radius:5px; text-transform:uppercase;">
+      </div>
+    </div>`;
+
+  const teamsHtml = `
+    <div class="card" style="margin-top:16px;">
+      <h3 style="margin-top:0; font-family:var(--font-display);">Teams for ${currentSeries.name}</h3>
+      <p class="panel-sub">Pick the two teams this series is contested between. Teams are shared master data — create one once, reuse it for any series.</p>
+      <div style="display:flex; gap:20px; flex-wrap:wrap;">
+        ${teamPickerHtml('A', currentSeries.teamA)}
+        ${teamPickerHtml('B', currentSeries.teamB)}
+      </div>
+      <div class="save-bar" style="margin-top:14px;"><button class="btn secondary" id="saveTeamsBtn">Save teams</button></div>
+    </div>
+  `;
+
+  const nextTest = adminFixtures.length ? Math.max(...adminFixtures.map(f=>f.test)) + 1 : 1;
+  const fixturesHtml = `
+    <div class="card" style="margin-top:16px;">
+      <h3 style="margin-top:0; font-family:var(--font-display);">Fixtures</h3>
+      <p class="panel-sub">Set the venue, date and 10am lock deadline for each Test in this series. Venues are shared too — typing an existing one reuses it.</p>
+      <div class="fixture-form-grid">
+        <div>
+          <label class="field-label">Test</label>
+          <input type="number" id="newFixtureTest" min="1" value="${nextTest}" style="width:100%; padding:9px; border:1px solid var(--parchment-dim); border-radius:5px;">
+        </div>
+        <div>
+          <label class="field-label">Venue</label>
+          <input type="text" id="newFixtureVenue" list="venueOptions" placeholder="e.g. Lord's" style="width:100%; padding:9px; border:1px solid var(--parchment-dim); border-radius:5px;">
+          <datalist id="venueOptions">${venuesList.map(v=>`<option value="${v.name}">`).join('')}</datalist>
+        </div>
+        <div>
+          <label class="field-label">Date</label>
+          <input type="date" id="newFixtureDate" style="width:100%; padding:9px; border:1px solid var(--parchment-dim); border-radius:5px;">
+        </div>
+        <div>
+          <label class="field-label">Lock deadline</label>
+          <input type="datetime-local" id="newFixtureDeadline" style="width:100%; padding:9px; border:1px solid var(--parchment-dim); border-radius:5px;">
+        </div>
+        <div><button class="btn" id="addFixtureBtn">Add fixture</button></div>
+      </div>
+      <div id="fixtureRows" style="margin-top:10px;"></div>
+      ${adminFixtures.length ? `<div class="save-bar"><button class="btn secondary" id="saveFixturesBtn">Save fixtures</button></div>` : '<p class="muted">No fixtures yet — add this series\' first Test above.</p>'}
+    </div>
+  `;
 
   const rowHtml = (p)=>{
     if(editingPlayerId === p.id){
@@ -1175,8 +1644,7 @@ function renderPlayerSetup(){
           <div class="player-edit-fields">
             <input type="text" id="editName" value="${p.name}">
             <select id="editNat" class="pick">
-              <option value="ENG" ${p.nat==='ENG'?'selected':''}>ENG</option>
-              <option value="AUS" ${p.nat==='AUS'?'selected':''}>AUS</option>
+              ${adminSeriesTeams.map(t=>`<option value="${t.short_code}" ${p.nat===t.short_code?'selected':''}>${t.short_code}</option>`).join('')}
             </select>
             <select id="editRole" class="pick">
               ${Object.keys(ROLE_LABEL).map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${ROLE_LABEL[r]}</option>`).join('')}
@@ -1201,22 +1669,27 @@ function renderPlayerSetup(){
       </div>`;
   };
 
-  c.innerHTML = `
-    <h2 class="panel-title">Players</h2>
-    <p class="panel-sub">Add, edit or remove players from the pool that My XI and Match Setup draw from. Changes are shared with everyone using this app.</p>
-    ${session ? '' : '<div class="notice">Log in to add, edit or remove players — everyone can browse the pool, only signed-in users can change it.</div>'}
-    <div class="notice">Removing a player already picked in someone's squad won't delete their squad — it just shows as "(removed player)" there, so remove sparingly once the series is underway.</div>
-
-    <div class="card">
-      <h3 style="margin-top:0; font-family:var(--font-display);">Add a player</h3>
+  const playersHtml = !hasBothTeams ? `
+    <div class="card" style="margin-top:16px;">
+      <h3 style="margin-top:0; font-family:var(--font-display);">Players</h3>
+      <div class="empty-state">Assign both teams above before adding players.</div>
+    </div>
+  ` : `
+    <div class="card" style="margin-top:16px;">
+      <h3 style="margin-top:0; font-family:var(--font-display);">Players</h3>
+      <p class="panel-sub">Add, edit or remove players from the pool that My XI and Match Setup draw from for this series. Changes are shared with every league on this series.</p>
+      ${session ? '' : '<div class="notice">Log in to add, edit or remove players — everyone can browse the pool, only signed-in users can change it.</div>'}
+      <div class="notice">Removing a player already picked in someone's squad won't delete their squad — it just shows as "(removed player)" there, so remove sparingly once the series is underway.</div>
       <div class="player-form-grid">
         <div>
           <label class="field-label">Name</label>
           <input type="text" id="newPlayerName" placeholder="e.g. Sam Konstas" ${session?'':'disabled'}>
         </div>
         <div>
-          <label class="field-label">Nationality</label>
-          <select id="newPlayerNat" class="pick" ${session?'':'disabled'}><option value="ENG">England</option><option value="AUS">Australia</option></select>
+          <label class="field-label">Team</label>
+          <select id="newPlayerNat" class="pick" ${session?'':'disabled'}>
+            ${adminSeriesTeams.map(t=>`<option value="${t.short_code}">${t.name}</option>`).join('')}
+          </select>
         </div>
         <div>
           <label class="field-label">Role</label>
@@ -1224,39 +1697,143 @@ function renderPlayerSetup(){
         </div>
         <div><button class="btn" id="addPlayerBtn" ${session?'':'disabled'}>Add player</button></div>
       </div>
-    </div>
-
-    <div class="rules-grid" style="margin-top:16px;">
-      <div class="nation-block">
-        <div class="nation-heading"><span class="flag-chip ENG">ENG</span> England pool (${PLAYERS.filter(p=>p.nat==='ENG').length})</div>
-        ${PLAYERS.filter(p=>p.nat==='ENG').map(rowHtml).join('') || '<p class="muted">No England players yet.</p>'}
-      </div>
-      <div class="nation-block">
-        <div class="nation-heading"><span class="flag-chip AUS">AUS</span> Australia pool (${PLAYERS.filter(p=>p.nat==='AUS').length})</div>
-        ${PLAYERS.filter(p=>p.nat==='AUS').map(rowHtml).join('') || '<p class="muted">No Australia players yet.</p>'}
+      <div class="rules-grid" style="margin-top:16px;">
+        <div class="nation-block">
+          <div class="nation-heading"><span class="flag-chip team-a">${adminSeriesTeams[0].short_code}</span> ${adminSeriesTeams[0].name} pool (${adminPlayers.filter(p=>p.nat===adminSeriesTeams[0].short_code).length})</div>
+          ${adminPlayers.filter(p=>p.nat===adminSeriesTeams[0].short_code).map(rowHtml).join('') || `<p class="muted">No ${adminSeriesTeams[0].name} players yet.</p>`}
+        </div>
+        <div class="nation-block">
+          <div class="nation-heading"><span class="flag-chip team-b">${adminSeriesTeams[1].short_code}</span> ${adminSeriesTeams[1].name} pool (${adminPlayers.filter(p=>p.nat===adminSeriesTeams[1].short_code).length})</div>
+          ${adminPlayers.filter(p=>p.nat===adminSeriesTeams[1].short_code).map(rowHtml).join('') || `<p class="muted">No ${adminSeriesTeams[1].name} players yet.</p>`}
+        </div>
       </div>
     </div>
   `;
 
-  if(!session) return;
+  c.innerHTML = `<h2 class="panel-title">Series Setup</h2>` + seriesListHtml + teamsHtml + fixturesHtml + playersHtml;
+  wireSeriesListActions(c);
+
+  /* ---- teams ---- */
+  ['A','B'].forEach(slot=>{
+    const sel = document.getElementById(`team${slot}Select`);
+    const newFields = document.getElementById(`team${slot}NewFields`);
+    sel.addEventListener('change', ()=>{ newFields.style.display = sel.value==='__new__' ? 'flex' : 'none'; });
+  });
+  document.getElementById('saveTeamsBtn').addEventListener('click', async ()=>{
+    async function resolveTeamId(slot){
+      const sel = document.getElementById(`team${slot}Select`);
+      if(sel.value === '__new__'){
+        const name = document.getElementById(`team${slot}NewName`).value.trim();
+        const short_code = document.getElementById(`team${slot}NewCode`).value.trim().toUpperCase();
+        if(!name || !short_code) throw new Error(`Enter both a name and a code for Team ${slot}.`);
+        const {data, error} = await supabaseClient.from('teams').insert({name, short_code}).select().single();
+        if(error) throw new Error(error.code==='23505' ? `A team named "${name}" or coded "${short_code}" already exists — pick it from the list instead.` : error.message);
+        return data.id;
+      }
+      if(!sel.value) throw new Error(`Choose or create Team ${slot}.`);
+      return sel.value;
+    }
+    let teamAId, teamBId;
+    try{
+      teamAId = await resolveTeamId('A');
+      teamBId = await resolveTeamId('B');
+    }catch(e){ showAlert(e.message); return; }
+    if(teamAId === teamBId){ showAlert('Team A and Team B must be different teams.'); return; }
+    const {error} = await supabaseClient.from('series').update({team_a_id: teamAId, team_b_id: teamBId}).eq('id', adminSeriesId);
+    if(error){ showAlert(error.message); return; }
+    await loadTeamsList();
+    await loadSeriesList();
+    if(adminSeriesId === currentSeriesId) await loadCurrentSeriesData();
+    showAlert('Teams saved.');
+    renderSeriesSetup();
+  });
+
+  /* ---- fixtures ---- */
+  const fixRows = document.getElementById('fixtureRows');
+  fixRows.innerHTML = adminFixtures.map(f=>`
+    <div class="fixture-row">
+      <span class="fixture-num">T${f.test}</span>
+      <input type="text" data-f="venue" data-test="${f.test}" value="${f.venue}">
+      <input type="date" data-f="date" data-test="${f.test}" value="${f.date}">
+      <input type="datetime-local" data-f="deadline" data-test="${f.test}" value="${f.deadline}">
+      <div class="fixture-row-actions" style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+        <span class="muted-on-light" style="font-size:11px;">deadline</span>
+        <button type="button" class="link-btn" data-action="removeFixture" data-test="${f.test}" style="font-size:11px; color:var(--oxblood);">Remove</button>
+      </div>
+    </div>
+  `).join('');
+
+  async function registerVenueIfNew(name){
+    if(venuesList.some(v=>v.name===name)) return;
+    const {error} = await supabaseClient.from('venues').insert({name});
+    if(error && error.code !== '23505') console.error(error);
+    await loadVenuesList();
+  }
+
+  document.getElementById('addFixtureBtn').addEventListener('click', async ()=>{
+    const test = parseInt(document.getElementById('newFixtureTest').value);
+    const venue = document.getElementById('newFixtureVenue').value.trim();
+    const date = document.getElementById('newFixtureDate').value;
+    const deadline = document.getElementById('newFixtureDeadline').value;
+    if(!test || test < 1){ showAlert('Enter a Test number of 1 or more.'); return; }
+    if(!venue){ showAlert('Enter a venue.'); return; }
+    if(!date){ showAlert('Enter a date.'); return; }
+    if(!deadline){ showAlert('Enter a lock deadline.'); return; }
+    if(adminFixtures.some(f=>f.test===test)){ showAlert(`Test ${test} already exists in this series — edit it below instead, or pick a different number.`); return; }
+    const {error} = await supabaseClient.from('fixtures').insert({series_id: adminSeriesId, test, venue, date, deadline: new Date(deadline).toISOString()});
+    if(error){ showAlert(error.message); return; }
+    await registerVenueIfNew(venue);
+    if(adminSeriesId === currentSeriesId){ await loadFixtures(adminSeriesId); renderCountdown(); }
+    renderSeriesSetup();
+  });
+
+  fixRows.querySelectorAll('[data-action="removeFixture"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const test = parseInt(btn.dataset.test);
+      if(!(await showConfirm(`Remove Test ${test} from this series? Any match stats already entered for it go too.`, 'Remove fixture'))) return;
+      const {error} = await supabaseClient.from('fixtures').delete().eq('series_id', adminSeriesId).eq('test', test);
+      if(error){ showAlert(error.message); return; }
+      if(adminSeriesId === currentSeriesId){ await loadFixtures(adminSeriesId); renderCountdown(); }
+      renderSeriesSetup();
+    });
+  });
+
+  const saveFixturesBtn = document.getElementById('saveFixturesBtn');
+  if(saveFixturesBtn) saveFixturesBtn.addEventListener('click', async ()=>{
+    const updates = adminFixtures.map(f=>({...f}));
+    document.querySelectorAll('#fixtureRows input').forEach(inp=>{
+      const f = updates.find(x=>x.test==inp.dataset.test);
+      if(f) f[inp.dataset.f] = inp.value;
+    });
+    const rows = updates.map(f=>({series_id: adminSeriesId, test:f.test, venue:f.venue, date:f.date, deadline: new Date(f.deadline).toISOString()}));
+    const {error} = await supabaseClient.from('fixtures').upsert(rows);
+    if(error){ showAlert(error.message); return; }
+    for(const f of updates) await registerVenueIfNew(f.venue);
+    adminFixtures = await fetchFixtures(adminSeriesId);
+    if(adminSeriesId === currentSeriesId){ await loadFixtures(adminSeriesId); renderCountdown(); }
+    showAlert('Fixtures saved.');
+  });
+
+  /* ---- players ---- */
+  if(!hasBothTeams || !session) return;
 
   document.getElementById('addPlayerBtn').addEventListener('click', async ()=>{
     const name = document.getElementById('newPlayerName').value.trim();
     const nat = document.getElementById('newPlayerNat').value;
     const role = document.getElementById('newPlayerRole').value;
     if(!name){ showAlert('Enter a player name.'); return; }
-    const id = slugify(name, nat);
-    const {error} = await supabaseClient.from('players').insert({id, name, nat, role});
+    const id = slugify(name, nat, adminPlayers);
+    const {error} = await supabaseClient.from('players').insert({id, name, nat, role, series_id: adminSeriesId});
     if(error){ showAlert(error.message); return; }
-    await loadPlayers();
-    renderPlayerSetup();
+    if(adminSeriesId === currentSeriesId) await loadPlayers(adminSeriesId);
+    renderSeriesSetup();
   });
 
   c.querySelectorAll('[data-action="edit"]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{ editingPlayerId = btn.dataset.pid; renderPlayerSetup(); });
+    btn.addEventListener('click', ()=>{ editingPlayerId = btn.dataset.pid; renderSeriesSetup(); });
   });
   c.querySelectorAll('[data-action="cancelEdit"]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{ editingPlayerId = null; renderPlayerSetup(); });
+    btn.addEventListener('click', ()=>{ editingPlayerId = null; renderSeriesSetup(); });
   });
   c.querySelectorAll('[data-action="saveEdit"]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
@@ -1264,25 +1841,80 @@ function renderPlayerSetup(){
       const name = document.getElementById('editName').value.trim();
       const nat = document.getElementById('editNat').value;
       const role = document.getElementById('editRole').value;
-      const {error} = await supabaseClient.from('players').update({name, nat, role}).eq('id', pid);
+      const {error} = await supabaseClient.from('players').update({name, nat, role}).eq('series_id', adminSeriesId).eq('id', pid);
       if(error){ showAlert(error.message); return; }
       editingPlayerId = null;
-      await loadPlayers();
-      renderPlayerSetup();
+      if(adminSeriesId === currentSeriesId) await loadPlayers(adminSeriesId);
+      renderSeriesSetup();
     });
   });
   c.querySelectorAll('[data-action="remove"]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       const pid = btn.dataset.pid;
-      const p = PLAYER_MAP[pid];
+      const p = adminPlayerMap[pid];
       if(!(await showConfirm(`Remove ${p ? p.name : pid} from the pool?`, 'Remove player'))) return;
-      const {error} = await supabaseClient.from('players').delete().eq('id', pid);
+      const {error} = await supabaseClient.from('players').delete().eq('series_id', adminSeriesId).eq('id', pid);
       if(error){ showAlert(error.message); return; }
-      await loadPlayers();
-      renderPlayerSetup();
+      if(adminSeriesId === currentSeriesId) await loadPlayers(adminSeriesId);
+      renderSeriesSetup();
     });
   });
 }
+
+function wireSeriesListActions(c){
+  const addBtn = document.getElementById('addSeriesBtn');
+  if(addBtn) addBtn.addEventListener('click', async ()=>{
+    const name = document.getElementById('newSeriesName').value.trim();
+    if(!name){ showAlert('Enter a series name.'); return; }
+    const {data, error} = await supabaseClient.from('series').insert({name}).select().single();
+    if(error){ showAlert(error.message); return; }
+    await loadSeriesList();
+    adminSeriesId = data.id;
+    renderSeriesSetup();
+  });
+  c.querySelectorAll('[data-action="manageSeries"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ adminSeriesId = btn.dataset.sid; renderSeriesSetup(); });
+  });
+  c.querySelectorAll('[data-action="renameSeries"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const s = seriesList.find(x=>x.id===btn.dataset.sid);
+      const backdrop = openOverlay(`
+        <div class="overlay-title">Rename series</div>
+        <div class="field-group"><label for="renameSeriesInput">Name</label><input type="text" id="renameSeriesInput" value="${s?s.name:''}"></div>
+        <div class="overlay-actions"><button class="btn" data-overlay-ok>Save</button></div>
+      `);
+      backdrop.querySelector('[data-overlay-close]').addEventListener('click', closeOverlay);
+      backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
+      backdrop.querySelector('[data-overlay-ok]').addEventListener('click', async ()=>{
+        const newName = document.getElementById('renameSeriesInput').value.trim();
+        if(!newName) return;
+        const {error} = await supabaseClient.from('series').update({name:newName}).eq('id', btn.dataset.sid);
+        closeOverlay();
+        if(error){ showAlert(error.message); return; }
+        await loadSeriesList();
+        renderSeriesSetup();
+      });
+    });
+  });
+  c.querySelectorAll('[data-action="removeSeries"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const s = seriesList.find(x=>x.id===btn.dataset.sid);
+      if(!(await showConfirm(`Delete "${s?s.name:''}" and every league, player, fixture and stat under it? This cannot be undone.`, 'Delete series'))) return;
+      const {error} = await supabaseClient.from('series').delete().eq('id', btn.dataset.sid);
+      if(error){ showAlert(error.message); return; }
+      if(adminSeriesId===btn.dataset.sid) adminSeriesId = null;
+      await loadSeriesList();
+      if(!adminSeriesId) adminSeriesId = seriesList[0] ? seriesList[0].id : null;
+      renderSeriesSetup();
+    });
+  });
+}
+
+/* League creation/management moved to the My Leagues tab (self-service —
+   see myLeaguesHtml()/wireMyLeagues()) since it no longer needs an admin.
+   editingPlayerId below is used by the Players section inside
+   renderSeriesSetup() above. */
+let editingPlayerId = null;
 
 /* ================= MY XI ================= */
 let draft = null; // local, unsaved editing state for My XI: {_squadId, squad14, xi11, captain, viceCaptain}
@@ -1327,6 +1959,30 @@ function renderMyXI(){
   const c = document.getElementById('myxiContent');
   if(!session){ c.innerHTML = `<div class="empty-state"><div class="big">Log in to see your XI</div></div>`; return; }
 
+  if(!currentSeriesId){
+    if(seriesList.length===0){
+      c.innerHTML = `<h2 class="panel-title">My XI</h2><div class="empty-state"><div class="big">No series available yet</div>Ask an admin to set one up under Admin &rarr; Series Setup.</div>`;
+      return;
+    }
+    c.innerHTML = `
+      <h2 class="panel-title">My XI</h2>
+      <div class="card">
+        <h3 style="margin-top:0; font-family:var(--font-display);">Pick a series</h3>
+        <p class="panel-sub" style="margin-top:0;">Choose which series to build your team for — that's all it takes to start. Joining a league to compare against friends is a separate, optional step under My Leagues.</p>
+        ${seriesList.map(s=>`
+          <div class="player-row" data-sid="${s.id}">
+            <div class="player-name-wrap"><span class="player-name">${s.name}</span></div>
+            <div class="player-row-actions"><button class="btn small" data-action="pickSeries" data-sid="${s.id}">Start team</button></div>
+          </div>`).join('')}
+      </div>
+    `;
+    c.querySelectorAll('[data-action="pickSeries"]').forEach(btn=>{
+      btn.addEventListener('click', ()=> switchToSeries(btn.dataset.sid));
+    });
+    return;
+  }
+
+  const activeSeries = seriesList.find(s=>s.id===currentSeriesId) || {id: currentSeriesId, name: 'this series'};
   ensureDraft();
   const squad = mySquad;
   const isBuilding = !squad;
@@ -1348,14 +2004,29 @@ function renderMyXI(){
     JSON.stringify([...draft.squad14].sort()) !== JSON.stringify([...squad.squad14].sort()) ||
     JSON.stringify([...draft.xi11].sort()) !== JSON.stringify([...squad.xi11].sort()) ||
     draft.captain !== squad.captain || draft.viceCaptain !== squad.viceCaptain;
+  const newSeriesOptions = seriesList.filter(s=> s.id!==currentSeriesId && !mySquads.some(sq=>sq.seriesId===s.id));
+  const seriesSwitcherHtml = (mySquads.length>0 || newSeriesOptions.length>0) ? `
+    <div class="card" style="margin-bottom:16px;">
+      <label class="field-label">Your team</label>
+      <select class="pick" id="seriesSwitchSelect" style="max-width:340px; display:block; margin-top:4px;">
+        ${mySquads.map(s=>{
+          const sname = (seriesList.find(x=>x.id===s.seriesId)||{}).name || 'Unknown series';
+          return `<option value="${s.seriesId}" ${s.seriesId===currentSeriesId?'selected':''}>${sname} &mdash; ${s.teamName}</option>`;
+        }).join('')}
+        ${isBuilding ? `<option value="${currentSeriesId}" selected>${activeSeries.name} &mdash; new team</option>` : ''}
+        ${newSeriesOptions.length ? `<optgroup label="Start a new team">${newSeriesOptions.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</optgroup>` : ''}
+      </select>
+    </div>
+  ` : '';
 
   const xiSlotsHtml = Array.from({length:11}, (_,i)=> draft.xi11[i] ? squadCardHtml(draft.xi11[i], 'xi', baselineSquad14) : emptySlotHtml('xi')).join('');
   const benchSlotsHtml = Array.from({length:3}, (_,i)=> draftBench[i] ? squadCardHtml(draftBench[i], 'bench', baselineSquad14) : emptySlotHtml('bench')).join('');
 
   c.innerHTML = `
     <h2 class="panel-title">My XI</h2>
+    ${seriesSwitcherHtml}
     <p class="panel-sub">${isBuilding
-      ? "Build your 14-man squad: add players, arrange your starting XI, set a captain and vice-captain, then commit."
+      ? `Build your 14-man squad for ${activeSeries.name}: add players, arrange your starting XI, set a captain and vice-captain, then commit.`
       : !hasLockedOnce
         ? "No transfer limit yet — chop and change as much as you like right up to the first Test's deadline. The 2-transfer limit starts from the window after that."
         : "Drag players between XI and bench anytime — that's always free. Commit any time to declare your squad for the upcoming Test; only the deadline actually evaluates your transfer count."}</p>
@@ -1364,7 +2035,7 @@ function renderMyXI(){
       <div class="card" style="margin-bottom:16px;">
         <label class="field-label">Team name</label>
         <input type="text" id="teamNameField" placeholder="e.g. Bodyline Bandits" maxlength="30" value="${window.__pendingTeamName||''}" style="width:100%; max-width:360px; padding:9px; border:1px solid var(--parchment-dim); border-radius:5px;">
-        <p class="muted-on-light" style="font-size:12px; margin-top:6px;">Must be unique across the whole league — this is what shows on the leaderboard.</p>
+        <p class="muted-on-light" style="font-size:12px; margin-top:6px;">Must be unique within ${activeSeries.name} — no league required to build this, though joining one under My Leagues lets you compare against friends.</p>
       </div>
     ` : ''}
 
@@ -1408,8 +2079,11 @@ function renderMyXI(){
         <button class="btn" id="commitBtn" ${canCommit?'':'disabled'}>${isBuilding ? 'Create squad' : 'Commit changes'}</button>
       </div>
     </div>
-    ${!isBuilding ? `<div class="action-bar-secondary"><button class="link-btn" id="resetSquadBtn">Reset squad entirely</button></div>` : ''}
+    ${!isBuilding ? `<div class="action-bar-secondary"><button class="link-btn" id="resetSquadBtn">Reset team entirely</button></div>` : ''}
   `;
+
+  const seriesSwitchSelect = c.querySelector('#seriesSwitchSelect');
+  if(seriesSwitchSelect) seriesSwitchSelect.addEventListener('change', ()=> switchToSeries(seriesSwitchSelect.value));
 
   /* ---- persist team name field across re-renders (every card action re-renders this panel) ---- */
   const teamNameFieldEl = document.getElementById('teamNameField');
@@ -1554,13 +2228,22 @@ function renderMyXI(){
   });
   const resetBtn = document.getElementById('resetSquadBtn');
   if(resetBtn) resetBtn.addEventListener('click', async ()=>{
-    if(!(await showConfirm('Reset your whole squad? This cannot be undone.', 'Reset squad'))) return;
-    const {error} = await supabaseClient.from('squads').delete().eq('user_id', session.user.id);
+    const sharedLeagueCount = myLeagues.filter(l=>l.seriesId===currentSeriesId).length;
+    const warning = sharedLeagueCount > 0
+      ? ` You're in ${sharedLeagueCount} league${sharedLeagueCount>1?'s':''} on this series — they'll show no team for you until you pick a new one.`
+      : '';
+    if(!(await showConfirm(`Reset your team on this series? This cannot be undone.${warning}`, 'Reset team'))) return;
+    const {error} = await supabaseClient.from('squads').delete().eq('user_id', session.user.id).eq('series_id', currentSeriesId);
     if(error){ showAlert(error.message); return; }
-    mySquad = null;
     draft = null;
     window.__pendingTeamName = '';
+    localStorage.removeItem('currentSeriesId');
+    currentSeriesId = null; // let loadMySquads() re-resolve from scratch, since localStorage no longer points at the just-deleted series
+    await loadMySquads();
+    if(currentSeriesId){ await Promise.all([loadPlayers(currentSeriesId), loadFixtures(currentSeriesId)]); }
+    else { PLAYERS = []; PLAYER_MAP = {}; fixtures = []; }
     renderAll();
+    renderCountdown();
   });
 
   /* ---- commit ---- */
@@ -1589,9 +2272,12 @@ function renderMyXI(){
         return;
       }
       const bench = draft.squad14.filter(id=>!draft.xi11.includes(id));
+      const managerName = [myFirstName, myLastName].filter(Boolean).join(' ');
       const {error} = await supabaseClient.from('squads').insert({
         user_id: userData.user.id,
+        series_id: currentSeriesId,
         team_name: teamName,
+        manager_name: managerName || null,
         squad14: draft.squad14, xi11: draft.xi11, bench3: bench,
         captain: draft.captain, vice_captain: draft.viceCaptain,
         baseline_squad14: draft.squad14,
@@ -1601,7 +2287,7 @@ function renderMyXI(){
         if(error.code === '23503'){
           showAlert('Your account session is out of sync with the database. Please log out, log back in, and try again.', 'Could not create squad');
         } else if(error.code === '23505'){
-          showAlert('That team name is already taken — pick a different one.', 'Could not create squad');
+          showAlert('That team name is already taken on this series — pick a different one.', 'Could not create squad');
         } else {
           showAlert('Could not create squad: '+error.message, 'Error');
         }
@@ -1609,10 +2295,11 @@ function renderMyXI(){
       }
       draft = null;
       window.__pendingTeamName = '';
-      await loadMySquad();
+      localStorage.setItem('currentSeriesId', currentSeriesId);
+      await loadMySquads();
       renderAuthRow();
       renderAll();
-      showAlert('Squad created — this is what will be scored once the first Test locks.', 'Squad created');
+      showAlert(`Team created for ${activeSeries.name} — this is what will be scored once the first Test locks. Join a league under My Leagues if you'd like to compare against friends.`, 'Team created');
       return;
     }
 
@@ -1633,94 +2320,72 @@ function renderMyXI(){
 }
 
 /* ================= MATCH CENTRE ================= */
-/* ================= ADMIN: SERIES SETUP (fixtures) ================= */
-async function renderSeriesSetup(){
-  const c = document.getElementById('seriesSetupContent');
-  if(!c) return;
-  if(!supabaseClient){ c.innerHTML = `<div class="empty-state">Configure Supabase first.</div>`; return; }
-  if(!isAdmin){ c.innerHTML = `<div class="empty-state"><div class="big">Admins only</div></div>`; return; }
-
-  c.innerHTML = `
-    <h3 style="margin-top:0; font-family:var(--font-display);">Series fixtures</h3>
-    <p class="panel-sub">Set the venue, date and 10am lock deadline for each Test.</p>
-    <div class="card">
-      <div id="fixtureRows"></div>
-      <div class="save-bar"><button class="btn secondary" id="saveFixturesBtn">Save fixtures</button></div>
-    </div>
-  `;
-
-  const fixRows = document.getElementById('fixtureRows');
-  fixRows.innerHTML = fixtures.map(f=>`
-    <div class="fixture-row">
-      <span class="fixture-num">T${f.test}</span>
-      <input type="text" data-f="venue" data-test="${f.test}" value="${f.venue}">
-      <input type="date" data-f="date" data-test="${f.test}" value="${f.date}">
-      <input type="datetime-local" data-f="deadline" data-test="${f.test}" value="${f.deadline}">
-      <span class="muted-on-light" style="font-size:11px;">deadline</span>
-    </div>
-  `).join('');
-
-  document.getElementById('saveFixturesBtn').addEventListener('click', async ()=>{
-    const updates = fixtures.map(f=>({...f}));
-    document.querySelectorAll('#fixtureRows input').forEach(inp=>{
-      const f = updates.find(x=>x.test==inp.dataset.test);
-      if(f) f[inp.dataset.f] = inp.value;
-    });
-    const rows = updates.map(f=>({test:f.test, venue:f.venue, date:f.date, deadline: new Date(f.deadline).toISOString()}));
-    const {error} = await supabaseClient.from('fixtures').upsert(rows);
-    if(error){ showAlert(error.message); return; }
-    await loadFixtures();
-    renderCountdown();
-    showAlert('Fixtures saved.');
-  });
-}
-
 /* ================= ADMIN: MATCH SETUP (stats + lock) ================= */
 async function renderMatchSetup(){
   const c = document.getElementById('matchSetupContent');
   if(!c) return;
   if(!supabaseClient){ c.innerHTML = `<div class="empty-state">Configure Supabase first.</div>`; return; }
   if(!isAdmin){ c.innerHTML = `<div class="empty-state"><div class="big">Admins only</div></div>`; return; }
+  if(!adminSeriesId) adminSeriesId = seriesList[0] ? seriesList[0].id : null;
+  if(!adminSeriesId){
+    c.innerHTML = `<h3 style="margin-top:0; font-family:var(--font-display);">Enter match stats &amp; lock a Test</h3>${adminSeriesPickerHtml()}`;
+    return;
+  }
+  adminPlayers = await fetchPlayers(adminSeriesId);
+  adminPlayerMap = Object.fromEntries(adminPlayers.map(p=>[p.id,p]));
+  adminFixtures = await fetchFixtures(adminSeriesId);
+  adminSeriesTeams = resolveSeriesTeams(adminSeriesId, adminPlayers);
 
   c.innerHTML = `
     <h3 style="margin-top:0; font-family:var(--font-display);">Enter match stats &amp; lock a Test</h3>
     <p class="panel-sub">Enter each player's numbers after a Test finishes, then lock it in for scoring.</p>
+    ${adminSeriesPickerHtml()}
+    ${adminSeriesTeams.length<2 ? '<div class="empty-state">This series needs both teams assigned first — set them under Admin &rarr; Series Setup.</div>' :
+      adminFixtures.length===0 ? '<div class="empty-state">This series has no fixtures yet — add some under Admin &rarr; Series Setup.</div>' : `
     <div class="card">
       <label class="field-label">Test</label>
       <select class="pick" id="statsTestSelect" style="max-width:260px;">
-        ${fixtures.map(f=>`<option value="${f.test}">Test ${f.test} — ${f.venue}</option>`).join('')}
+        ${adminFixtures.map(f=>`<option value="${f.test}">Test ${f.test} — ${f.venue}</option>`).join('')}
       </select>
+      <h4 style="margin:18px 0 4px; font-family:var(--font-display);">1. Playing XI &amp; automatic substitutions</h4>
+      <p class="muted-on-light" style="font-size:12px; margin:0 0 10px;">Tick who actually took the field once the real teams are announced — this both drives automatic substitutions (anyone in a fantasy team's locked XI who isn't ticked is replaced by their first bench player, in squad order, who is — same idea as Fantasy Premier League's autosubs, with a captain's bonus passing to the vice-captain if the captain didn't play) and decides who you can log scoring against below. Leave everyone unticked until the real teams are out.</p>
+      <div id="playingXiWrap"></div>
+      <div class="save-bar"><button class="btn secondary" id="savePlayingXiBtn">Save playing XI</button></div>
+
+      <h4 style="margin:24px 0 4px; font-family:var(--font-display);">2. Innings &amp; scoring</h4>
       <div id="statsTableWrap"></div>
       <div class="save-bar">
         <button class="btn secondary" id="saveStatsBtn">Save stats (don't lock yet)</button>
-        <button class="btn" id="lockTestBtn">Save stats &amp; lock this Test for all teams</button>
+        <button class="btn" id="lockTestBtn">Save stats &amp; lock this Test for all leagues on this series</button>
       </div>
-      <p class="muted-on-light" style="font-size:12px; margin-top:8px;">Locking snapshots every saved squad's current XI/captain into this Test's scoring record and resets everyone's 2-swap window for the next Test.</p>
+      <p class="muted-on-light" style="font-size:12px; margin-top:8px;">Locking snapshots every saved squad's current XI/captain, in every league on this series, into this Test's scoring record and resets their 2-swap window for the next Test.</p>
     </div>
-
-    <div class="card" style="margin-top:16px;">
-      <h4 style="margin:0 0 4px; font-family:var(--font-display);">Playing XI &amp; automatic substitutions</h4>
-      <p class="muted-on-light" style="font-size:12px; margin:0 0 10px;">Tick who actually took the field once the real teams are announced. Anyone in a fantasy team's locked XI who isn't ticked here is automatically replaced by their first bench player (in squad order) who is — same idea as Fantasy Premier League's autosubs. If a captain didn't play, the armband's bonus passes to the vice-captain instead. Leave everyone unticked until the real teams are out; nothing is subbed for a Test with no ticks.</p>
-      <div id="playingXiWrap"></div>
-      <div class="save-bar"><button class="btn secondary" id="savePlayingXiBtn">Save playing XI</button></div>
-    </div>
+    `}
   `;
+  wireAdminSeriesPicker(c, renderMatchSetup);
 
   const testSelect = document.getElementById('statsTestSelect');
-  testSelect.addEventListener('change', ()=> loadAndRenderMatchSetup(parseInt(testSelect.value)));
-  if(fixtures.length) loadAndRenderMatchSetup(fixtures[0].test);
+  if(testSelect){
+    testSelect.addEventListener('change', ()=> loadAndRenderMatchSetup(parseInt(testSelect.value)));
+    if(adminFixtures.length) loadAndRenderMatchSetup(adminFixtures[0].test);
+  }
 }
 
 async function loadAndRenderMatchSetup(testNum){
-  const {stats, playingXi} = await getMatchDataForTest(testNum);
+  const {stats, playingXi, innings} = await getMatchDataForTest(adminSeriesId, testNum);
   currentStatsDraft = JSON.parse(JSON.stringify(stats));
   currentPlayingXiDraft = [...playingXi];
+  currentInningsDraft = innings.map(e=>({...e}));
+  activeInningsIdx = 0;
   renderStatsTable(testNum);
   renderPlayingXiTable(testNum);
 }
 
 let currentStatsDraft = {};
 let currentPlayingXiDraft = [];
+let currentInningsDraft = []; // [{battingCode, inn}] in the order they were added, max 4, max 2 per team
+let activeInningsIdx = 0;
+let adminSeriesTeams = []; // the two {id,name,short_code} teams for adminSeriesId — see resolveSeriesTeams()
 const STAT_COLUMN_GROUPS = {
   batting: [
     {key:'runs', label:'Runs', type:'number'},
@@ -1739,21 +2404,72 @@ const STAT_COLUMN_GROUPS = {
     {key:'runouts', label:'RO', type:'number'},
   ],
 };
-const INNINGS_TABS = [
-  {key:'ENG_inn1', nat:'ENG', inn:'inn1', label:'England · Inn 1'},
-  {key:'ENG_inn2', nat:'ENG', inn:'inn2', label:'England · Inn 2'},
-  {key:'AUS_inn1', nat:'AUS', inn:'inn1', label:'Australia · Inn 1'},
-  {key:'AUS_inn2', nat:'AUS', inn:'inn2', label:'Australia · Inn 2'},
-];
+/* Innings are added one at a time by an admin picking who's batting — up to
+   4 total (2 per side), in whatever order they actually happened. Bowling
+   and fielding for an innings always belong to the OTHER series team, since
+   that's who's on the field while this team bats. */
+function battingTeamFor(entry){ return adminSeriesTeams.find(t=>t.short_code===entry.battingCode); }
+function bowlingTeamFor(entry){ return adminSeriesTeams.find(t=>t.short_code!==entry.battingCode); }
+function inningsKey(entry){ return entry.battingCode+'_inn'+entry.inn; }
+function inningsLabel(entry){
+  const t = battingTeamFor(entry);
+  return (t ? t.name : entry.battingCode) + ' · Inn ' + entry.inn;
+}
+function availableBattingTeams(){
+  return adminSeriesTeams.filter(t => currentInningsDraft.filter(e=>e.battingCode===t.short_code).length < 2);
+}
+function addInningsButtonHtml(){
+  const avail = availableBattingTeams();
+  if(currentInningsDraft.length>=4 || !avail.length) return '';
+  return `<button type="button" class="innings-add-btn" id="addInningsBtn" title="Add innings" ${session?'':'disabled'}>+</button>`;
+}
+function wireAddInningsButton(container, testNum){
+  const btn = container.querySelector('#addInningsBtn');
+  if(!btn) return;
+  btn.addEventListener('click', ()=>{
+    const avail = availableBattingTeams();
+    if(avail.length===1){ addInningsEntry(avail[0].short_code, testNum); return; }
+    // Two teams still available — swap the + for a couple of team-code
+    // buttons in place, rather than popping any kind of dialog.
+    const holder = btn.parentElement;
+    holder.innerHTML = avail.map(t=>`<button type="button" class="innings-add-btn" data-addteam="${t.short_code}" style="width:auto; padding:0 8px;">${t.short_code}</button>`).join('')
+      + `<button type="button" class="innings-add-btn" data-addcancel="1" title="Cancel">&times;</button>`;
+    holder.querySelectorAll('[data-addteam]').forEach(b=> b.addEventListener('click', ()=> addInningsEntry(b.dataset.addteam, testNum)));
+    holder.querySelector('[data-addcancel]').addEventListener('click', ()=> renderStatsTable(testNum));
+  });
+}
+function addInningsEntry(code, testNum){
+  const inn = currentInningsDraft.filter(e=>e.battingCode===code).length + 1;
+  currentInningsDraft.push({battingCode: code, inn});
+  activeInningsIdx = currentInningsDraft.length - 1;
+  renderStatsTable(testNum);
+}
+function editInningsEntry(idx, testNum){
+  const entry = currentInningsDraft[idx];
+  const other = bowlingTeamFor(entry);
+  if(!other) return;
+  const clash = currentInningsDraft.some((e,i)=> i!==idx && e.battingCode===other.short_code && e.inn===entry.inn);
+  if(clash){ showAlert(`${other.name} already has an Inn ${entry.inn} — remove that one first if you want to swap this one to them.`); return; }
+  entry.battingCode = other.short_code;
+  activeInningsIdx = idx;
+  renderStatsTable(testNum);
+}
+async function deleteInningsEntry(idx, testNum){
+  const entry = currentInningsDraft[idx];
+  if(!(await showConfirm(`Remove ${inningsLabel(entry)}? Any stats already entered for it stay saved and reappear if you re-add it.`, 'Delete innings?'))) return;
+  currentInningsDraft.splice(idx,1);
+  activeInningsIdx = Math.max(0, Math.min(activeInningsIdx, currentInningsDraft.length-1));
+  renderStatsTable(testNum);
+}
 
 function buildStatTable(nat, inn, category){
   const cols = STAT_COLUMN_GROUPS[category];
-  const players = PLAYERS.filter(p=>p.nat===nat);
+  const players = adminPlayers.filter(p=>p.nat===nat && currentPlayingXiDraft.includes(p.id));
   return `
     <div class="table-scroll">
     <table class="stat-entry">
       <tr><th>Player</th>${cols.map(c=>`<th>${c.label}</th>`).join('')}</tr>
-      ${players.map(p=>{
+      ${players.length ? players.map(p=>{
         const playerStats = currentStatsDraft[p.id] || {};
         const s = playerStats[inn] || {};
         return `<tr data-pid="${p.id}" data-inn="${inn}">
@@ -1763,39 +2479,84 @@ function buildStatTable(nat, inn, category){
             : `<td><input type="number" min="0" data-k="${c.key}" value="${s[c.key]||0}" ${session?'':'disabled'}></td>`
           ).join('')}
         </tr>`;
-      }).join('')}
+      }).join('') : `<tr><td colspan="${cols.length+1}" class="muted-on-light">No ${teamNameForCode(nat)} players ticked in the Playing XI.</td></tr>`}
     </table>
     </div>`;
 }
 
-function buildInningsPanel(tab, isFirst){
+function buildInningsPanel(entry, idx, isActive){
+  const battingTeam = battingTeamFor(entry);
+  const bowlingTeam = bowlingTeamFor(entry);
+  const inn = 'inn'+entry.inn;
   return `
-    <div class="admin-subpanel${isFirst?' active':''}" data-inningspanel="${tab.key}">
+    <div class="admin-subpanel${isActive?' active':''}" data-inningspanel="${inningsKey(entry)}">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+        <p class="muted-on-light" style="font-size:12px; margin:0;">${battingTeam.name} batting · ${bowlingTeam.name} bowling &amp; fielding.</p>
+        <span style="display:flex; gap:12px;">
+          <button type="button" class="link-btn on-light" data-editinnings="${idx}" ${session?'':'disabled'}>Change batting team</button>
+          <button type="button" class="link-btn" data-delinnings="${idx}" style="color:var(--oxblood);" ${session?'':'disabled'}>Remove innings</button>
+        </span>
+      </div>
       <div class="admin-subnav light-subnav" style="margin:6px 0 10px;">
         <button class="subtab-btn active" data-statcat="batting">Batting</button>
         <button class="subtab-btn" data-statcat="bowling">Bowling</button>
         <button class="subtab-btn" data-statcat="fielding">Fielding</button>
       </div>
-      <div class="admin-subpanel active" data-statpanel="batting">${buildStatTable(tab.nat, tab.inn, 'batting')}</div>
-      <div class="admin-subpanel" data-statpanel="bowling">${buildStatTable(tab.nat, tab.inn, 'bowling')}</div>
-      <div class="admin-subpanel" data-statpanel="fielding">${buildStatTable(tab.nat, tab.inn, 'fielding')}</div>
+      <div class="admin-subpanel active" data-statpanel="batting">${buildStatTable(battingTeam.short_code, inn, 'batting')}</div>
+      <div class="admin-subpanel" data-statpanel="bowling">${buildStatTable(bowlingTeam.short_code, inn, 'bowling')}</div>
+      <div class="admin-subpanel" data-statpanel="fielding">${buildStatTable(bowlingTeam.short_code, inn, 'fielding')}</div>
     </div>`;
 }
 
 function renderStatsTable(testNum){
   const wrap = document.getElementById('statsTableWrap');
 
+  // Wired up front (not at the end) so these always close over the current
+  // testNum, even when the branch below returns early with no innings yet —
+  // these buttons live outside #statsTableWrap and persist across Test switches.
+  document.getElementById('saveStatsBtn').onclick = async ()=>{
+    const {error} = await supabaseClient.from('match_stats').upsert({series_id: adminSeriesId, test: testNum, stats: currentStatsDraft, innings: currentInningsDraft});
+    if(error){ showAlert(error.message); return; }
+    showAlert('Stats saved for Test '+testNum+'.');
+  };
+  document.getElementById('lockTestBtn').onclick = async ()=> lockTest(testNum);
+
+  if(currentPlayingXiDraft.length===0){
+    wrap.innerHTML = `<div class="empty-state" style="margin:12px 0;">Tick the Playing XI above first — innings can only be added once at least one player's on the field.</div>`;
+    return;
+  }
+
+  if(currentInningsDraft.length===0){
+    wrap.innerHTML = `
+      <div class="empty-state" style="margin:12px 0 10px;">No innings added yet for this Test.</div>
+      <div class="innings-tabrow">${addInningsButtonHtml()}</div>
+    `;
+    wireAddInningsButton(wrap, testNum);
+    return;
+  }
+
+  activeInningsIdx = Math.max(0, Math.min(activeInningsIdx, currentInningsDraft.length-1));
   wrap.innerHTML = `
     <p class="muted-on-light" style="font-size:12px; margin:12px 0 4px;">Runs/wickets/catches etc. are tracked per innings and summed automatically for scoring — a century in each innings both count.</p>
-    <div class="admin-subnav light-subnav" style="margin-top:6px;">
-      ${INNINGS_TABS.map((t,i)=>`<button class="subtab-btn${i===0?' active':''}" data-inningskey="${t.key}">${t.label}</button>`).join('')}
+    <div class="innings-tabrow admin-subnav light-subnav" style="margin-top:6px;">
+      ${currentInningsDraft.map((entry,i)=>`<button class="subtab-btn${i===activeInningsIdx?' active':''}" data-inningskey="${inningsKey(entry)}" data-inningsidx="${i}">${inningsLabel(entry)}</button>`).join('')}
+      ${addInningsButtonHtml()}
     </div>
-    ${INNINGS_TABS.map((t,i)=> buildInningsPanel(t, i===0)).join('')}
+    ${currentInningsDraft.map((entry,i)=> buildInningsPanel(entry, i, i===activeInningsIdx)).join('')}
   `;
+  wireAddInningsButton(wrap, testNum);
 
-  // outer: country + innings tabs
+  wrap.querySelectorAll('[data-editinnings]').forEach(btn=>{
+    btn.addEventListener('click', ()=> editInningsEntry(parseInt(btn.dataset.editinnings), testNum));
+  });
+  wrap.querySelectorAll('[data-delinnings]').forEach(btn=>{
+    btn.addEventListener('click', ()=> deleteInningsEntry(parseInt(btn.dataset.delinnings), testNum));
+  });
+
+  // outer: innings tabs
   wrap.querySelectorAll('[data-inningskey]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
+      activeInningsIdx = parseInt(btn.dataset.inningsidx);
       wrap.querySelectorAll('[data-inningskey]').forEach(b=> b.classList.toggle('active', b===btn));
       wrap.querySelectorAll('[data-inningspanel]').forEach(p=> p.classList.toggle('active', p.dataset.inningspanel===btn.dataset.inningskey));
     });
@@ -1824,16 +2585,11 @@ function renderStatsTable(testNum){
     });
   });
 
-  document.getElementById('saveStatsBtn').onclick = async ()=>{
-    const {error} = await supabaseClient.from('match_stats').upsert({test: testNum, stats: currentStatsDraft});
-    if(error){ showAlert(error.message); return; }
-    showAlert('Stats saved for Test '+testNum+'.');
-  };
-  document.getElementById('lockTestBtn').onclick = async ()=> lockTest(testNum);
 }
 
-/* Two-column ENG/AUS checklist of who actually took the field for a Test — this
-   is what resolveEffectiveXi() reads to work out automatic substitutions. */
+/* Two-column checklist (one per series team) of who actually took the field
+   for a Test — this is what resolveEffectiveXi() reads to work out automatic
+   substitutions. */
 function renderPlayingXiTable(testNum){
   const wrap = document.getElementById('playingXiWrap');
   if(!wrap) return;
@@ -1842,17 +2598,17 @@ function renderPlayingXiTable(testNum){
       <span>${p.name} <span class="role-pill">${ROLE_LABEL[p.role]}</span></span>
       <input type="checkbox" data-pid="${p.id}" ${currentPlayingXiDraft.includes(p.id)?'checked':''}>
     </label>`;
-  const engPlayed = PLAYERS.filter(p=>p.nat==='ENG' && currentPlayingXiDraft.includes(p.id)).length;
-  const ausPlayed = PLAYERS.filter(p=>p.nat==='AUS' && currentPlayingXiDraft.includes(p.id)).length;
+  const [teamA, teamB] = adminSeriesTeams;
+  const playedCount = code=> adminPlayers.filter(p=>p.nat===code && currentPlayingXiDraft.includes(p.id)).length;
   wrap.innerHTML = `
     <div class="rules-grid">
       <div class="nation-block">
-        <div class="nation-heading"><span class="flag-chip ENG">ENG</span> England XI (${engPlayed}/11 ticked)</div>
-        ${PLAYERS.filter(p=>p.nat==='ENG').map(rowHtml).join('')}
+        <div class="nation-heading"><span class="flag-chip team-a">${teamA.short_code}</span> ${teamA.name} XI (${playedCount(teamA.short_code)}/11 ticked)</div>
+        ${adminPlayers.filter(p=>p.nat===teamA.short_code).map(rowHtml).join('')}
       </div>
       <div class="nation-block">
-        <div class="nation-heading"><span class="flag-chip AUS">AUS</span> Australia XI (${ausPlayed}/11 ticked)</div>
-        ${PLAYERS.filter(p=>p.nat==='AUS').map(rowHtml).join('')}
+        <div class="nation-heading"><span class="flag-chip team-b">${teamB.short_code}</span> ${teamB.name} XI (${playedCount(teamB.short_code)}/11 ticked)</div>
+        ${adminPlayers.filter(p=>p.nat===teamB.short_code).map(rowHtml).join('')}
       </div>
     </div>`;
   wrap.querySelectorAll('input[type=checkbox]').forEach(cb=>{
@@ -1862,26 +2618,27 @@ function renderPlayingXiTable(testNum){
         ? [...currentPlayingXiDraft.filter(id=>id!==pid), pid]
         : currentPlayingXiDraft.filter(id=>id!==pid);
       renderPlayingXiTable(testNum);
+      renderStatsTable(testNum);
     });
   });
   const saveBtn = document.getElementById('savePlayingXiBtn');
   if(saveBtn) saveBtn.onclick = async ()=>{
-    const {error} = await supabaseClient.from('match_stats').upsert({test: testNum, playing_xi: currentPlayingXiDraft});
+    const {error} = await supabaseClient.from('match_stats').upsert({series_id: adminSeriesId, test: testNum, playing_xi: currentPlayingXiDraft});
     if(error){ showAlert(error.message); return; }
     showAlert('Playing XI saved for Test '+testNum+'.');
   };
 }
 
 async function lockTest(testNum){
-  if(!(await showConfirm(`This snapshots every team's committed XI for scoring, and becomes their new baseline for the next round of changes.`, `Lock Test ${testNum}?`))) return;
-  const {error: statsErr} = await supabaseClient.from('match_stats').upsert({test: testNum, stats: currentStatsDraft, playing_xi: currentPlayingXiDraft});
+  if(!(await showConfirm(`This snapshots every league's committed XI on this series for scoring, and becomes their new baseline for the next round of changes.`, `Lock Test ${testNum}?`))) return;
+  const {error: statsErr} = await supabaseClient.from('match_stats').upsert({series_id: adminSeriesId, test: testNum, stats: currentStatsDraft, playing_xi: currentPlayingXiDraft, innings: currentInningsDraft});
   if(statsErr){ showAlert(statsErr.message); return; }
 
-  const {error} = await supabaseClient.rpc('lock_test', {p_test: testNum});
+  const {error} = await supabaseClient.rpc('lock_test', {p_series_id: adminSeriesId, p_test: testNum});
   if(error){ showAlert('Could not lock Test: '+error.message); return; }
 
-  await loadMySquad();
-  showAlert(`Test ${testNum} locked. All team lineups snapshotted and scored.`);
+  if(adminSeriesId === currentSeriesId) await loadMySquads();
+  showAlert(`Test ${testNum} locked. All lineups on this series snapshotted and scored.`);
   renderAll();
 }
 
@@ -1889,18 +2646,55 @@ async function lockTest(testNum){
 async function renderLeaderboard(){
   const c = document.getElementById('leaderboardContent');
   if(!supabaseClient){ c.innerHTML = `<div class="empty-state">Configure Supabase first.</div>`; return; }
-  c.innerHTML = `<div class="empty-state">Loading leaderboard&hellip;</div>`;
-
-  const {data: squadRows, error} = await supabaseClient.from('squads').select('*');
-  if(error){ c.innerHTML = `<div class="empty-state">Could not load leaderboard: ${error.message}</div>`; return; }
-  if(!squadRows || squadRows.length===0){
-    c.innerHTML = `<div class="empty-state"><div class="big">No teams yet</div>Build a squad to appear on the board.</div>`;
+  if(!session){ c.innerHTML = `<div class="empty-state"><div class="big">Log in to see My Leagues</div></div>`; return; }
+  const league = myLeagues.find(l=>l.id===currentLeagueId);
+  if(!league){
+    c.innerHTML = `<h2 class="panel-title">My Leagues</h2>` + myLeaguesHtml() + `<p class="panel-sub">Join a league above to see its standings.</p>`;
+    wireMyLeagues(c);
     return;
   }
 
+  // Everything below only ever touches #leaderboardBody, not the whole panel —
+  // wireMyLeagues() below attaches listeners to the My Leagues card once, and
+  // reassigning c.innerHTML afterward (e.g. via +=) would silently detach them.
+  c.innerHTML = `
+    <h2 class="panel-title">My Leagues</h2>
+    ${myLeaguesHtml()}
+    <p class="panel-sub">Standings for ${league.name}. Tap a team to see their Test-by-Test breakdown.</p>
+    <div id="leaderboardBody"><div class="empty-state">Loading leaderboard&hellip;</div></div>
+  `;
+  wireMyLeagues(c);
+  const body = document.getElementById('leaderboardBody');
+
+  // Squads no longer belong to a single league (the same squad can back
+  // multiple leagues on one series), so the leaderboard has to fetch this
+  // league's actual membership first, then only the matching squads.
+  const {data: memberRows, error: memberErr} = await supabaseClient.from('league_members').select('user_id').eq('league_id', league.id);
+  if(memberErr){ body.innerHTML = `<div class="empty-state">Could not load leaderboard: ${memberErr.message}</div>`; return; }
+  const memberIds = (memberRows||[]).map(m=>m.user_id);
+  if(memberIds.length===0){
+    body.innerHTML = `<div class="empty-state"><div class="big">No teams yet</div>Build a squad to appear on the board.</div>`;
+    return;
+  }
+
+  const {data: squadRows, error} = await supabaseClient.from('squads').select('*').eq('series_id', league.seriesId).in('user_id', memberIds);
+  if(error){ body.innerHTML = `<div class="empty-state">Could not load leaderboard: ${error.message}</div>`; return; }
+  if(!squadRows || squadRows.length===0){
+    body.innerHTML = `<div class="empty-state"><div class="big">No teams yet</div>Build a squad to appear on the board.</div>`;
+    return;
+  }
+
+  // Fetched locally rather than reading the global PLAYERS/fixtures — those
+  // are scoped to whatever series My XI currently has open, which can be a
+  // completely different series from this league's.
+  const leagueFixtures = await fetchFixtures(league.seriesId);
+  const leaguePlayers = await fetchPlayers(league.seriesId);
+  const leaguePlayerMap = Object.fromEntries(leaguePlayers.map(p=>[p.id,p]));
+  const leaguePlayerName = id => (leaguePlayerMap[id] && leaguePlayerMap[id].name) || '(removed player)';
+
   const matchDataByTest = {};
-  for(const f of fixtures){
-    matchDataByTest[f.test] = await getMatchDataForTest(f.test);
+  for(const f of leagueFixtures){
+    matchDataByTest[f.test] = await getMatchDataForTest(league.seriesId, f.test);
   }
 
   const rows = squadRows.map(rowRaw=>{
@@ -1916,19 +2710,17 @@ async function renderLeaderboard(){
       byTest[t] = {pts, subs, captainDidNotPlay};
       total += pts;
     });
-    return {name: squad.teamName, total: Math.round(total*10)/10, byTest};
+    return {name: squad.teamName, managerName: squad.managerName, total: Math.round(total*10)/10, byTest};
   });
   rows.sort((a,b)=> b.total - a.total);
 
-  c.innerHTML = `
-    <h2 class="panel-title">Leaderboard</h2>
-    <p class="panel-sub">Shared across everyone using this app. Tap a team to see their Test-by-Test breakdown.</p>
+  body.innerHTML = `
     <div class="honours-board">
       <div class="honours-board-title">Standings</div>
       ${rows.map((r,i)=>`
         <div class="leaderboard-row ${i%2===0?'lb-row-a':'lb-row-b'} ${i===0?'rank-1':''}" data-idx="${i}" style="border-radius:4px;">
           <div class="lb-rank">${i+1}</div>
-          <div class="lb-name">${r.name}</div>
+          <div class="lb-name">${r.name}${r.managerName ? `<div class="lb-manager">${r.managerName}</div>` : ''}</div>
           <div class="lb-points">${r.total} pts</div>
         </div>
         <div class="lb-detail" id="lbdetail-${i}">
@@ -1936,7 +2728,7 @@ async function renderLeaderboard(){
             `<table>${Object.keys(r.byTest).sort((a,b)=>a-b).map(t=>{
               const d = r.byTest[t];
               const notes = [
-                ...d.subs.map(s=> `${playerName(s.out)} &rarr; ${s.in ? playerName(s.in) : 'no replacement available'} (auto-sub)`),
+                ...d.subs.map(s=> `${leaguePlayerName(s.out)} &rarr; ${s.in ? leaguePlayerName(s.in) : 'no replacement available'} (auto-sub)`),
                 ...(d.captainDidNotPlay ? [`Captain didn't play — armband passed to vice-captain`] : []),
               ];
               const noteHtml = notes.length ? `<div style="font-size:11px; opacity:.8; margin-top:2px;">${notes.join('<br>')}</div>` : '';
@@ -1947,7 +2739,7 @@ async function renderLeaderboard(){
     </div>
   `;
 
-  c.querySelectorAll('.leaderboard-row').forEach(row=>{
+  body.querySelectorAll('.leaderboard-row').forEach(row=>{
     row.addEventListener('click', ()=>{
       const idx = row.dataset.idx;
       document.getElementById('lbdetail-'+idx).classList.toggle('open');

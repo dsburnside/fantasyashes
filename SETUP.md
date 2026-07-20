@@ -17,10 +17,16 @@ all on the free tier.
 1. In your project, open **SQL Editor** (left sidebar) → **New query**.
 2. Open `supabase-schema.sql` (included alongside this guide), copy the whole file,
    paste it in, and click **Run**.
-3. This creates four tables (`players`, `fixtures`, `match_stats`, `squads`), sets
-   up row-level security so people can only edit their own squad, adds the one
-   shared `lock_test()` action used by Match Centre, and seeds the player pool and
-   placeholder fixtures.
+3. This creates the app's tables (`series`, `teams`, `venues`, `leagues`,
+   `league_members`, `players`, `fixtures`, `match_stats`, `squads`), sets up
+   row-level security so people can only edit their own squad, adds the shared
+   `lock_test()`/`resolve_join_code()` actions, and seeds a default series/
+   league (England vs Australia) plus the player pool and placeholder fixtures.
+4. If the app can't find newly-created tables afterward (e.g. a 404 on `series`,
+   or a 400 on any query joining `squads` to `leagues`), Supabase's API layer
+   just hasn't picked up the schema change yet — go to **Project Settings → API**
+   and click **Reload schema cache** (or run `NOTIFY pgrst, 'reload schema';` in
+   the SQL Editor), then refresh the app.
 
 ## 3. Turn off email confirmation (recommended for a hobby league)
 
@@ -82,8 +88,81 @@ You already ran the schema once — it's safe to run the whole updated
 `supabase-schema.sql` again if you pulled a newer copy; every statement is
 written to skip anything that already exists.
 
+## 8. Set up a series (Admin tab)
+
+The app supports running more than one competition at once, split across two
+levels with different owners:
+
+- A **series** is one real-world tour — its own two teams, player pool,
+  fixtures and match stats (e.g. "The Ashes 2026/27"). This is the
+  admin-only part: manage series, fixtures and player pools under
+  **Admin → Series Setup**. Anyone can pick a team for any series in **My
+  XI** — no league needed for that, just a series to draw players from.
+- A **league** is an optional group of friends comparing their teams within
+  one series — self-service, not an admin concern at all. Any signed-in user
+  creates or joins leagues under the **My Leagues** tab, gets a join code to
+  share, and can regenerate or delete leagues they created. Multiple leagues
+  can point at the same series and share its player pool/fixtures/stats —
+  they only differ in membership and therefore their own leaderboard.
+  Joining is invite-only: nobody can browse or discover a league without its
+  code, and a league's standings are only visible to its own members (plus
+  admins).
+- Because a team belongs to the series rather than a specific league, the
+  same team automatically appears on every league you join for that series
+  — no duplicate squads to keep in sync.
+- Admin → Series Setup's Fixtures/Match Setup/Player Setup each edit
+  whichever series you pick from the selector at the top of that tab —
+  independent of which series you personally happen to be playing.
+
+If you already ran an older version of this app, upgrading is automatic:
+re-running `supabase-schema.sql` creates a default "The Ashes 2026/27"
+series and league (join code `ASHES2026`) and backfills all your existing
+players, fixtures, stats, squads and league memberships into them, so
+nothing is lost.
+
 ## What changed since the last version
 
+- **Teams are self-service and no longer need a league; leagues are
+  self-service too, and moved off the Admin tab.** Picking a team in My XI
+  now only needs a series — no league, no join code, no admin involvement.
+  Admins still own series/fixtures/players (Admin → Series Setup); anyone
+  can create or join a league from the renamed **My Leagues** tab (was
+  Leaderboard), which now also shows/copies each league's join code for
+  inviting people and lets creators regenerate or delete their own leagues.
+  This needed a schema change: `leagues` write access moved from
+  admin-only to "owner or admin" RLS policies, and a bug was fixed where a
+  team with no league at all couldn't be read back (`squads` select policy
+  now always allows reading your own row). Re-run `supabase-schema.sql`.
+- **One squad per series, shared across every league you're in on it — and
+  real names on the leaderboard.** A squad used to belong to a single league;
+  it now belongs to a series, so being in multiple leagues on the same
+  series shows the same team on all of their leaderboards instead of
+  needing a duplicate. League membership moved to a new `league_members`
+  table, decoupled from squads, since squad existence alone can no longer
+  tell you which leagues someone's in. Sign-up now also asks for a first and
+  last name, shown on the leaderboard under each team so people can see who
+  manages what. This needed a schema change (`league_members` table; `squads`
+  moves from `league_id` to `series_id` plus a new `manager_name` column;
+  `profiles` gains `first_name`/`last_name`); re-run `supabase-schema.sql`.
+  Existing squads and league memberships are migrated automatically — nothing
+  is lost, though pre-existing accounts won't have a manager name until they
+  sign up again or you set one directly in the `profiles` table.
+- **Configurable teams, and one combined Series Setup screen.** A series is no
+  longer locked to England vs Australia — Admin → **Series Setup** now lets you
+  pick (or create) the two teams a series is contested between, alongside its
+  fixtures and player pool, all in a single interface instead of separate tabs.
+  Teams and fixture venues are shared master data: create "India" or "Lord's"
+  once and they're immediately reusable when setting up any other series —
+  there's exactly one row for each regardless of how many series reference it.
+  This needed a schema change (`teams` and `venues` tables, plus `team_a_id`/
+  `team_b_id` on `series`); re-run `supabase-schema.sql`. Existing data is
+  unaffected — your current series is backfilled to England vs Australia
+  automatically.
+- **Series &amp; leagues.** The Admin tab can now manage multiple series
+  (each with its own player pool, fixtures and match stats) and multiple
+  invite-only leagues per series (each with its own membership and
+  leaderboard) — see step 8 above. This needed a schema change; re-run
+  `supabase-schema.sql`.
 - **Automatic substitutions.** Admin → Match Setup now has a "Playing XI &amp;
   automatic substitutions" panel: tick which of the 28 pool players actually
   took the field for a given Test once the real teams are announced. Any
