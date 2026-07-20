@@ -54,75 +54,76 @@
   }
   .topbar-main{
     max-width:1180px; margin:0 auto;
-    display:flex; align-items:center; flex-wrap:wrap; gap:18px;
+    display:flex; align-items:center; gap:18px;
     padding:12px 20px;
   }
   .topbar-brand{
     font-family:var(--font-display); font-weight:700; font-size:21px; color:var(--chalk);
     letter-spacing:.01em; white-space:nowrap; margin:0;
   }
+  .config-error-banner{max-width:1180px; margin:0 auto; padding:0 20px;}
+  .config-error-banner:empty{display:none;}
 
-  .tabnav{
-    display:flex; align-items:center; flex-wrap:wrap; gap:2px;
-    flex:1; min-width:0;
+  /* Nav is always an off-canvas drawer (opened by the hamburger) rather than
+     an inline row — keeps the banner itself down to just the heading and the
+     two icons at every screen width. */
+  .topbar-icons{display:flex; align-items:center; gap:10px; margin-left:auto; flex-shrink:0;}
+  .icon-btn-circle{
+    display:flex; align-items:center; justify-content:center;
+    background:none; border:1px solid var(--gilt); border-radius:50%;
+    width:34px; height:34px; padding:0; cursor:pointer; flex-shrink:0; color:var(--gilt-bright);
   }
+  .icon-btn-circle:hover{background:rgba(230,197,120,.14);}
+  .icon-btn-circle svg{width:17px; height:17px; fill:currentColor;}
+  .icon-btn-circle.is-signed-in{border-color:var(--gilt-bright); box-shadow:0 0 0 2px rgba(230,197,120,.25);}
+
+  .hamburger-btn{
+    background:none; border:1px solid var(--gilt); border-radius:5px;
+    width:36px; height:32px; padding:0; cursor:pointer; flex-shrink:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  }
+  .hamburger-btn span{width:16px; height:2px; background:var(--gilt-bright); display:block;}
+
   .tab-btn{
     background:none;
     border:none;
     color:var(--parchment-dim);
-    padding:10px 14px;
+    padding:14px 22px;
     font-size:13.5px;
     font-weight:600;
     letter-spacing:.03em;
     white-space:nowrap;
-    border-bottom:3px solid transparent;
+    text-align:left;
+    border-bottom:none; border-left:3px solid transparent;
     cursor:pointer;
   }
-  .tab-btn.active{color:var(--gilt-bright); border-bottom-color:var(--gilt);}
+  .tab-btn.active{color:var(--gilt-bright); border-left-color:var(--gilt);}
   .tab-btn:hover{color:var(--chalk);}
 
-  .topbar-auth{display:flex; align-items:center; gap:8px; flex-wrap:wrap; flex-shrink:0; order:3; width:100%;}
-
-  .hamburger-btn{
-    display:none;
-    background:none; border:1px solid var(--gilt); border-radius:5px;
-    width:36px; height:32px; padding:0; cursor:pointer; flex-shrink:0;
-    flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  .tabnav{
+    position:fixed; top:0; right:0; height:100vh; width:250px; max-width:78vw;
+    background:var(--turf-dark); border-left:2px solid var(--gilt);
+    display:flex; flex-direction:column; align-items:stretch; gap:0; overflow-y:auto; overflow-x:hidden;
+    padding:56px 0 20px;
+    transform:translateX(100%);
+    transition:transform .22s ease;
+    z-index:1100;
   }
-  .hamburger-btn span{width:16px; height:2px; background:var(--gilt-bright); display:block;}
-  .drawer-close-btn{display:none;}
-  .tabnav-backdrop{display:none;}
+  .tabnav.open{transform:translateX(0);}
+  .drawer-close-btn{
+    display:block; position:absolute; top:8px; left:10px;
+    background:none; border:none; color:var(--chalk); font-size:26px; line-height:1;
+    cursor:pointer; padding:8px;
+  }
+  .tabnav-backdrop{
+    display:block; position:fixed; inset:0; background:rgba(0,0,0,.5);
+    z-index:1050; opacity:0; pointer-events:none; transition:opacity .2s ease;
+  }
+  .tabnav-backdrop.open{opacity:1; pointer-events:auto;}
 
   @media (max-width:760px){
     .topbar-brand{font-size:16px;}
     .topbar-main{gap:10px; padding:10px 14px;}
-    .topbar-auth{gap:6px; font-size:12px;}
-    .topbar-auth .current-team-pill{max-width:60vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-    .hamburger-btn{display:flex;}
-    .tabnav{
-      position:fixed; top:0; left:0; height:100vh; width:250px; max-width:78vw;
-      background:var(--turf-dark); border-right:2px solid var(--gilt);
-      flex-direction:column; align-items:stretch; gap:0; overflow-y:auto; overflow-x:hidden;
-      padding:56px 0 20px;
-      transform:translateX(-100%);
-      transition:transform .22s ease;
-      z-index:1100;
-    }
-    .tabnav.open{transform:translateX(0);}
-    .tabnav .tab-btn{
-      padding:14px 22px; text-align:left; border-bottom:none; border-left:3px solid transparent;
-    }
-    .tabnav .tab-btn.active{border-left-color:var(--gilt); border-bottom-color:transparent;}
-    .drawer-close-btn{
-      display:block; position:absolute; top:8px; right:10px;
-      background:none; border:none; color:var(--chalk); font-size:26px; line-height:1;
-      cursor:pointer; padding:8px;
-    }
-    .tabnav-backdrop{
-      display:block; position:fixed; inset:0; background:rgba(0,0,0,.5);
-      z-index:1050; opacity:0; pointer-events:none; transition:opacity .2s ease;
-    }
-    .tabnav-backdrop.open{opacity:1; pointer-events:auto;}
 
     .countdown-strip{padding:0 14px 10px; gap:10px;}
     .countdown-clock{gap:4px;}
@@ -171,15 +172,6 @@
   .btn:disabled{opacity:.4; cursor:not-allowed;}
   .btn.small{padding:6px 11px; font-size:12px;}
 
-  .current-team-pill{
-    font-family:var(--font-mono);
-    background:var(--turf-dark);
-    border:1px solid var(--gilt);
-    color:var(--gilt-bright);
-    padding:6px 12px;
-    border-radius:20px;
-    font-size:12.5px;
-  }
 
   /* countdown strip */
   .countdown-strip{
@@ -492,11 +484,15 @@
     border:2px solid var(--gilt);
     border-radius:8px;
     max-width:420px; width:100%;
+    max-height:100%; overflow-y:auto;
     padding:26px 28px;
     box-shadow:0 20px 60px rgba(0,0,0,.5);
     position:relative;
     animation:overlayIn .2s ease;
   }
+  /* Base page is locked (see openOverlay()/closeOverlay()) so a touch-drag
+     over the modal scrolls the overlay box above, not the page underneath. */
+  body.overlay-open{overflow:hidden;}
   @keyframes overlayIn{from{opacity:0; transform:translateY(8px) scale(.98);} to{opacity:1; transform:none;}}
   @media (prefers-reduced-motion: reduce){ .overlay-box{animation:none;} }
   .overlay-close{
@@ -536,6 +532,7 @@
   }
   .squad-card:active{cursor:grabbing;}
   .squad-card.dragging{opacity:.35;}
+  .squad-card.move-selected{outline:2px solid var(--gilt); outline-offset:-2px;}
   .squad-card.empty{
     justify-content:center; background:transparent; border:1px dashed var(--line); color:var(--parchment-dim);
     cursor:default; padding:13px;
@@ -545,7 +542,11 @@
     font-size:11.5px; font-weight:700; letter-spacing:.04em; cursor:pointer; padding:4px;
   }
   .squad-card.empty button:hover{color:var(--chalk);}
-  .squad-card-drag-handle{color:#9a8f77; font-size:14px; flex-shrink:0; line-height:1;}
+  .squad-card-drag-handle{
+    background:none; border:none; color:#9a8f77; font-size:14px; flex-shrink:0; line-height:1;
+    padding:8px; margin:-2px 0; cursor:pointer;
+  }
+  .squad-card-drag-handle:hover{color:var(--oxblood);}
   .squad-card-info{flex:1; min-width:0;}
   .squad-card-name{
     font-weight:700; font-size:13px; color:var(--ink);
@@ -595,24 +596,27 @@
 <header class="topbar" id="topbar">
   <div class="topbar-main">
     <h1 class="topbar-brand">The Fantasy Ashes</h1>
-
-    <div class="tabnav-backdrop" id="tabnavBackdrop"></div>
-    <nav class="tabnav" id="tabnav">
-      <button class="drawer-close-btn" id="drawerCloseBtn" aria-label="Close menu">&times;</button>
-      <button class="tab-btn active" data-tab="rules">Rules</button>
-      <button class="tab-btn" data-tab="myxi">My XI</button>
-      <button class="tab-btn" data-tab="leaderboard">My Leagues</button>
-      <button class="tab-btn" data-tab="admin">Admin</button>
-    </nav>
-
-    <div class="topbar-auth" id="authRow"><span class="muted">Loading&hellip;</span></div>
-
-    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Open menu" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </button>
+    <div class="topbar-icons">
+      <button class="icon-btn-circle" id="profileBtn" aria-label="Account" title="Account">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12.2c2.7 0 4.9-2.2 4.9-4.9S14.7 2.4 12 2.4 7.1 4.6 7.1 7.3s2.2 4.9 4.9 4.9zm0 2.5c-3.3 0-9.8 1.6-9.8 4.9v2.2h19.6v-2.2c0-3.3-6.5-4.9-9.8-4.9z"/></svg>
+      </button>
+      <button class="hamburger-btn" id="hamburgerBtn" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
   </div>
+  <div class="config-error-banner" id="authRow"></div>
   <div class="countdown-strip" id="countdownStrip"></div>
 </header>
+
+<div class="tabnav-backdrop" id="tabnavBackdrop"></div>
+<nav class="tabnav" id="tabnav">
+  <button class="drawer-close-btn" id="drawerCloseBtn" aria-label="Close menu">&times;</button>
+  <button class="tab-btn active" data-tab="rules">Rules</button>
+  <button class="tab-btn" data-tab="myxi">My XI</button>
+  <button class="tab-btn" data-tab="leaderboard">My Leagues</button>
+  <button class="tab-btn" data-tab="admin">Admin</button>
+</nav>
 
 <div class="app">
 
@@ -1175,6 +1179,7 @@ function wireMyLeagues(container){
 function closeOverlay(){
   const existing = document.getElementById('appOverlay');
   if(existing) existing.remove();
+  document.body.classList.remove('overlay-open');
 }
 function openOverlay(innerHtml, {dismissible=true}={}){
   closeOverlay();
@@ -1183,6 +1188,10 @@ function openOverlay(innerHtml, {dismissible=true}={}){
   backdrop.id = 'appOverlay';
   backdrop.innerHTML = `<div class="overlay-box">${dismissible ? '<button type="button" class="overlay-close" data-overlay-close aria-label="Close">&times;</button>' : ''}${innerHtml}</div>`;
   document.body.appendChild(backdrop);
+  // Lock the base page behind the overlay — on mobile, a touch-drag meant
+  // for a form field would otherwise scroll the page underneath instead of
+  // (or as well as) the overlay, making long forms like login/signup fiddly.
+  document.body.classList.add('overlay-open');
   return backdrop;
 }
 function showAlert(message, title='Notice'){
@@ -1307,25 +1316,54 @@ function openPlayerPicker(excludeIds, onPick){
 }
 
 /* ================= AUTH ================= */
+/* Account state now lives behind the profile icon (openAccountOverlay())
+   rather than a persistent topbar row — this just keeps the config-error
+   banner current and gives the icon a visual signed-in/out state. */
 function renderAuthRow(){
   const box = document.getElementById('authRow');
-  if(!supabaseClient){
-    box.innerHTML = `<span class="auth-error">Supabase isn't configured yet — paste your Project URL and anon key into SUPABASE_URL / SUPABASE_ANON_KEY near the top of the script.</span>`;
-    return;
-  }
-  if(session){
-    box.innerHTML = `
-      <span class="current-team-pill">Signed in: ${session.user.email}${isAdmin?' &middot; admin':''}</span>
-      ${mySquad ? `<span class="current-team-pill">Team: ${mySquad.teamName}</span>` : `<span class="muted">No squad yet — build one in My XI</span>`}
-      <button class="btn secondary small" id="logoutBtn">Log out</button>
-    `;
-    document.getElementById('logoutBtn').addEventListener('click', async ()=>{
-      await supabaseClient.auth.signOut();
-    });
-  } else {
-    box.innerHTML = `<span class="muted">Not signed in.</span> <button class="btn small" id="openLoginBtn">Log in / Sign up</button>`;
-    document.getElementById('openLoginBtn').addEventListener('click', ()=> showLoginOverlay(true));
-  }
+  box.innerHTML = !supabaseClient
+    ? `<span class="auth-error">Supabase isn't configured yet — paste your Project URL and anon key into SUPABASE_URL / SUPABASE_ANON_KEY near the top of the script.</span>`
+    : '';
+  const profileBtn = document.getElementById('profileBtn');
+  if(profileBtn) profileBtn.classList.toggle('is-signed-in', !!session);
+}
+
+/* Profile icon: not signed in opens the same login/signup overlay as
+   everywhere else; signed in opens account details + change password. */
+function openAccountOverlay(){
+  if(!session){ showLoginOverlay(true); return; }
+  const backdrop = openOverlay(`
+    <div class="overlay-title">Your account</div>
+    <div class="overlay-message">
+      Signed in as <strong>${myFirstName} ${myLastName}</strong> (${session.user.email})${isAdmin ? ' &middot; <span style="color:var(--gilt-bright);">admin</span>' : ''}<br>
+      ${mySquad ? `Team: ${mySquad.teamName}` : 'No squad yet — build one in My XI.'}
+    </div>
+    <div class="field-group"><label for="acctNewPassword">New password</label><input type="password" id="acctNewPassword" placeholder="6+ characters"></div>
+    <div class="field-group"><label for="acctNewPassword2">Confirm new password</label><input type="password" id="acctNewPassword2" placeholder="Repeat password"></div>
+    <div class="auth-error" id="acctError"></div>
+    <div class="overlay-actions" style="justify-content:space-between;">
+      <button class="btn danger" id="acctLogoutBtn">Log out</button>
+      <button class="btn" id="acctSavePasswordBtn">Update password</button>
+    </div>
+  `);
+  backdrop.querySelector('[data-overlay-close]').addEventListener('click', closeOverlay);
+  backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
+  const errBox = backdrop.querySelector('#acctError');
+  backdrop.querySelector('#acctSavePasswordBtn').addEventListener('click', async ()=>{
+    errBox.textContent = '';
+    const pw1 = backdrop.querySelector('#acctNewPassword').value;
+    const pw2 = backdrop.querySelector('#acctNewPassword2').value;
+    if(pw1.length < 6){ errBox.textContent = 'Password must be 6+ characters.'; return; }
+    if(pw1 !== pw2){ errBox.textContent = "Passwords don't match."; return; }
+    const {error} = await supabaseClient.auth.updateUser({password: pw1});
+    if(error){ errBox.textContent = error.message; return; }
+    closeOverlay();
+    showAlert('Your password has been updated.', 'Password changed');
+  });
+  backdrop.querySelector('#acctLogoutBtn').addEventListener('click', async ()=>{
+    closeOverlay();
+    await supabaseClient.auth.signOut();
+  });
 }
 
 /* Also loads first/last name alongside admin status — both live on the same
@@ -1386,7 +1424,7 @@ async function init(){
   hamburgerBtn.addEventListener('click', openMobileDrawer);
   drawerCloseBtn.addEventListener('click', closeMobileDrawer);
   tabnavBackdrop.addEventListener('click', closeMobileDrawer);
-  window.addEventListener('resize', ()=>{ if(window.innerWidth > 760) closeMobileDrawer(); });
+  document.getElementById('profileBtn').addEventListener('click', openAccountOverlay);
 
   if(!supabaseClient){
     renderAuthRow();
@@ -1560,9 +1598,9 @@ async function renderSeriesSetup(){
           </div>
         </div>`).join('') || '<p class="muted">No series yet — create one below.</p>'}
       <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-top:14px;">
-        <div>
+        <div style="flex:1; min-width:200px;">
           <label class="field-label">New series name</label>
-          <input type="text" id="newSeriesName" placeholder="e.g. India tour of Australia 2027">
+          <input type="text" id="newSeriesName" placeholder="e.g. India tour of Australia 2027" style="width:100%; padding:8px 9px; border:1px solid var(--parchment-dim); border-radius:5px; font-size:13.5px; line-height:1.5;">
         </div>
         <button class="btn" id="addSeriesBtn">Create series</button>
       </div>
@@ -1918,6 +1956,13 @@ let editingPlayerId = null;
 
 /* ================= MY XI ================= */
 let draft = null; // local, unsaved editing state for My XI: {_squadId, squad14, xi11, captain, viceCaptain}
+// Tap-to-swap is the touch-friendly equivalent of dragging a squad-card onto
+// another one — native HTML5 drag-and-drop (used elsewhere in this editor)
+// never fires on touch devices, so this is the only way to move a player
+// between XI and bench on mobile. Holds the pid of the card tapped first;
+// tapping a second card (in the other zone) completes the swap via the same
+// moveOrSwap() the drag handlers use.
+let moveSelectedPid = null;
 function ensureDraft(){
   const key = mySquad ? mySquad.id : 'new';
   if(!draft || draft._squadId !== key){
@@ -1939,8 +1984,8 @@ function squadCardHtml(id, zone, baselineSquad14){
     <button type="button" data-action="cap" data-pid="${id}" class="${isCap?'active-cap':''}" title="Make captain">C</button>
     <button type="button" data-action="vc" data-pid="${id}" class="${isVc?'active-vc':''}" title="Make vice-captain">V</button>` : '';
   return `
-    <div class="squad-card" draggable="true" data-pid="${id}" data-zone="${zone}">
-      <span class="squad-card-drag-handle" title="Drag to move">&#10021;</span>
+    <div class="squad-card${id===moveSelectedPid?' move-selected':''}" draggable="true" data-pid="${id}" data-zone="${zone}">
+      <button type="button" class="squad-card-drag-handle" data-action="movehandle" data-pid="${id}" data-zone="${zone}" title="Drag to move, or tap to swap" aria-label="Move or swap ${p.name}">&#10021;</button>
       <div class="squad-card-info">
         <div class="squad-card-name">${isCap?'<span class="honours-star">&#9733;</span>':''}${p.name}${isVc?' <span style="font-family:var(--font-mono); font-size:9.5px;">VC</span>':''}${isNew?' <span style="color:var(--gilt-bright); font-family:var(--font-mono); font-size:9px;">NEW</span>':''}</div>
         <div class="squad-card-tags">${p.nat} &middot; ${ROLE_LABEL[p.role]}</div>
@@ -2054,6 +2099,7 @@ function renderMyXI(){
     ${draft.squad14.length>0 ? squad14Check.errors.map(e=>`<div class="notice warn">${e}</div>`).join('') : ''}
     ${xiFull && !xiHasWK ? `<div class="notice warn">Your starting XI needs a wicketkeeper.</div>` : ''}
     ${draftDiffersFromCommitted ? `<div class="notice">You have uncommitted changes below — they won't count for scoring until you hit <strong>Commit changes</strong>.</div>` : ''}
+    ${moveSelectedPid ? `<div class="notice">Tap another player to swap places with ${getPlayer(moveSelectedPid).name} — or tap the &#10021; handle again to cancel.</div>` : ''}
 
     <div class="squad-editor">
       <div class="squad-zone" id="xiZone" data-zone="xi">
@@ -2125,6 +2171,7 @@ function renderMyXI(){
         }
         if(draft.captain===outId) draft.captain = null;
         if(draft.viceCaptain===outId) draft.viceCaptain = null;
+        if(moveSelectedPid===outId) moveSelectedPid = null;
         renderMyXI();
       });
     });
@@ -2196,6 +2243,25 @@ function renderMyXI(){
     });
   });
 
+  // Tap-to-swap — see moveSelectedPid comment above. First tap arms a card,
+  // second tap (on a card in the other zone) completes the same swap the
+  // drag handlers above perform; tapping the armed card again cancels.
+  c.querySelectorAll('[data-action="movehandle"]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation();
+      const pid = btn.dataset.pid;
+      if(moveSelectedPid === pid){
+        moveSelectedPid = null;
+      } else if(moveSelectedPid){
+        moveOrSwap(moveSelectedPid, btn.dataset.zone, pid);
+        moveSelectedPid = null;
+      } else {
+        moveSelectedPid = pid;
+      }
+      renderMyXI();
+    });
+  });
+
   /* ---- wildcard ---- */
   const wcBtn = document.getElementById('wildcardBtn');
   if(wcBtn) wcBtn.addEventListener('click', async ()=>{
@@ -2214,6 +2280,7 @@ function renderMyXI(){
 
   /* ---- revert / clear / reset ---- */
   document.getElementById('revertBtn').addEventListener('click', async ()=>{
+    moveSelectedPid = null;
     if(isBuilding){
       draft.squad14 = []; draft.xi11 = []; draft.captain = null; draft.viceCaptain = null;
       renderMyXI();
