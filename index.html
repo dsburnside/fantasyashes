@@ -162,6 +162,7 @@
     border-radius:4px;
     font-weight:700;
     font-size:13.5px;
+    line-height:1.5;
     letter-spacing:.02em;
     transition:filter .15s ease, transform .1s ease;
   }
@@ -356,8 +357,8 @@
   .status-chip .value{font-family:var(--font-display); font-size:22px; color:var(--gilt-bright); margin-top:2px;}
 
   select.pick{
-    width:100%; padding:9px; border-radius:5px; border:1px solid var(--parchment-dim);
-    background:var(--chalk); color:var(--ink); font-size:13.5px;
+    width:100%; padding:8px 9px; border-radius:5px; border:1px solid var(--parchment-dim);
+    background:var(--chalk); color:var(--ink); font-size:13.5px; line-height:1.5;
   }
   .field-label{font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--turf); margin-bottom:5px; display:block;}
 
@@ -742,6 +743,12 @@ let mySquad = null;         // the squad row (if any) for currentSeriesId
 let myLeagues = [];         // [{id, name, seriesId}] leagues the signed-in user is a member of, via league_members
 let currentLeagueId = null; // which league's standings the My Leagues tab is currently showing
 
+// Set from a ?join=CODE URL (see "Copy invite link" in wireMyLeagues()) —
+// captured once at load, then applied to the My Leagues join form as soon as
+// a session exists (immediately if already signed in, or once login/signup
+// completes), by applyPendingJoinCode().
+let pendingJoinCode = null;
+
 // Admin-editing state — deliberately separate from the player-facing state
 // above, since an admin might be setting up a series/league other than the
 // one they're currently playing in themselves.
@@ -1042,7 +1049,7 @@ function myLeaguesHtml(){
         </div>
         <div class="player-row-actions" style="align-items:center; gap:8px; flex-wrap:wrap;">
           <span class="muted-on-light" style="font-family:var(--font-mono); font-size:12.5px;">${l.joinCode||''}</span>
-          <button class="btn small secondary" data-action="copyCode" data-code="${l.joinCode||''}">Copy code</button>
+          <button class="btn small secondary" data-action="copyLink" data-code="${l.joinCode||''}">Copy invite link</button>
           ${l.id===currentLeagueId ? `<span class="muted-on-light" style="font-size:12px;">viewing</span>` : `<button class="btn small secondary" data-action="viewLeague" data-lid="${l.id}">View standings</button>`}
           ${canManage ? `<button class="btn small secondary" data-action="regenCode" data-lid="${l.id}">New code</button><button class="btn small danger" data-action="deleteLeague" data-lid="${l.id}">Delete</button>` : ''}
         </div>
@@ -1060,11 +1067,11 @@ function myLeaguesHtml(){
       <p class="panel-sub" style="margin-top:0;">Anyone can start a league for any series — no admin needed. You'll get a join code to share, and you're added to it automatically.</p>
       ${seriesList.length===0 ? '<div class="empty-state">No series available yet — ask an admin to set one up.</div>' : `
       <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
-        <div>
+        <div style="flex:1; min-width:160px;">
           <label class="field-label">Name</label>
-          <input type="text" id="newLeagueName" placeholder="e.g. Office League">
+          <input type="text" id="newLeagueName" placeholder="e.g. Office League" style="width:100%; padding:8px 9px; border:1px solid var(--parchment-dim); border-radius:5px; font-size:13.5px; line-height:1.5;">
         </div>
-        <div>
+        <div style="flex:1; min-width:160px;">
           <label class="field-label">Series</label>
           <select class="pick" id="newLeagueSeries">
             ${seriesList.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}
@@ -1079,9 +1086,9 @@ function myLeaguesHtml(){
       <h3 style="margin-top:0; font-family:var(--font-display);">Join a league</h3>
       <p class="panel-sub" style="margin-top:0;">Ask whoever set up a league for its join code.</p>
       <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
-        <div>
+        <div style="flex:1; min-width:160px;">
           <label class="field-label">Join code</label>
-          <input type="text" id="joinCodeInput" placeholder="e.g. ASHES2026" style="padding:9px; border:1px solid var(--parchment-dim); border-radius:5px; text-transform:uppercase;">
+          <input type="text" id="joinCodeInput" placeholder="e.g. ASHES2026" style="width:100%; padding:8px 9px; border:1px solid var(--parchment-dim); border-radius:5px; font-size:13.5px; line-height:1.5; text-transform:uppercase;">
         </div>
         <button class="btn" id="joinCodeBtn">Join league</button>
       </div>
@@ -1096,14 +1103,15 @@ function wireMyLeagues(container){
   container.querySelectorAll('[data-action="viewLeague"]').forEach(btn=>{
     btn.addEventListener('click', ()=> switchToLeague(btn.dataset.lid));
   });
-  container.querySelectorAll('[data-action="copyCode"]').forEach(btn=>{
+  container.querySelectorAll('[data-action="copyLink"]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       const code = btn.dataset.code;
+      const link = `${location.origin}${location.pathname}?join=${encodeURIComponent(code)}`;
       try{
-        await navigator.clipboard.writeText(code);
-        showAlert(`Copied "${code}" to your clipboard.`, 'Copied');
+        await navigator.clipboard.writeText(link);
+        showAlert(`Copied an invite link — anyone who opens it (and logs in or signs up) is prompted to join with code "${code}". Share it however you like, or read out the code itself above.`, 'Copied');
       }catch(e){
-        showAlert(`Join code: ${code}`, 'Join code');
+        showAlert(`Invite link: ${link}`, 'Invite link');
       }
     });
   });
@@ -1408,6 +1416,12 @@ async function loadCurrentSeriesData(){
 
 /* ================= INIT ================= */
 async function init(){
+  const joinParam = new URLSearchParams(window.location.search).get('join');
+  if(joinParam){
+    pendingJoinCode = joinParam.trim().toUpperCase();
+    history.replaceState(null, '', window.location.pathname);
+  }
+
   document.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       switchTab(btn.dataset.tab);
@@ -1458,6 +1472,7 @@ async function init(){
     updateAdminTabVisibility();
     renderAll();
     renderCountdown();
+    applyPendingJoinCode();
   });
 
   try{
@@ -1480,6 +1495,20 @@ async function init(){
   updateAdminTabVisibility();
   renderAll();
   startCountdown();
+  applyPendingJoinCode();
+}
+
+/* Jumps to the My Leagues tab and pre-fills its join-code field from a
+   ?join=CODE invite link (see "Copy invite link" in wireMyLeagues()) — a
+   no-op until a session exists, so it's safe to call right after every load/
+   auth-state pass; whichever one first finds a session applies it once. */
+function applyPendingJoinCode(){
+  if(!pendingJoinCode || !session) return;
+  const code = pendingJoinCode;
+  pendingJoinCode = null;
+  switchTab('leaderboard');
+  const input = document.getElementById('joinCodeInput');
+  if(input){ input.value = code; input.focus(); }
 }
 
 function openMobileDrawer(){
