@@ -1,9 +1,9 @@
 # Setting up your Ashes Fantasy XI backend
 
-The app is now a static HTML file that talks directly to a free Supabase project —
-there's no server for you to run or deploy. Supabase gives you a real Postgres
-database, real accounts (hashed passwords, sessions), and an auto-generated API,
-all on the free tier.
+The app is a static site (`index.html` plus its `js/` folder) that talks directly
+to a free Supabase project — there's no server for you to run or deploy. Supabase
+gives you a real Postgres database, real accounts (hashed passwords, sessions),
+and an auto-generated API, all on the free tier.
 
 ## 1. Create a Supabase project
 
@@ -59,10 +59,13 @@ a browser.
 
 ## 6. Host it somewhere real (optional but recommended)
 
-Opening the HTML file locally works fine for testing, but for a shareable link,
-drag-and-drop the single file onto any static host — [Netlify Drop](https://app.netlify.com/drop),
-[Cloudflare Pages](https://pages.cloudflare.com), or [Vercel](https://vercel.com)
-all have free tiers that work with a single static file.
+Opening `index.html` locally works fine for testing, but for a shareable link, drag
+the whole project folder (`index.html` + `js/`) onto any static host — [Netlify
+Drop](https://app.netlify.com/drop), [Cloudflare Pages](https://pages.cloudflare.com),
+or [Vercel](https://vercel.com) all have free tiers that work with a plain static
+folder like this one. Netlify Drop accepts a dragged folder directly; Cloudflare
+Pages/Vercel can also deploy straight from the GitHub repo if you'd rather not
+re-upload by hand each time.
 
 ## 7. Make yourself an admin (needed for the Players tab)
 
