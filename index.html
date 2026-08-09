@@ -152,6 +152,10 @@
     .overlay-title{font-size:18px;}
     .admin-subnav{gap:0;}
     .subtab-btn{padding:9px 11px; font-size:11px;}
+    .picker-points{width:100%; justify-content:flex-start; gap:12px;}
+    .save-bar{flex-direction:column; align-items:stretch;}
+    .save-bar .btn{width:100%;}
+    .wildcard-row .btn, .action-bar-secondary .btn{width:100%;}
   }
   .btn{
     background:var(--gilt);
@@ -247,6 +251,12 @@
   .notice.warn{background:rgba(122,31,43,.25); border-color:var(--oxblood-bright);}
   .notice strong{color:var(--gilt-bright);}
   .notice.warn strong{color:#ffb3b3;}
+  /* Stack of notices with even spacing between them and a consistent gap from
+     whatever sits above — used so a variable number of warnings (My XI's
+     squad-size/team-cap/keeper checks) never looks unevenly spaced. */
+  .notice-stack{margin-top:14px;}
+  .notice-stack .notice{margin-bottom:0;}
+  .notice-stack .notice + .notice{margin-top:10px;}
 
   /* ---------- rules tab ---------- */
   .rules-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:stretch;}
@@ -283,7 +293,11 @@
     border:1px solid var(--parchment-dim); border-radius:6px;
     padding:10px 12px; margin-bottom:6px;
   }
-  .player-row.added{border-color:var(--gilt); box-shadow:inset 0 0 0 1px var(--gilt);}
+  /* .added is admin's "just-added player" highlight (see Series Setup); .leader
+     is the leaderboard's unrelated "1st place" highlight — same gold-border
+     look, but kept as a separate class so admin's mobile .added rule below
+     (which stacks that row into a column) can never reach the leaderboard row. */
+  .player-row.added, .player-row.leader{border-color:var(--gilt); box-shadow:inset 0 0 0 1px var(--gilt);}
   .player-name-wrap{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
   .player-name{font-weight:700; font-size:14.5px;}
   .role-pill{
@@ -373,7 +387,7 @@
     font-family:var(--font-mono); font-weight:700; color:var(--oxblood);
     min-width:20px; display:inline-block; text-align:center;
   }
-  .standing-row.added .standing-rank{color:var(--gilt-bright); background:var(--oxblood); border-radius:50%;}
+  .standing-row.leader .standing-rank{color:var(--gilt-bright); background:var(--oxblood); border-radius:50%;}
   .standing-points{font-family:var(--font-mono); font-weight:700; color:var(--oxblood); white-space:nowrap;}
   .standing-detail{
     display:none; margin:-4px 0 6px; padding:10px 14px;
@@ -515,16 +529,12 @@
   .squad-card.move-selected{outline:2px solid var(--gilt); outline-offset:-2px;}
   .squad-card.empty{
     justify-content:center; background:transparent; border:1px dashed var(--line); color:var(--parchment-dim);
-    cursor:pointer; padding:0;
+    cursor:pointer; padding:13px;
     transition:background .15s ease, border-color .15s ease;
+    font-family:var(--font-mono); font-size:11.5px; font-weight:700; letter-spacing:.04em; color:var(--gilt-bright);
   }
-  .squad-card.empty:hover{background:rgba(230,197,120,.1); border-color:var(--gilt-bright);}
-  .squad-card.empty button{
-    flex:1; align-self:stretch; display:flex; align-items:center; justify-content:center;
-    background:none; border:none; color:var(--gilt-bright); font-family:var(--font-mono);
-    font-size:11.5px; font-weight:700; letter-spacing:.04em; cursor:pointer; padding:13px;
-  }
-  .squad-card.empty button:hover{color:var(--chalk);}
+  .squad-card.empty:hover{background:rgba(230,197,120,.1); border-color:var(--gilt-bright); color:var(--chalk);}
+  .squad-card.empty:focus-visible{outline:2px solid var(--gilt-bright); outline-offset:2px;}
   .squad-card-drag-handle{
     background:none; border:none; color:#9a8f77; font-size:14px; flex-shrink:0; line-height:1;
     padding:8px; margin:-2px 0; cursor:pointer;
@@ -545,6 +555,12 @@
   .squad-card-controls button:hover{filter:brightness(0.97);}
   .squad-card-controls button.active-cap{background:var(--gilt); border-color:var(--gilt); color:var(--turf-deeper);}
   .squad-card-controls button.active-vc{background:var(--gilt-bright); border-color:var(--gilt-bright); color:var(--turf-deeper);}
+  /* Playing-role selector — same footprint/finish as the C/V buttons beside it,
+     just a <select> since it's a 3-way choice rather than a toggle. */
+  .role-select{
+    width:auto; height:24px; border-radius:4px; border:1px solid var(--parchment-dim); background:var(--chalk);
+    color:var(--turf); font-family:var(--font-mono); font-size:9.5px; font-weight:700; cursor:pointer; padding:0 2px;
+  }
 
   .action-bar-main{
     display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-top:18px;
@@ -553,6 +569,7 @@
   .action-bar-main .status-chip{background:var(--turf-deeper);}
   .action-bar-buttons{display:flex; gap:10px; flex-wrap:wrap; margin-left:auto;}
   .action-bar-secondary{margin-top:8px; text-align:right;}
+  .wildcard-row{margin-bottom:14px;}
   .link-btn{
     background:none; border:none; color:var(--parchment-dim); font-size:12px; text-decoration:underline;
     cursor:pointer; padding:4px;
@@ -564,14 +581,22 @@
   .link-btn.on-light{color:#6B5F45;}
   .link-btn.on-light:hover{color:var(--ink);}
 
-  .picker-list{max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin:14px 0;}
+  .picker-list{max-height:420px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin:14px 0;}
+  .picker-group-title{
+    font-family:var(--font-mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--gilt-bright); margin:12px 0 2px;
+  }
+  .picker-group-title:first-child{margin-top:0;}
   .picker-row{
-    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
     background:var(--turf-deeper); border:1px solid var(--line); border-radius:6px;
     padding:10px 12px; color:var(--chalk); font-size:13.5px; cursor:pointer; text-align:left; width:100%;
     font-family:var(--font-body);
   }
   .picker-row:hover{border-color:var(--gilt);}
+  .picker-row:disabled{opacity:.35; cursor:not-allowed;}
+  .picker-row:disabled:hover{border-color:var(--line);}
+  .picker-points{display:flex; gap:9px; font-family:var(--font-mono); font-size:11px; color:var(--parchment-dim); flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -618,7 +643,8 @@
           <li>At least <strong>one wicketkeeper</strong> in your squad, and your starting XI must always include one.</li>
           <li>No budget cap — pick on judgement, not salary.</li>
           <li>From your 14, name a <strong>starting XI</strong> — the other 3 sit on the bench. Free to change anytime in My XI.</li>
-          <li>Choose a <strong>Captain (2&times; points)</strong> and <strong>Vice-Captain (1.5&times; points)</strong> from your XI.</li>
+          <li>Each player in your XI is also assigned a <strong>playing role</strong> — Batter, Bowler or Wicketkeeper — independent of their real-life role (so a keeper can be assigned as a Batter, an all-rounder as a Bowler, and so on). It doubles that discipline's bonus points: 50s/100s for a Batter, 4-/5-wicket hauls for a Bowler, catches/stumpings/run-outs for a Wicketkeeper. Set from the dropdown on each XI card in My XI, defaulting to their own base role (all-rounders default to Batter).</li>
+          <li>Choose a <strong>Captain (2&times; points)</strong> and <strong>Vice-Captain</strong> from your XI. The Vice-Captain carries no bonus of their own — it only kicks in (2&times;) if your Captain doesn't play that Test.</li>
         </ol>
       </div>
       <div class="card">
@@ -639,21 +665,21 @@
         <table class="scoring-table">
           <tr><th colspan="2">Batting</th></tr>
           <tr><td>Per run</td><td>+1</td></tr>
-          <tr><td>50 scored</td><td>+8</td></tr>
-          <tr><td>100 scored (replaces 50 bonus)</td><td>+16</td></tr>
+          <tr><td>50 scored (2&times; if playing as Batter)</td><td>+8</td></tr>
+          <tr><td>100 scored (replaces 50 bonus; 2&times; if playing as Batter)</td><td>+16</td></tr>
           <tr><td>Dismissed for a duck</td><td>&minus;2</td></tr>
         </table>
         <table class="scoring-table">
           <tr><th colspan="2">Bowling &amp; fielding</th></tr>
           <tr><td>Per wicket</td><td>+20</td></tr>
-          <tr><td>4-wicket haul</td><td>+8</td></tr>
-          <tr><td>5-wicket haul (replaces 4-fer bonus)</td><td>+16</td></tr>
-          <tr><td>Per catch</td><td>+8</td></tr>
-          <tr><td>Per stumping</td><td>+12</td></tr>
-          <tr><td>Per run-out</td><td>+8</td></tr>
+          <tr><td>4-wicket haul (2&times; if playing as Bowler)</td><td>+8</td></tr>
+          <tr><td>5-wicket haul (replaces 4-fer bonus; 2&times; if playing as Bowler)</td><td>+16</td></tr>
+          <tr><td>Per catch (2&times; if playing as Wicketkeeper)</td><td>+8</td></tr>
+          <tr><td>Per stumping (2&times; if playing as Wicketkeeper)</td><td>+12</td></tr>
+          <tr><td>Per run-out (2&times; if playing as Wicketkeeper)</td><td>+8</td></tr>
         </table>
       </div>
-      <p class="muted-on-light" style="font-size:12.5px; margin-top:10px;">Captain multiplies their total match points by 2&times;, Vice-Captain by 1.5&times;.</p>
+      <p class="muted-on-light" style="font-size:12.5px; margin-top:10px;">Each XI player's assigned <strong>playing role</strong> (Batter/Bowler/Wicketkeeper, set in My XI) doubles that discipline's bonus points as marked above — independent of their real-life role. Separately, <strong>Captain</strong> multiplies their total match points by 2&times;. <strong>Vice-Captain</strong> gets no bonus unless the Captain doesn't play that Test — then the armband passes to them for 2&times; instead.</p>
     </div>
   </section>
 
@@ -697,6 +723,19 @@ const supabaseClient = (SUPABASE_URL.startsWith('http'))
 
 /* ================= STATIC LOOKUPS ================= */
 const ROLE_LABEL = {BAT:'Batter', BOWL:'Bowler', AR:'All-rounder', WK:'Wicketkeeper'};
+// Display/grouping order for the player picker: Batters, All-rounders,
+// Wicketkeepers, Bowlers.
+const ROLE_GROUP_ORDER = ['BAT', 'AR', 'WK', 'BOWL'];
+// A "playing role" is a per-XI-selection choice, independent of a player's own
+// base role above — it decides which discipline's bonus points get doubled
+// (see singleInningsPoints). Only BAT/BOWL/WK are valid playing roles; an
+// all-rounder's base role isn't one of those, so it needs a default same as
+// anyone else. Defaulting to their own base role covers BAT/BOWL/WK players;
+// all-rounders default to BAT (arbitrary but as good as any other pick, and
+// always overridable from My XI).
+function defaultPlayingRole(baseRole){
+  return (baseRole==='BAT' || baseRole==='BOWL' || baseRole==='WK') ? baseRole : 'BAT';
+}
 
 /* ================= STATE ================= */
 // My XI's player-facing state, scoped to whichever series the user is
@@ -758,30 +797,62 @@ function slugify(name, nat, existing){
 }
 
 /* ================= SCORING ================= */
-function singleInningsPoints(inn){
+// `role` is the fantasy playing role assigned to this player in whichever
+// squad is being scored (see defaultPlayingRole) — omit it (or pass a value
+// that isn't BAT/BOWL/WK) to get the plain, undoubled rate, which is what the
+// player-picker's raw series-points ranking uses. Doubling only ever applies
+// to that role's own bonus: a Batter's 50/100 bonus, a Bowler's 4-/5-fer
+// bonus, or a Wicketkeeper's catch/stumping/run-out points — everything else
+// (runs, wickets, duck) is unaffected regardless of assigned role.
+function singleInningsPoints(inn, role){
   if(!inn) return 0;
   let pts = 0;
   pts += (inn.runs||0) * 1;
-  if(inn.hundred) pts += 16;
-  else if(inn.fifty) pts += 8;
+  const batMult = role==='BAT' ? 2 : 1;
+  const bowlMult = role==='BOWL' ? 2 : 1;
+  const wkMult = role==='WK' ? 2 : 1;
+  if(inn.hundred) pts += 16*batMult;
+  else if(inn.fifty) pts += 8*batMult;
   if(inn.duck) pts -= 2;
   pts += (inn.wickets||0) * 20;
-  if(inn.fiveWkt) pts += 16;
-  else if(inn.fourWkt) pts += 8;
-  pts += (inn.catches||0) * 8;
-  pts += (inn.stumpings||0) * 12;
-  pts += (inn.runouts||0) * 8;
+  if(inn.fiveWkt) pts += 16*bowlMult;
+  else if(inn.fourWkt) pts += 8*bowlMult;
+  pts += (inn.catches||0) * 8*wkMult;
+  pts += (inn.stumpings||0) * 12*wkMult;
+  pts += (inn.runouts||0) * 8*wkMult;
   return pts;
 }
-function statPoints(s){
+function statPoints(s, role){
   if(!s) return 0;
   // New shape: {inn1:{...}, inn2:{...}} — sum both, so e.g. a century in each
   // innings both earn the bonus. Falls back to treating s itself as a single
   // innings for stats saved before per-innings entry existed.
   if(s.inn1 || s.inn2){
-    return singleInningsPoints(s.inn1) + singleInningsPoints(s.inn2);
+    return singleInningsPoints(s.inn1, role) + singleInningsPoints(s.inn2, role);
   }
-  return singleInningsPoints(s);
+  return singleInningsPoints(s, role);
+}
+// Same rates as singleInningsPoints, but split into batting/bowling/fielding
+// buckets and always at the plain (undoubled) rate — this feeds the player
+// picker's "how has this player actually been performing" points display,
+// which is about the player's own output, not any one manager's assigned
+// playing role. bat+bowl+field always equals statPoints(s) with no role.
+function inningsPointsBreakdown(inn){
+  if(!inn) return {bat:0, bowl:0, field:0};
+  let bat = (inn.runs||0) * 1;
+  if(inn.hundred) bat += 16;
+  else if(inn.fifty) bat += 8;
+  if(inn.duck) bat -= 2;
+  let bowl = (inn.wickets||0) * 20;
+  if(inn.fiveWkt) bowl += 16;
+  else if(inn.fourWkt) bowl += 8;
+  const field = (inn.catches||0)*8 + (inn.stumpings||0)*12 + (inn.runouts||0)*8;
+  return {bat, bowl, field};
+}
+function statPointsBreakdown(s){
+  if(!s) return {bat:0, bowl:0, field:0};
+  const parts = (s.inn1 || s.inn2) ? [inningsPointsBreakdown(s.inn1), inningsPointsBreakdown(s.inn2)] : [inningsPointsBreakdown(s)];
+  return parts.reduce((acc,p)=>({bat:acc.bat+p.bat, bowl:acc.bowl+p.bowl, field:acc.field+p.field}), {bat:0, bowl:0, field:0});
 }
 /* Works out who actually took the field for a locked XI once the real Playing XI
    is known. Anyone locked in who isn't on `playingXi` is treated as a non-player
@@ -808,15 +879,18 @@ function resolveEffectiveXi(lockedEntry, playingXi){
 function computeTestScore(lockedEntry, statsForTest, playingXi){
   if(!lockedEntry) return 0;
   const {effectiveXi, captainDidNotPlay} = resolveEffectiveXi(lockedEntry, playingXi);
-  // If the captain didn't play (and was subbed off), the armband's 2x bonus
-  // passes to the vice-captain instead — but only if the VC actually played too;
-  // otherwise the bonus is simply lost, same as if neither had played.
+  // The Vice-Captain carries no bonus of their own — it only exists as backup
+  // for the Captain. If the captain didn't play (and was subbed off), the
+  // armband's 2x bonus passes to the vice-captain instead — but only if the
+  // VC actually played too; otherwise the bonus is simply lost, same as if
+  // neither had played.
   let total = 0;
   effectiveXi.forEach(({pid})=>{
     if(!pid) return;
-    let pts = statPoints(statsForTest ? statsForTest[pid] : null);
+    const role = (lockedEntry.playingRoles && lockedEntry.playingRoles[pid]) || defaultPlayingRole(getPlayer(pid).role);
+    let pts = statPoints(statsForTest ? statsForTest[pid] : null, role);
     if(pid === lockedEntry.captain && !captainDidNotPlay) pts *= 2;
-    else if(pid === lockedEntry.viceCaptain) pts *= captainDidNotPlay ? 2 : 1.5;
+    else if(pid === lockedEntry.viceCaptain && captainDidNotPlay) pts *= 2;
     total += pts;
   });
   return Math.round(total*10)/10;
@@ -841,6 +915,7 @@ function rowToSquad(row){
     wildcardActiveNow: row.wildcard_active_now,
     wildcardCommittedPending: row.wildcard_committed_pending,
     lockedXiByTest: row.locked_xi_by_test || {},
+    playingRoles: row.playing_roles || {},
   };
 }
 function squadToRow(squad){
@@ -858,6 +933,7 @@ function squadToRow(squad){
     wildcard_active_now: squad.wildcardActiveNow,
     wildcard_committed_pending: squad.wildcardCommittedPending,
     locked_xi_by_test: squad.lockedXiByTest,
+    playing_roles: squad.playingRoles || {},
   };
 }
 
@@ -873,7 +949,11 @@ function countChanges(rosterA, rosterB){
    Squad Builder (initial pick) and My XI (ongoing transfers). Teams are
    derived from the full available PLAYERS pool (not just the selection) so a
    team with zero players picked still gets flagged as short, rather than
-   silently passing because it never appears among the chosen ids. */
+   silently passing because it never appears among the chosen ids.
+   The 5-per-team split is a rule about the 14-man squad (XI + bench
+   together) — it's only checked once all 14 are picked, so it never fires
+   against a still-being-built starting XI (e.g. filling XI slots before
+   touching the bench, which is naturally lopsided until the bench is filled). */
 function validateSquad14(ids){
   const poolNats = [...new Set(PLAYERS.map(p=>p.nat))];
   const counts = {};
@@ -881,10 +961,12 @@ function validateSquad14(ids){
   const wkCount = ids.filter(id=>getPlayer(id).role==='WK').length;
   const errors = [];
   if(ids.length!==14) errors.push(`Squad has ${ids.length}/14 players`);
-  poolNats.forEach(n=>{
-    const c = counts[n] || 0;
-    if(c < 5) errors.push(`Only ${c} ${teamNameForCode(n)} players (need 5+)`);
-  });
+  if(ids.length===14){
+    poolNats.forEach(n=>{
+      const c = counts[n] || 0;
+      if(c < 5) errors.push(`Only ${c} ${teamNameForCode(n)} players (need 5+)`);
+    });
+  }
   if(wkCount<1) errors.push('No wicketkeeper in the squad');
   return {valid: errors.length===0, errors, counts, wkCount};
 }
@@ -993,6 +1075,32 @@ async function getMatchDataForTest(seriesId, testNum){
   return {stats: (data && data.stats) || {}, playingXi: (data && data.playing_xi) || [], innings: (data && data.innings) || []};
 }
 
+// pid -> {bat, bowl, field, total} raw points scored across every Test
+// entered so far this series (plain rate, no captain/VC/playing-role
+// multiplier — it's a ranking of the player's own output, not any one
+// manager's fantasy score). Starts at all-zero for everyone at the start of
+// a series since there's simply nothing in match_stats yet. Drives the
+// player picker's per-role sort order and its bat/bowl/field points display.
+let seriesPlayerTotals = {};
+async function loadSeriesPlayerTotals(seriesId){
+  seriesPlayerTotals = {};
+  if(!seriesId) return;
+  const fx = await fetchFixtures(seriesId);
+  const perTest = await Promise.all(fx.map(f=>getMatchDataForTest(seriesId, f.test)));
+  perTest.forEach(({stats})=>{
+    Object.keys(stats||{}).forEach(pid=>{
+      const b = statPointsBreakdown(stats[pid]);
+      const cur = seriesPlayerTotals[pid] || {bat:0, bowl:0, field:0, total:0};
+      seriesPlayerTotals[pid] = {
+        bat: cur.bat + b.bat,
+        bowl: cur.bowl + b.bowl,
+        field: cur.field + b.field,
+        total: cur.total + b.bat + b.bowl + b.field,
+      };
+    });
+  });
+}
+
 /* Switches which series My XI is building/showing a team for — points the
    player-facing PLAYERS/fixtures at it and resets any in-progress draft,
    since it belonged to the previous series' squad. */
@@ -1001,7 +1109,7 @@ async function switchToSeries(seriesId){
   localStorage.setItem('currentSeriesId', seriesId);
   mySquad = mySquads.find(s=>s.seriesId===seriesId) || null;
   draft = null;
-  await Promise.all([loadPlayers(seriesId), loadFixtures(seriesId)]);
+  await Promise.all([loadPlayers(seriesId), loadFixtures(seriesId), loadSeriesPlayerTotals(seriesId)]);
   renderMyXI();
   renderCountdown();
 }
@@ -1174,6 +1282,46 @@ function showConfirm(message, title='Please confirm'){
     backdrop.addEventListener('click', e=>{ if(e.target===backdrop) finish(false); });
   });
 }
+/* Like showConfirm, but for actions destructive enough to re-check the
+   signed-in user's identity rather than just their intent (currently: league
+   deletion). There's no separate "verify my current password" endpoint in
+   Supabase Auth, so this re-runs signInWithPassword against the session's own
+   email — wrong password fails it the same way a login attempt would, right
+   password just re-authenticates the same session (harmless). Resolves true
+   only once that's succeeded; false on cancel/close. */
+function showPasswordConfirm(message, title='Confirm with your password'){
+  return new Promise(resolve=>{
+    const backdrop = openOverlay(`
+      <div class="overlay-title">${title}</div>
+      <div class="overlay-message">${message}</div>
+      <div class="field-group"><label for="pwConfirmInput">Account password</label><input type="password" id="pwConfirmInput" placeholder="Your password" autocomplete="current-password"></div>
+      <div class="auth-error" id="pwConfirmError"></div>
+      <div class="overlay-actions">
+        <button class="btn secondary" data-overlay-cancel>Cancel</button>
+        <button class="btn danger" id="pwConfirmBtn">Confirm</button>
+      </div>
+    `);
+    const finish = (val)=>{ closeOverlay(); resolve(val); };
+    const input = backdrop.querySelector('#pwConfirmInput');
+    const errBox = backdrop.querySelector('#pwConfirmError');
+    const confirmBtn = backdrop.querySelector('#pwConfirmBtn');
+    const attempt = async ()=>{
+      const password = input.value;
+      if(!password){ errBox.textContent = 'Enter your password.'; return; }
+      confirmBtn.disabled = true;
+      const {error} = await supabaseClient.auth.signInWithPassword({email: session.user.email, password});
+      confirmBtn.disabled = false;
+      if(error){ errBox.textContent = 'Incorrect password.'; input.select(); return; }
+      finish(true);
+    };
+    confirmBtn.addEventListener('click', attempt);
+    input.addEventListener('keydown', e=>{ if(e.key==='Enter') attempt(); });
+    backdrop.querySelector('[data-overlay-cancel]').addEventListener('click', ()=>finish(false));
+    backdrop.querySelector('[data-overlay-close]')?.addEventListener('click', ()=>finish(false));
+    backdrop.addEventListener('click', e=>{ if(e.target===backdrop) finish(false); });
+    input.focus();
+  });
+}
 function showLoginOverlay(dismissible=true){
   const backdrop = openOverlay(`
     <span class="overlay-lock-icon">&#127978;</span>
@@ -1221,9 +1369,18 @@ function showLoginOverlay(dismissible=true){
   }
 }
 
-/* Two-step lightbox: choose a nation, then pick a player not already in excludeIds.
-   Used for both adding a player into an empty slot and replacing an existing one. */
-function openPlayerPicker(excludeIds, onPick){
+/* Lightbox listing every available player (not already in excludeIds) at
+   once, grouped by base role — Batters, All-rounders, Wicketkeepers, Bowlers
+   — and sorted within each group by total series points scored so far
+   (highest first; 0 for anyone yet to play this series). Used for both
+   adding a player into an empty slot and replacing an existing one.
+   countBasisIds is the squad to count each team's tally from for the 5-per-
+   team feasibility check below — the same as excludeIds for a straight add,
+   but excludeIds minus the outgoing player for a replace (their slot isn't
+   really "gone" until the swap completes, so it shouldn't count against
+   itself). Defaults to excludeIds when not given. */
+function openPlayerPicker(excludeIds, onPick, countBasisIds){
+  const basis = countBasisIds || excludeIds;
   const backdrop = openOverlay(`
     <div class="overlay-title">Pick a player</div>
     <div id="pickerBody"></div>
@@ -1231,40 +1388,57 @@ function openPlayerPicker(excludeIds, onPick){
   backdrop.querySelector('[data-overlay-close]').addEventListener('click', closeOverlay);
   backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
 
-  const teams = resolveSeriesTeams(currentSeriesId, PLAYERS);
-
-  function renderNationChoice(){
-    document.getElementById('pickerBody').innerHTML = `
-      <div class="overlay-message">Choose a team to browse.</div>
-      <div class="overlay-actions" style="justify-content:center; gap:14px;">
-        ${teams.map(t=>`<button class="btn" data-nation="${t.short_code}">${t.name}</button>`).join('')}
-      </div>
-    `;
-    document.querySelectorAll('#pickerBody [data-nation]').forEach(btn=>{
-      btn.addEventListener('click', ()=> renderPlayerList(btn.dataset.nation));
-    });
+  // How many more picks are left after this one (the squad tops out at 14),
+  // and how many of each team are already locked in among `basis`.
+  const poolNats = [...new Set(PLAYERS.map(p=>p.nat))];
+  const baseCounts = {};
+  basis.forEach(id=>{ const n = getPlayer(id).nat; baseCounts[n] = (baseCounts[n]||0) + 1; });
+  const slotsAfterThisPick = 14 - basis.length - 1;
+  // A candidate is selectable only if, after picking them, there's still
+  // room left to bring every team up to its 5-player minimum — e.g. with 1
+  // slot left and Australia still short 2, every England candidate greys out
+  // since taking one would make 5 Australians impossible to reach.
+  function isSelectable(p){
+    const counts = {...baseCounts};
+    counts[p.nat] = (counts[p.nat]||0) + 1;
+    const stillNeeded = poolNats.reduce((sum,n)=> sum + Math.max(0, 5-(counts[n]||0)), 0);
+    return stillNeeded <= slotsAfterThisPick;
   }
 
-  function renderPlayerList(nation){
-    const avail = PLAYERS.filter(p=>p.nat===nation && !excludeIds.includes(p.id));
-    const teamName = (teams.find(t=>t.short_code===nation)||{}).name || nation;
-    document.getElementById('pickerBody').innerHTML = `
-      <div class="overlay-message">${teamName} players available:</div>
-      <div class="picker-list">
-        ${avail.length ? avail.map(p=>`
-          <button type="button" class="picker-row" data-pid="${p.id}">
-            <span>${p.name}</span><span class="role-pill">${ROLE_LABEL[p.role]}</span>
-          </button>`).join('') : '<p class="auth-hint">No available players left from this team.</p>'}
-      </div>
-      <div class="overlay-actions"><button class="btn secondary" data-back>&larr; Back</button></div>
-    `;
-    document.querySelectorAll('#pickerBody .picker-row').forEach(btn=>{
-      btn.addEventListener('click', ()=>{ closeOverlay(); onPick(btn.dataset.pid); });
-    });
-    document.querySelector('#pickerBody [data-back]').addEventListener('click', renderNationChoice);
-  }
+  const totalsFor = pid => seriesPlayerTotals[pid] || {bat:0, bowl:0, field:0, total:0};
 
-  renderNationChoice();
+  const avail = PLAYERS.filter(p=>!excludeIds.includes(p.id));
+  const groups = ROLE_GROUP_ORDER.map(role=>({
+    role,
+    players: avail.filter(p=>p.role===role)
+      .sort((a,b)=> totalsFor(b.id).total - totalsFor(a.id).total || a.name.localeCompare(b.name)),
+  })).filter(g=>g.players.length);
+
+  document.getElementById('pickerBody').innerHTML = `
+    <div class="overlay-message">Sorted by total series points within each role. Greyed-out players would leave a team short of the 5-player minimum.</div>
+    <div class="picker-list">
+      ${groups.length ? groups.map(g=>`
+        <div class="picker-group-title">${ROLE_LABEL[g.role]}s</div>
+        ${g.players.map(p=>{
+          const selectable = isSelectable(p);
+          const pts = totalsFor(p.id);
+          return `
+          <button type="button" class="picker-row" data-pid="${p.id}" ${selectable?'':`disabled title="Would leave ${teamNameForCode(poolNats.find(n=>n!==p.nat))} short of the 5-player minimum"`}>
+            <span>${p.name} <span class="role-pill">${p.nat}</span></span>
+            <span class="picker-points">
+              <span title="Batting points this series">Bat ${pts.bat}</span>
+              <span title="Bowling points this series">Bowl ${pts.bowl}</span>
+              <span title="Fielding points this series">Fld ${pts.field}</span>
+            </span>
+          </button>`;
+        }).join('')}
+      `).join('') : '<p class="auth-hint">No available players left.</p>'}
+    </div>
+  `;
+  document.querySelectorAll('#pickerBody .picker-row').forEach(btn=>{
+    if(btn.disabled) return;
+    btn.addEventListener('click', ()=>{ closeOverlay(); onPick(btn.dataset.pid); });
+  });
 }
 
 /* ================= AUTH ================= */
@@ -1352,9 +1526,9 @@ function switchAdminSubtab(subtab){
    leaves them in sync. */
 async function loadCurrentSeriesData(){
   if(currentSeriesId){
-    await Promise.all([loadPlayers(currentSeriesId), loadFixtures(currentSeriesId)]);
+    await Promise.all([loadPlayers(currentSeriesId), loadFixtures(currentSeriesId), loadSeriesPlayerTotals(currentSeriesId)]);
   } else {
-    PLAYERS = []; PLAYER_MAP = {}; fixtures = [];
+    PLAYERS = []; PLAYER_MAP = {}; fixtures = []; seriesPlayerTotals = {};
   }
 }
 
@@ -1846,13 +2020,14 @@ async function deleteSeries(s){
 let editingPlayerId = null;
 
 /* ================= MY XI ================= */
-let draft = null; // local, unsaved editing state for My XI: {_squadId, squad14, xi11, captain, viceCaptain}
+let draft = null; // local, unsaved editing state for My XI: {_squadId, squad14, xi11, captain, viceCaptain, playingRoles}
 // Tap-to-swap is the touch-friendly equivalent of dragging a squad-card onto
 // another one — native HTML5 drag-and-drop (used elsewhere in this editor)
 // never fires on touch devices, so this is the only way to move a player
-// between XI and bench on mobile. Holds the pid of the card tapped first;
-// tapping a second card (in the other zone) completes the swap via the same
-// moveOrSwap() the drag handlers use.
+// between XI and bench (or reorder within the bench) on mobile. Holds the pid
+// of the card tapped first; tapping a second card completes the move via the
+// same moveOrSwap() the drag handlers use — same zone reorders in place,
+// other zone swaps zones.
 let moveSelectedPid = null;
 function ensureDraft(){
   const key = mySquad ? mySquad.id : 'new';
@@ -1863,8 +2038,18 @@ function ensureDraft(){
       xi11: mySquad ? [...mySquad.xi11] : [],
       captain: mySquad ? mySquad.captain : null,
       viceCaptain: mySquad ? mySquad.viceCaptain : null,
+      playingRoles: mySquad ? {...mySquad.playingRoles} : {},
     };
   }
+}
+// The playing role actually assigned to pid in the current draft — falls
+// back to their base role default (see defaultPlayingRole) until the user
+// explicitly picks one from the XI card's role select. This, not the
+// player's inherent base role, is what "does the XI have a wicketkeeper"
+// should check: the fantasy scoring bonus follows whoever's assigned WK, so
+// that's who actually needs to be there.
+function assignedPlayingRole(pid){
+  return draft.playingRoles[pid] || defaultPlayingRole(getPlayer(pid).role);
 }
 
 function squadCardHtml(id, zone, baselineSquad14){
@@ -1874,21 +2059,31 @@ function squadCardHtml(id, zone, baselineSquad14){
   const capVcControls = zone==='xi' ? `
     <button type="button" data-action="cap" data-pid="${id}" class="${isCap?'active-cap':''}" title="Make captain">C</button>
     <button type="button" data-action="vc" data-pid="${id}" class="${isVc?'active-vc':''}" title="Make vice-captain">V</button>` : '';
+  // Playing role: only assignable while in the XI (it only ever affects live
+  // scoring), independent of the player's own base role above. Defaults to
+  // that base role (all-rounders default to Batter) until explicitly changed.
+  const assignedRole = assignedPlayingRole(id);
+  const roleSelect = zone==='xi' ? `
+    <select class="role-select" data-action="role" data-pid="${id}" title="Playing role — doubles that discipline's bonus points while they're in the XI">
+      ${ROLE_GROUP_ORDER.filter(r=>r!=='AR').map(r=>`<option value="${r}" ${assignedRole===r?'selected':''}>${ROLE_LABEL[r]}</option>`).join('')}
+    </select>` : '';
+  const playingAsTag = (zone==='xi' && assignedRole!==p.role) ? ` &middot; playing as ${ROLE_LABEL[assignedRole]}` : '';
   return `
     <div class="squad-card${id===moveSelectedPid?' move-selected':''}" draggable="true" data-pid="${id}" data-zone="${zone}">
       <button type="button" class="squad-card-drag-handle" data-action="movehandle" data-pid="${id}" data-zone="${zone}" title="Drag to move, or tap to swap" aria-label="Move or swap ${p.name}">&#10021;</button>
       <div class="squad-card-info">
         <div class="squad-card-name">${isCap?'<span class="honours-star">&#9733;</span>':''}${p.name}${isVc?' <span style="font-family:var(--font-mono); font-size:9.5px;">VC</span>':''}${isNew?' <span style="color:var(--gilt-bright); font-family:var(--font-mono); font-size:9px;">NEW</span>':''}</div>
-        <div class="squad-card-tags">${p.nat} &middot; ${ROLE_LABEL[p.role]}</div>
+        <div class="squad-card-tags">${p.nat} &middot; ${ROLE_LABEL[p.role]}${playingAsTag}</div>
       </div>
       <div class="squad-card-controls">
+        ${roleSelect}
         ${capVcControls}
         <button type="button" data-action="replace" data-pid="${id}" data-zone="${zone}" title="Replace this player">&#8646;</button>
       </div>
     </div>`;
 }
 function emptySlotHtml(zone){
-  return `<div class="squad-card empty" data-empty-zone="${zone}"><button type="button" data-action="add" data-zone="${zone}">+ Add player</button></div>`;
+  return `<button type="button" class="squad-card empty" data-empty-zone="${zone}" data-action="add" data-zone="${zone}">+ Add player</button>`;
 }
 
 function renderMyXI(){
@@ -1897,11 +2092,10 @@ function renderMyXI(){
 
   if(!currentSeriesId){
     if(seriesList.length===0){
-      c.innerHTML = `<h2 class="panel-title">My XI</h2><div class="empty-state"><div class="big">No series available yet</div>Ask an admin to set one up under Admin &rarr; Series Setup.</div>`;
+      c.innerHTML = `<div class="empty-state"><div class="big">No series available yet</div>Ask an admin to set one up under Admin &rarr; Series Setup.</div>`;
       return;
     }
     c.innerHTML = `
-      <h2 class="panel-title">My XI</h2>
       <div class="card">
         <h3 style="margin-top:0; font-family:var(--font-display);">Pick a series</h3>
         <p class="panel-sub" style="margin-top:0;">Choose which series to build your team for — that's all it takes to start. Joining a league to compare against friends is a separate, optional step under My Leagues.</p>
@@ -1927,7 +2121,7 @@ function renderMyXI(){
   const transfers = (isBuilding || !hasLockedOnce) ? 0 : countChanges(draft.squad14, baselineSquad14);
   const overLimit = hasLockedOnce && transfers > 2;
   const squad14Check = validateSquad14(draft.squad14);
-  const xiHasWK = draft.xi11.some(id=>getPlayer(id).role==='WK');
+  const xiHasWK = draft.xi11.some(id=>assignedPlayingRole(id)==='WK');
   const xiFull = draft.xi11.length===11;
   // Commit just declares your intended squad for the upcoming Test — it's never
   // blocked by the transfer count. The 2-transfer limit (and the wildcard) only
@@ -1959,10 +2153,18 @@ function renderMyXI(){
   const benchSlotsHtml = Array.from({length:3}, (_,i)=> draftBench[i] ? squadCardHtml(draftBench[i], 'bench', baselineSquad14) : emptySlotHtml('bench')).join('');
 
   c.innerHTML = `
-    <h2 class="panel-title">My XI</h2>
     ${seriesSwitcherHtml}
+    ${!isBuilding ? `
+      <div class="wildcard-row">
+        ${squad.wildcardUsed
+          ? `<button class="btn secondary" disabled>Wildcard used</button>`
+          : squad.wildcardActiveNow
+            ? `<button class="btn danger" id="wildcardCancelBtn">Cancel wildcard</button>`
+            : `<button class="btn danger" id="wildcardBtn">Activate wildcard</button>`}
+      </div>
+    ` : ''}
     <p class="panel-sub">${isBuilding
-      ? `Build your 14-man squad for ${activeSeries.name}: add players, arrange your starting XI, set a captain and vice-captain, then commit.`
+      ? `Build your 14-man squad for ${activeSeries.name}: add players, arrange your starting XI, assign each XI player a playing role, set a captain and vice-captain, then commit.`
       : !hasLockedOnce
         ? "No transfer limit yet — chop and change as much as you like right up to the first Test's deadline. The 2-transfer limit starts from the window after that."
         : "Drag players between XI and bench anytime — that's always free. Commit any time to declare your squad for the upcoming Test; only the deadline actually evaluates your transfer count."}</p>
@@ -1978,17 +2180,9 @@ function renderMyXI(){
     ${!isBuilding && hasLockedOnce ? `
       <div class="swap-status-row">
         <div class="status-chip"><div class="label">Transfers vs last locked squad</div><div class="value">${transfers} / 2</div></div>
-        <div class="status-chip"><div class="label">Wildcard</div><div class="value">${squad.wildcardUsed?'Used':(squad.wildcardActiveNow?'Armed':'Available')}</div></div>
       </div>
       ${overLimit && !squad.wildcardActiveNow ? `<div class="notice warn">This draft differs from your last locked squad by <strong>${transfers} players</strong> — more than the free 2. You can still commit and preview it, but you'll want to arm your wildcard or trim it back to 2 before the deadline: the league rule is enforced by whoever locks the Test, not automatically by this notice.</div>` : ''}
     ` : ''}
-    ${!isBuilding && !hasLockedOnce ? `
-      <div class="swap-status-row">
-        <div class="status-chip"><div class="label">Wildcard</div><div class="value">${squad.wildcardUsed?'Used':(squad.wildcardActiveNow?'Armed':'Available')}</div></div>
-      </div>
-    ` : ''}
-    ${draft.squad14.length>0 ? squad14Check.errors.map(e=>`<div class="notice warn">${e}</div>`).join('') : ''}
-    ${xiFull && !xiHasWK ? `<div class="notice warn">Your starting XI needs a wicketkeeper.</div>` : ''}
     ${draftDiffersFromCommitted ? `<div class="notice">You have uncommitted changes below — they won't count for scoring until you hit <strong>Commit changes</strong>.</div>` : ''}
     ${moveSelectedPid ? `<div class="notice">Tap another player to swap places with ${getPlayer(moveSelectedPid).name} — or tap the &#10021; handle again to cancel.</div>` : ''}
 
@@ -2004,19 +2198,18 @@ function renderMyXI(){
     </div>
 
     <div class="action-bar-main">
-      ${!isBuilding ? `
-        ${squad.wildcardUsed
-          ? `<button class="btn secondary" disabled>Wildcard used</button>`
-          : squad.wildcardActiveNow
-            ? `<button class="btn danger" id="wildcardCancelBtn">Cancel wildcard</button>`
-            : `<button class="btn danger" id="wildcardBtn">Activate wildcard</button>`}
-      ` : ''}
       <div class="action-bar-buttons">
         <button class="btn secondary" id="revertBtn">${isBuilding ? 'Clear all' : 'Revert to last committed squad'}</button>
         <button class="btn" id="commitBtn" ${canCommit?'':'disabled'}>${isBuilding ? 'Create squad' : 'Commit changes'}</button>
       </div>
     </div>
-    ${!isBuilding ? `<div class="action-bar-secondary"><button class="link-btn" id="resetSquadBtn">Reset team entirely</button></div>` : ''}
+    ${(draft.squad14.length>0 && squad14Check.errors.length) || (xiFull && !xiHasWK) ? `
+      <div class="notice-stack">
+        ${draft.squad14.length>0 ? squad14Check.errors.map(e=>`<div class="notice warn">${e}</div>`).join('') : ''}
+        ${xiFull && !xiHasWK ? `<div class="notice warn">Your starting XI needs someone assigned as wicketkeeper — set it from the role dropdown on one of your XI cards.</div>` : ''}
+      </div>
+    ` : ''}
+    ${!isBuilding ? `<div class="action-bar-secondary"><button class="btn danger" id="resetSquadBtn">Reset team entirely</button></div>` : ''}
   `;
 
   const seriesSwitchSelect = c.querySelector('#seriesSwitchSelect');
@@ -2045,11 +2238,20 @@ function renderMyXI(){
       renderMyXI();
     });
   });
+  c.querySelectorAll('[data-action="role"]').forEach(sel=>{
+    sel.addEventListener('change', ()=>{
+      draft.playingRoles[sel.dataset.pid] = sel.value;
+      renderMyXI();
+    });
+  });
   c.querySelectorAll('[data-action="replace"]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const outId = btn.dataset.pid;
       openPlayerPicker(draft.squad14, (newId)=>{
         const newSquad14 = draft.squad14.filter(id=>id!==outId).concat([newId]);
+        // Belt-and-braces: the picker already greys out infeasible candidates
+        // (via the countBasisIds arg below), this just catches it if that
+        // ever falls out of sync.
         const check = validateSquad14(newSquad14);
         if(!check.valid){
           showAlert(`That would leave your squad invalid: ${check.errors.join(' ')}`, "Can't make that change");
@@ -2058,13 +2260,14 @@ function renderMyXI(){
         draft.squad14 = newSquad14;
         if(draft.xi11.includes(outId)){
           const proposedXi = draft.xi11.filter(id=>id!==outId).concat([newId]);
-          draft.xi11 = proposedXi.some(id=>getPlayer(id).role==='WK') ? proposedXi : draft.xi11.filter(id=>id!==outId);
+          draft.xi11 = proposedXi.some(id=>assignedPlayingRole(id)==='WK') ? proposedXi : draft.xi11.filter(id=>id!==outId);
         }
         if(draft.captain===outId) draft.captain = null;
         if(draft.viceCaptain===outId) draft.viceCaptain = null;
+        delete draft.playingRoles[outId];
         if(moveSelectedPid===outId) moveSelectedPid = null;
         renderMyXI();
-      });
+      }, draft.squad14.filter(id=>id!==outId));
     });
   });
   c.querySelectorAll('[data-action="add"]').forEach(btn=>{
@@ -2080,17 +2283,28 @@ function renderMyXI(){
     });
   });
 
-  /* ---- drag and drop between zones (and onto a card to swap) ---- */
+  /* ---- drag and drop between zones (and onto a card to swap or reorder) ---- */
   function moveOrSwap(draggedId, targetZone, targetId){
     if(!draggedId || draggedId===targetId) return;
     const draggedInXi = draft.xi11.includes(draggedId);
     const draggedZone = draggedInXi ? 'xi' : 'bench';
 
     if(targetId){
-      // dropped onto another card — swap the two players' zones
       const targetInXi = draft.xi11.includes(targetId);
       const targetZoneActual = targetInXi ? 'xi' : 'bench';
-      if(draggedZone === targetZoneActual) return; // same zone, nothing to do
+      if(draggedZone === targetZoneActual){
+        // dropped onto a card in its own zone — reorder rather than swap zones.
+        // Bench order matters (it's the substitute priority queue), so this is
+        // how you set it; XI order is cosmetic but reordering is harmless.
+        const from = draft.squad14.indexOf(draggedId);
+        if(from===-1) return;
+        draft.squad14.splice(from, 1);
+        const to = draft.squad14.indexOf(targetId);
+        draft.squad14.splice(to, 0, draggedId);
+        renderMyXI();
+        return;
+      }
+      // dropped onto a card in the other zone — swap the two players' zones
       if(draggedZone==='bench' && targetZoneActual==='xi'){
         draft.xi11 = draft.xi11.filter(id=>id!==targetId).concat([draggedId]);
       } else {
@@ -2135,8 +2349,9 @@ function renderMyXI(){
   });
 
   // Tap-to-swap — see moveSelectedPid comment above. First tap arms a card,
-  // second tap (on a card in the other zone) completes the same swap the
-  // drag handlers above perform; tapping the armed card again cancels.
+  // second tap completes the same move the drag handlers above perform
+  // (reorder if it's another card in the same zone, swap if the other zone);
+  // tapping the armed card again cancels.
   c.querySelectorAll('[data-action="movehandle"]').forEach(btn=>{
     btn.addEventListener('click', e=>{
       e.stopPropagation();
@@ -2173,7 +2388,7 @@ function renderMyXI(){
   document.getElementById('revertBtn').addEventListener('click', async ()=>{
     moveSelectedPid = null;
     if(isBuilding){
-      draft.squad14 = []; draft.xi11 = []; draft.captain = null; draft.viceCaptain = null;
+      draft.squad14 = []; draft.xi11 = []; draft.captain = null; draft.viceCaptain = null; draft.playingRoles = {};
       renderMyXI();
       return;
     }
@@ -2182,6 +2397,7 @@ function renderMyXI(){
     draft.xi11 = [...squad.xi11];
     draft.captain = squad.captain;
     draft.viceCaptain = squad.viceCaptain;
+    draft.playingRoles = {...squad.playingRoles};
     renderMyXI();
   });
   const resetBtn = document.getElementById('resetSquadBtn');
@@ -2198,8 +2414,8 @@ function renderMyXI(){
     localStorage.removeItem('currentSeriesId');
     currentSeriesId = null; // let loadMySquads() re-resolve from scratch, since localStorage no longer points at the just-deleted series
     await loadMySquads();
-    if(currentSeriesId){ await Promise.all([loadPlayers(currentSeriesId), loadFixtures(currentSeriesId)]); }
-    else { PLAYERS = []; PLAYER_MAP = {}; fixtures = []; }
+    if(currentSeriesId){ await Promise.all([loadPlayers(currentSeriesId), loadFixtures(currentSeriesId), loadSeriesPlayerTotals(currentSeriesId)]); }
+    else { PLAYERS = []; PLAYER_MAP = {}; fixtures = []; seriesPlayerTotals = {}; }
     renderAll();
     renderCountdown();
   });
@@ -2209,8 +2425,8 @@ function renderMyXI(){
     const check = validateSquad14(draft.squad14);
     if(!check.valid){ showAlert(check.errors.join(' '), 'Squad is invalid'); return; }
     if(draft.xi11.length!==11){ showAlert('Your starting XI must have exactly 11 players.'); return; }
-    if(!draft.xi11.some(id=>getPlayer(id).role==='WK')){
-      showAlert('Your XI must include a wicketkeeper.'); return;
+    if(!draft.xi11.some(id=>assignedPlayingRole(id)==='WK')){
+      showAlert('Your XI must include someone assigned as wicketkeeper.'); return;
     }
     if(!draft.captain || !draft.viceCaptain){
       showAlert('Choose both a Captain and a Vice-Captain before committing.'); return;
@@ -2218,6 +2434,14 @@ function renderMyXI(){
     if(draft.captain === draft.viceCaptain){
       showAlert('Captain and Vice-Captain must be different players.'); return;
     }
+
+    // Fill in a default playing role for anyone who never touched the
+    // selector (or joined via drag/add rather than the XI's role select), so
+    // what actually gets committed/locked always has an explicit role for
+    // every squad member rather than relying on the fallback at score time.
+    draft.squad14.forEach(pid=>{
+      if(!draft.playingRoles[pid]) draft.playingRoles[pid] = defaultPlayingRole(getPlayer(pid).role);
+    });
 
     if(isBuilding){
       const nameField = document.getElementById('teamNameField');
@@ -2240,6 +2464,7 @@ function renderMyXI(){
         captain: draft.captain, vice_captain: draft.viceCaptain,
         baseline_squad14: draft.squad14,
         wildcard_committed_pending: false,
+        playing_roles: draft.playingRoles,
       });
       if(error){
         if(error.code === '23503'){
@@ -2266,6 +2491,7 @@ function renderMyXI(){
     squad.bench3 = draft.squad14.filter(id=>!draft.xi11.includes(id));
     squad.captain = draft.captain;
     squad.viceCaptain = draft.viceCaptain;
+    squad.playingRoles = {...draft.playingRoles};
     if(squad.wildcardActiveNow) squad.wildcardCommittedPending = true;
     await saveMySquad();
     const transferCount = countChanges(draft.squad14, baselineSquad14);
@@ -2658,6 +2884,7 @@ async function renderLeaderboard(){
     const delBtn = document.getElementById('deleteLeagueBtn');
     if(delBtn) delBtn.addEventListener('click', async ()=>{
       if(!(await showConfirm("Delete this league? Members' teams aren't affected — they're tied to the series, not this league — but this removes their membership and this league's leaderboard. This cannot be undone.", 'Delete league'))) return;
+      if(!(await showPasswordConfirm('Enter your account password to finish deleting this league.', 'Confirm deletion'))) return;
       const {error} = await supabaseClient.from('leagues').delete().eq('id', league.id);
       if(error){ showAlert(error.message); return; }
       currentLeagueId = null;
@@ -2719,7 +2946,7 @@ async function renderLeaderboard(){
     <div class="card">
       ${cardHeadHtml}
       ${rows.map((r,i)=>`
-        <div class="player-row standing-row${i===0?' added':''}" data-idx="${i}">
+        <div class="player-row standing-row${i===0?' leader':''}" data-idx="${i}">
           <div class="player-name-wrap">
             <span class="standing-rank">${i+1}</span>
             <span class="player-name">${r.name}</span>

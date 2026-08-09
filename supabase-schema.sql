@@ -426,6 +426,13 @@ create table if not exists public.squads (
   bench3                   jsonb not null default '[]'::jsonb,
   captain                  text,
   vice_captain             text,
+  -- Playing role assigned to each of the 14 (independent of the player's own
+  -- real-life role in the players table) — {player_id: 'BAT'|'BOWL'|'WK'}.
+  -- Doubles that discipline's bonus points (50s/100s, 4-/5-fers, or
+  -- catches/stumpings/run-outs respectively) for whoever's assigned it while
+  -- they're actually in the XI. Defaults to the player's own base role client-side
+  -- (all-rounders default to BAT) when a pid has no entry here.
+  playing_roles            jsonb not null default '{}'::jsonb,
   -- The 14-man squad as it stood after the last lock (or initial creation, pre-Test-1).
   -- Transfers are measured against this baseline: a commit may change at most 2 of
   -- the 14 players versus it, unless the wildcard is armed. Picking your starting XI
@@ -505,6 +512,7 @@ alter table public.squads drop column if exists league_id;
 
 alter table public.squads add column if not exists baseline_squad14 jsonb not null default '[]'::jsonb;
 alter table public.squads add column if not exists wildcard_committed_pending boolean not null default false;
+alter table public.squads add column if not exists playing_roles jsonb not null default '{}'::jsonb;
 alter table public.squads drop column if exists swaps_used_this_window;
 alter table public.squads drop column if exists baseline_xi11;
 alter table public.squads drop column if exists baseline_bench3;
@@ -556,8 +564,8 @@ create policy "squads_delete_own" on public.squads
   for delete using (auth.uid() = user_id);
 
 -- ---------- lock_test(): the one cross-user action ----------
--- Snapshots every squad's currently committed XI/captain/VC into locked_xi_by_test
--- for the given Test, promotes that committed 14-man squad to be the new transfer
+-- Snapshots every squad's currently committed XI/captain/VC/playing-roles into
+-- locked_xi_by_test for the given Test, promotes that committed 14-man squad to be the new transfer
 -- baseline, and finalizes the wildcard: it's only marked used if it was armed AND
 -- actually spent on a commit since the last lock (wildcard_committed_pending).
 -- Scoped directly by series_id now that squads belong to a series rather than
@@ -584,7 +592,8 @@ begin
         'xi', xi11,
         'bench', bench3,
         'captain', captain,
-        'viceCaptain', vice_captain
+        'viceCaptain', vice_captain,
+        'playingRoles', playing_roles
       )
     ),
     baseline_squad14 = squad14,
