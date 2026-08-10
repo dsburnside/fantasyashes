@@ -151,8 +151,7 @@
     .squad-zone{padding:11px;}
     .overlay-box{padding:20px 18px;}
     .overlay-title{font-size:18px;}
-    .admin-subnav{gap:0;}
-    .subtab-btn{padding:9px 11px; font-size:11px;}
+    .subtab-btn{padding:0 11px; font-size:11px;}
     .picker-points{width:100%; justify-content:flex-start; gap:12px;}
     .save-bar{flex-direction:column; align-items:stretch;}
     .save-bar .btn{width:100%;}
@@ -226,6 +225,20 @@
      current and future case in one place instead of hand-tagging each. */
   .card .panel-sub{color:#6B5F45;}
 
+  /* Small "?" trigger that opens a lightbox with whatever explanatory prose
+     would otherwise sit permanently visible above a screen's actual UI —
+     sits next to the heading it's explaining. color:currentColor means it
+     automatically matches whatever heading color surrounds it, light or
+     dark context, without needing its own variant. */
+  .help-icon{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:18px; height:18px; border-radius:50%; border:1.5px solid currentColor;
+    background:none; color:inherit; opacity:.6;
+    font-family:var(--font-mono); font-size:11px; font-weight:700; line-height:1;
+    padding:0; margin-left:7px; cursor:help; vertical-align:middle;
+  }
+  .help-icon:hover{opacity:1;}
+
   .card{
     background:var(--parchment-panel);
     color:var(--ink);
@@ -252,6 +265,16 @@
   .notice.warn{background:rgba(122,31,43,.25); border-color:var(--oxblood-bright);}
   .notice strong{color:var(--gilt-bright);}
   .notice.warn strong{color:#ffb3b3;}
+  /* .notice defaults to light text on a dark tint, matching the page's dark
+     background. Nested inside a light .card (e.g. Admin > Series Setup >
+     Players) that combination is nearly unreadable — light-parchment text on
+     a background that's almost the same light-parchment color — and just
+     reads as an empty box. Same fix as .muted-on-light/.link-btn.on-light
+     elsewhere: swap to dark text for the light-card context. */
+  .card .notice{color:#6B5F45;}
+  .card .notice.warn{color:var(--oxblood);}
+  .card .notice strong{color:#8a6a1f;}
+  .card .notice.warn strong{color:var(--oxblood-bright);}
   /* Stack of notices with even spacing between them and a consistent gap from
      whatever sits above — used so a variable number of warnings (My XI's
      squad-size/team-cap/keeper checks) never looks unevenly spaced. */
@@ -274,20 +297,6 @@
   ol.rules-list{padding-left:20px; font-size:14px;}
   ol.rules-list li{margin-bottom:10px;}
 
-  /* ---------- player pool listings (used by Admin > Series Setup) ---------- */
-  .nation-block{margin-bottom:22px;}
-  .nation-heading{
-    display:flex; align-items:center; gap:10px;
-    font-family:var(--font-display); font-weight:600; font-size:18px;
-    color:var(--gilt-bright); margin-bottom:10px;
-  }
-  .nation-heading .flag-chip{
-    font-family:var(--font-mono); font-size:11px; padding:3px 8px; border-radius:3px;
-    letter-spacing:.05em;
-  }
-  .flag-chip.team-a{background:var(--oxblood); color:var(--chalk);}
-  .flag-chip.team-b{background:var(--gilt); color:var(--turf-deeper);}
-
   .player-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
     background:var(--parchment-panel); color:var(--ink);
@@ -304,18 +313,13 @@
   .role-pill{
     font-family:var(--font-mono); font-size:10px; letter-spacing:.06em;
     background:var(--turf); color:var(--chalk); padding:2px 7px; border-radius:10px;
+    white-space:nowrap; display:inline-block;
   }
 
-  /* Add-a-player form: name / nationality / role / button */
-  .player-form-grid{display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:14px; align-items:end;}
-  .player-form-grid input[type=text]{width:100%; padding:9px; border:1px solid var(--parchment-dim); border-radius:5px;}
-  .player-form-grid button{height:38px;}
   /* Add-a-fixture form: test number / venue / date / deadline / button */
   .fixture-form-grid{display:grid; grid-template-columns:90px 2fr 1fr 1fr auto; gap:14px; align-items:end;}
   .fixture-form-grid button{height:38px;}
   @media (max-width:640px){
-    .player-form-grid{grid-template-columns:1fr; gap:10px;}
-    .player-form-grid button{width:100%;}
     .fixture-form-grid{grid-template-columns:1fr; gap:10px;}
     .fixture-form-grid button{width:100%;}
   }
@@ -377,9 +381,40 @@
   table.stat-entry td:first-child{text-align:left; font-weight:600;}
   table.stat-entry input[type=number]{width:48px; padding:4px; border:1px solid var(--parchment-dim); border-radius:3px; text-align:center;}
   table.stat-entry input[type=checkbox]{width:16px; height:16px;}
+  /* Greyed out once an innings' 10-wicket (bowling) or 10-dismissal
+     (fielding) cap is reached — see applyCapLockouts(). */
+  table.stat-entry input:disabled{background:var(--parchment-dim); opacity:.5; cursor:not-allowed;}
   .table-scroll{overflow-x:auto;}
 
+  /* Per-player points/stat breakdown table — openTeamBreakdownOverlay() in
+     My Leagues, sits inside the dark .overlay-box rather than a light .card,
+     so (unlike table.stat-entry above) this leans on the overlay's own
+     light-on-dark text color instead of overriding it. */
+  .breakdown-table{width:100%; border-collapse:collapse; font-size:12.5px; margin:6px 0 4px;}
+  .breakdown-table th{
+    font-family:var(--font-mono); font-size:9.5px; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--parchment-dim); border-bottom:1px solid var(--line); padding:6px 4px; text-align:right;
+  }
+  .breakdown-table th:first-child{text-align:left;}
+  .breakdown-table td{padding:5px 4px; border-bottom:1px solid var(--line); text-align:right; font-family:var(--font-mono);}
+  .breakdown-table td:first-child{text-align:left; font-family:var(--font-body); font-weight:600;}
+  .breakdown-table td.pts{color:var(--gilt-bright); font-weight:700;}
+  .breakdown-table td.breakdown-group{
+    font-family:var(--font-mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--gilt-bright); text-align:left; padding:14px 4px 4px; border-bottom:1px solid var(--gilt);
+  }
+  /* Marks a player who was auto-subbed (either direction) in that Test's
+     breakdown row — same &#8646; glyph as the "Replace" action in My XI. */
+  .sub-swap-icon{color:var(--gilt-bright); margin-left:5px; font-size:11px; cursor:help;}
+  /* Reserves the same width whether a row has a captain star, a VC tag, both,
+     or neither, so player names line up in a clean column instead of each
+     starting wherever that row's badges happen to end. */
+  .row-badge-slot{display:inline-block; width:30px;}
+
   .teamnews-row{display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--parchment-dim); font-size:13.5px;}
+  /* Name pinned left, role pill + checkbox grouped and pinned right (rather
+     than the pill sitting glued to the end of the name) — see renderPlayingXiTable(). */
+  .teamnews-row-right{display:flex; align-items:center; gap:12px;}
 
   /* ---------- league tabs + standings (My Leagues tab) ---------- */
   .league-tabs{margin-bottom:0;}
@@ -390,14 +425,14 @@
   }
   .standing-row.leader .standing-rank{color:var(--gilt-bright); background:var(--oxblood); border-radius:50%;}
   .standing-points{font-family:var(--font-mono); font-weight:700; color:var(--oxblood); white-space:nowrap;}
-  .standing-detail{
-    display:none; margin:-4px 0 6px; padding:10px 14px;
-    background:var(--chalk); border:1px solid var(--parchment-dim); border-radius:6px;
-    font-size:12.5px; color:#4a3f2a;
-  }
-  .standing-detail.open{display:block;}
-  .standing-detail table{width:100%; border-collapse:collapse;}
-  .standing-detail td{padding:4px 6px; line-height:1.3; border-bottom:1px solid var(--parchment-dim);}
+  /* .standing-rank's default oxblood-on-cream (leaderboard rows, a light
+     .card) has plenty of contrast either way. Reused inside the dark
+     .overlay-box (Player rankings, Team of the Test, team breakdown), that
+     same dark red on dark green is a low-contrast combination for anyone,
+     and specifically the kind red/green colorblindness collapses — swap to
+     the same high-contrast gilt-bright used for every other number on a
+     dark background there instead. */
+  .overlay-box .standing-rank{color:var(--gilt-bright);}
 
   .empty-state{
     text-align:center; padding:50px 20px; color:var(--parchment-dim); font-size:14px;
@@ -423,20 +458,40 @@
   /* Explicit placeholder colors so browser defaults can't fall below AA on our dark inputs */
   .overlay-box input::placeholder{color:var(--parchment-dim); opacity:1;}
 
-  /* ---------- admin sub-navigation ---------- */
+  /* ---------- admin sub-navigation ----------
+     Shared by every tab strip in the app (Series Setup, Match Setup's
+     Players/Scoring and Batting/Bowling/Fielding, the innings tab row, My
+     Leagues' league picker, the add-a-league Create/Join tabs) so they all
+     look and behave the same. Never wraps to a second line — with more tabs
+     (or longer labels, e.g. "Players (15)") than fit, the strip scrolls
+     horizontally instead; the scrollbar itself is hidden since swipe/drag is
+     how it's meant to be used, same as it would be on any app's tab bar. */
   .admin-subnav{
     display:flex; gap:2px; margin:4px 0 24px;
-    border-bottom:1px solid var(--line); flex-wrap:wrap;
+    border-bottom:1px solid var(--line); flex-wrap:nowrap;
+    overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;
   }
+  .admin-subnav::-webkit-scrollbar{display:none;}
+  /* Fixed height, globally, regardless of label length ("BAT" vs "Configure
+     teams" vs "Fixtures (5)") or which tab bar it's in — otherwise a row of
+     short labels sits at a visibly different height than one with longer
+     text, which looks broken next to each other in the same UI. */
   .subtab-btn{
     background:none; border:none; color:var(--parchment-dim);
-    padding:10px 16px 8px; font-family:var(--font-mono); font-size:12px;
+    height:36px; padding:0 16px; display:inline-flex; align-items:center;
+    font-family:var(--font-mono); font-size:12px;
     font-weight:700; letter-spacing:.05em; text-transform:uppercase;
-    border-bottom:3px solid transparent;
+    border-bottom:3px solid transparent; white-space:nowrap; flex:0 0 auto;
   }
   .subtab-btn.active{color:var(--gilt-bright); border-bottom-color:var(--gilt);}
   .subtab-btn:hover{color:var(--chalk);}
   .admin-subpanel{display:none;}
+  /* Opt-in modifier (Series Setup's Configure/Fixtures/Players) — tabs share
+     the row equally instead of sitting content-width against the left, for a
+     small fixed set of short, similarly-weighted labels. Not the default,
+     since it'd fight the "scroll instead of wrap" behavior above on tab bars
+     with more or longer labels (My Leagues, Team of the Test, ...). */
+  .admin-subnav.even-tabs .subtab-btn{flex:1 1 0; justify-content:center;}
   /* When this same tab bar sits on a light .card instead of the dark page
      background, the default colors above fail contrast (1.26:1) — use this
      variant instead, which passes AA (5.46:1 / 8.87:1). */
@@ -598,6 +653,10 @@
   .picker-row:disabled{opacity:.35; cursor:not-allowed;}
   .picker-row:disabled:hover{border-color:var(--line);}
   .picker-points{display:flex; gap:9px; font-family:var(--font-mono); font-size:11px; color:var(--parchment-dim); flex-shrink:0;}
+  /* Player rankings lightbox — each player's series total, pulled out larger
+     and pinned to the row's right edge rather than folded into the small
+     Bat/Bowl/Fld breakdown line underneath it. */
+  .rank-total-points{font-family:var(--font-mono); font-weight:700; font-size:16px; color:var(--gilt-bright); white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -696,8 +755,7 @@
 
   <!-- ADMIN (nested: Series Setup / Match Setup) -->
   <section class="tab-panel" id="tab-admin">
-    <h2 class="panel-title">Admin</h2>
-    <p class="panel-sub">Series, fixtures and player pools — visible only to admin accounts. Leagues are self-service now: anyone can create or join one under My Leagues.</p>
+    <h2 class="panel-title">Admin <button type="button" class="help-icon" id="adminHelpBtn" title="What's this?" aria-label="Help">?</button></h2>
     <div class="admin-subnav" id="adminSubnav">
       <button class="subtab-btn active" data-subtab="setup">Series Setup</button>
       <button class="subtab-btn" data-subtab="match">Match Setup</button>

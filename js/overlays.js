@@ -182,7 +182,7 @@ function openPlayerPicker(excludeIds, onPick, countBasisIds){
     <div class="overlay-message">Sorted by total series points within each role. Greyed-out players would leave a team short of the 5-player minimum.</div>
     <div class="picker-list">
       ${groups.length ? groups.map(g=>`
-        <div class="picker-group-title">${ROLE_LABEL[g.role]}s</div>
+        <div class="picker-group-title">${ROLE_LABEL[g.role]}</div>
         ${g.players.map(p=>{
           const selectable = isSelectable(p);
           const pts = totalsFor(p.id);

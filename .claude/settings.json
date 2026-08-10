@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(node -e ' *)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(node --check js/myxi.js)",
+      "Bash(node --check js/admin-match.js)",
+      "Bash(node --check js/admin-series.js)",
+      "Bash(node --check js/leagues.js)",
+      "Bash(node --check js/scoring.js)",
+      "Bash(grep -n \"openOverlay\\(\\\\`\" \"/Users/davidburns/My Documents/Coding/fantasyashes/js/leagues.js\")"
     ]
   }
 }

@@ -18,6 +18,7 @@ async function init(){
   document.querySelectorAll('.subtab-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> switchAdminSubtab(btn.dataset.subtab));
   });
+  document.getElementById('adminHelpBtn').addEventListener('click', ()=> showAlert('Series, fixtures and player pools — visible only to admin accounts. Leagues are self-service now: anyone can create or join one under My Leagues.', 'Admin'));
 
   const hamburgerBtn = document.getElementById('hamburgerBtn');
   const drawerCloseBtn = document.getElementById('drawerCloseBtn');
