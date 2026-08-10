@@ -9,10 +9,54 @@ let draft = null; // local, unsaved editing state for My XI: {_squadId, squad14,
 // same moveOrSwap() the drag handlers use — same zone reorders in place,
 // other zone swaps zones.
 let moveSelectedPid = null;
+
+/* Local-only autosave for the in-progress draft — so a refresh, an accidental
+   tab close, or a flaky connection while editing doesn't throw away work
+   that was never committed. Scoped per user + series + squad (squadId is
+   null while still building, i.e. before that first "Create squad") so
+   switching users/series/squads in the same browser can never cross-pollute
+   each other's drafts. This is purely a local cache of unsaved edits — it
+   has no bearing on transfer counts or scoring, which only ever look at
+   what's actually been committed to Supabase. */
+function draftCacheKey(seriesId, squadId){
+  return `myxiDraft:${session && session.user ? session.user.id : 'anon'}:${seriesId}:${squadId || 'new'}`;
+}
+function loadCachedDraft(seriesId, squadId){
+  try{
+    const raw = localStorage.getItem(draftCacheKey(seriesId, squadId));
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    if(!parsed || !Array.isArray(parsed.squad14) || !Array.isArray(parsed.xi11)) return null;
+    return parsed;
+  }catch(e){ return null; }
+}
+function saveCachedDraft(seriesId, squadId, draftState){
+  try{
+    localStorage.setItem(draftCacheKey(seriesId, squadId), JSON.stringify({
+      squad14: draftState.squad14,
+      xi11: draftState.xi11,
+      captain: draftState.captain,
+      viceCaptain: draftState.viceCaptain,
+      playingRoles: draftState.playingRoles,
+    }));
+  }catch(e){ /* storage full/unavailable (e.g. private browsing) — editing still works, just isn't cached */ }
+}
+function clearCachedDraft(seriesId, squadId){
+  try{ localStorage.removeItem(draftCacheKey(seriesId, squadId)); }catch(e){}
+}
+
 function ensureDraft(){
   const key = mySquad ? mySquad.id : 'new';
   if(!draft || draft._squadId !== key){
-    draft = {
+    const cached = loadCachedDraft(currentSeriesId, mySquad ? mySquad.id : null);
+    draft = cached ? {
+      _squadId: key,
+      squad14: [...cached.squad14],
+      xi11: [...cached.xi11],
+      captain: cached.captain || null,
+      viceCaptain: cached.viceCaptain || null,
+      playingRoles: {...(cached.playingRoles||{})},
+    } : {
       _squadId: key,
       squad14: mySquad ? [...mySquad.squad14] : [],
       xi11: mySquad ? [...mySquad.xi11] : [],
@@ -94,6 +138,10 @@ function renderMyXI(){
 
   const activeSeries = seriesList.find(s=>s.id===currentSeriesId) || {id: currentSeriesId, name: 'this series'};
   ensureDraft();
+  // Every draft mutation below re-renders via renderMyXI(), so caching right
+  // here after ensureDraft() catches every one of them in a single place
+  // rather than needing a save call sprinkled after each handler.
+  saveCachedDraft(currentSeriesId, mySquad ? mySquad.id : null, draft);
   const squad = mySquad;
   const isBuilding = !squad;
   const hasLockedOnce = !!(squad && squad.lockedXiByTest && Object.keys(squad.lockedXiByTest).length > 0);
@@ -389,6 +437,7 @@ function renderMyXI(){
     if(!(await showConfirm(`Reset your team on this series? This cannot be undone.${warning}`, 'Reset team'))) return;
     const {error} = await supabaseClient.from('squads').delete().eq('user_id', session.user.id).eq('series_id', currentSeriesId);
     if(error){ showAlert(error.message); return; }
+    clearCachedDraft(currentSeriesId, squad ? squad.id : null);
     draft = null;
     window.__pendingTeamName = '';
     localStorage.removeItem('currentSeriesId');
@@ -456,6 +505,7 @@ function renderMyXI(){
         }
         return;
       }
+      clearCachedDraft(currentSeriesId, null); // the "still building" cache entry — mySquad now exists, so ensureDraft() moves on to a squadId-keyed one
       draft = null;
       window.__pendingTeamName = '';
       localStorage.setItem('currentSeriesId', currentSeriesId);

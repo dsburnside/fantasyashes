@@ -35,14 +35,14 @@ async function renderSeriesSetup(){
   if(!adminSeriesId) adminSeriesId = seriesList[0] ? seriesList[0].id : null;
 
   c.innerHTML = `
-    <h2 class="panel-title">Series Setup</h2>
-    <p class="panel-sub">A series is one real-world tour — its own teams, player pool, fixtures and match stats. Leagues (a separate tab) group friends competing within a series, and can share it with other leagues.</p>
+    <h2 class="panel-title">Series Setup <button type="button" class="help-icon" id="seriesSetupHelpBtn" title="What's this?" aria-label="Help">?</button></h2>
     <div class="admin-subnav league-tabs" id="seriesTabs">
       ${seriesList.map(s=>`<button class="subtab-btn${s.id===adminSeriesId?' active':''}" data-sid="${s.id}">${s.name}</button>`).join('')}
       <button type="button" class="tab-add-btn" id="seriesAddBtn" title="Create a series">+</button>
     </div>
     <div id="seriesSetupBody"></div>
   `;
+  document.getElementById('seriesSetupHelpBtn').addEventListener('click', ()=> showAlert('A series is one real-world tour — its own teams, player pool, fixtures and match stats. Leagues (a separate tab) group friends competing within a series, and can share it with other leagues.', 'Series Setup'));
   c.querySelectorAll('#seriesTabs [data-sid]').forEach(btn=>{
     btn.addEventListener('click', ()=>{ adminSeriesId = btn.dataset.sid; renderSeriesSetup(); });
   });
@@ -68,10 +68,10 @@ async function renderSeriesSetup(){
         <h3 style="margin:0; font-family:var(--font-display);">${currentSeries.name}</h3>
         <span class="role-pill">${hasBothTeams ? `${currentSeries.teamA.short_code} vs ${currentSeries.teamB.short_code}` : 'teams not set'}</span>
       </div>
-      <div class="admin-subnav light-subnav" style="margin:12px 0 0;">
-        <button class="subtab-btn${seriesSetupView==='teams'?' active':''}" data-view="teams">Configure teams</button>
+      <div class="admin-subnav light-subnav even-tabs" style="margin:12px 0 0;">
+        <button class="subtab-btn${seriesSetupView==='teams'?' active':''}" data-view="teams">Teams</button>
         <button class="subtab-btn${seriesSetupView==='fixtures'?' active':''}" data-view="fixtures">Fixtures${adminFixtures.length?` (${adminFixtures.length})`:''}</button>
-        <button class="subtab-btn${seriesSetupView==='players'?' active':''}" data-view="players" ${hasBothTeams?'':'disabled'} title="${hasBothTeams?'':'Configure teams first'}">Players${adminPlayers.length?` (${adminPlayers.length})`:''}</button>
+        <button class="subtab-btn${seriesSetupView==='players'?' active':''}" data-view="players" ${hasBothTeams?'':'disabled'} title="${hasBothTeams?'':'Configure first'}">Players${adminPlayers.length?` (${adminPlayers.length})`:''}</button>
       </div>
       <div class="save-bar" style="margin-top:16px; justify-content:flex-end;">
         <button class="btn secondary small" id="renameSeriesBtn">Rename</button>
@@ -149,6 +149,7 @@ async function renderSeriesSetup(){
 
   /* ---- Players ---- */
   if(seriesSetupView==='players' && hasBothTeams){
+    if(!playersPoolTeam || !adminSeriesTeams.some(t=>t.short_code===playersPoolTeam)) playersPoolTeam = adminSeriesTeams[0].short_code;
     const rowHtml = (p)=>{
       if(editingPlayerId === p.id){
         return `
@@ -181,54 +182,41 @@ async function renderSeriesSetup(){
         </div>`;
     };
 
+    // All pools render at once (each its own .admin-subpanel) so switching
+    // the ENG/AUS tab is a plain local class-toggle, same as every other tab
+    // bar in the app — not a full renderSeriesSetup() re-fetch/re-render.
     subwrap.innerHTML = `
       <div class="card">
-        <h3 style="margin-top:0; font-family:var(--font-display);">Players</h3>
-        <p class="panel-sub">Add, edit or remove players from the pool that My XI and Match Setup draw from for this series. Changes are shared with every league on this series.</p>
-        ${session ? '' : '<div class="notice">Log in to add, edit or remove players — everyone can browse the pool, only signed-in users can change it.</div>'}
-        <div class="notice">Removing a player already picked in someone's squad won't delete their squad — it just shows as "(removed player)" there, so remove sparingly once the series is underway.</div>
-        <div class="player-form-grid">
-          <div>
-            <label class="field-label">Name</label>
-            <input type="text" id="newPlayerName" placeholder="e.g. Sam Konstas" ${session?'':'disabled'}>
-          </div>
-          <div>
-            <label class="field-label">Team</label>
-            <select id="newPlayerNat" class="pick" ${session?'':'disabled'}>
-              ${adminSeriesTeams.map(t=>`<option value="${t.short_code}">${t.name}</option>`).join('')}
-            </select>
-          </div>
-          <div>
-            <label class="field-label">Role</label>
-            <select id="newPlayerRole" class="pick" ${session?'':'disabled'}>${Object.keys(ROLE_LABEL).map(r=>`<option value="${r}">${ROLE_LABEL[r]}</option>`).join('')}</select>
-          </div>
-          <div><button class="btn" id="addPlayerBtn" ${session?'':'disabled'}>Add player</button></div>
+        <div class="flex-between">
+          <h3 style="margin:0; font-family:var(--font-display);">Players <button type="button" class="help-icon" id="playersHelpBtn" title="What's this?" aria-label="Help">?</button></h3>
+          ${session ? '<button type="button" class="innings-add-btn" id="addPlayerOpenBtn" title="Add a player">+</button>' : ''}
         </div>
-        <div class="rules-grid" style="margin-top:16px;">
-          <div class="nation-block">
-            <div class="nation-heading"><span class="flag-chip team-a">${adminSeriesTeams[0].short_code}</span> ${adminSeriesTeams[0].name} pool (${adminPlayers.filter(p=>p.nat===adminSeriesTeams[0].short_code).length})</div>
-            ${adminPlayers.filter(p=>p.nat===adminSeriesTeams[0].short_code).map(rowHtml).join('') || `<p class="muted">No ${adminSeriesTeams[0].name} players yet.</p>`}
-          </div>
-          <div class="nation-block">
-            <div class="nation-heading"><span class="flag-chip team-b">${adminSeriesTeams[1].short_code}</span> ${adminSeriesTeams[1].name} pool (${adminPlayers.filter(p=>p.nat===adminSeriesTeams[1].short_code).length})</div>
-            ${adminPlayers.filter(p=>p.nat===adminSeriesTeams[1].short_code).map(rowHtml).join('') || `<p class="muted">No ${adminSeriesTeams[1].name} players yet.</p>`}
-          </div>
+        ${session ? '' : '<div class="notice" style="margin-top:12px;">Log in to add, edit or remove players — everyone can browse the pool, only signed-in users can change it.</div>'}
+        <div class="notice" style="margin-top:12px;">Removing a player already picked in someone's squad won't delete their squad — it just shows as "(removed player)" there, so remove sparingly once the series is underway.</div>
+        <div class="admin-subnav light-subnav even-tabs" style="margin-top:12px;">
+          ${adminSeriesTeams.map(t=>`<button class="subtab-btn${t.short_code===playersPoolTeam?' active':''}" data-poolteam="${t.short_code}">${t.short_code}</button>`).join('')}
         </div>
+        ${adminSeriesTeams.map(t=>{
+          const teamPlayers = adminPlayers.filter(p=>p.nat===t.short_code);
+          return `
+          <div class="admin-subpanel${t.short_code===playersPoolTeam?' active':''}" data-poolpanel="${t.short_code}" style="margin-top:12px;">
+            ${teamPlayers.length ? teamPlayers.map(rowHtml).join('') : `<p class="muted">No ${t.name} players yet.</p>`}
+          </div>`;
+        }).join('')}
       </div>
     `;
+    document.getElementById('playersHelpBtn').addEventListener('click', ()=> showAlert('Add, edit or remove players from the pool that My XI and Match Setup draw from for this series. Changes are shared with every league on this series.', 'Players'));
+    subwrap.querySelectorAll('[data-poolteam]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        playersPoolTeam = btn.dataset.poolteam;
+        subwrap.querySelectorAll('[data-poolteam]').forEach(b=> b.classList.toggle('active', b===btn));
+        subwrap.querySelectorAll('[data-poolpanel]').forEach(p=> p.classList.toggle('active', p.dataset.poolpanel===btn.dataset.poolteam));
+      });
+    });
 
     if(session){
-      document.getElementById('addPlayerBtn').addEventListener('click', async ()=>{
-        const name = document.getElementById('newPlayerName').value.trim();
-        const nat = document.getElementById('newPlayerNat').value;
-        const role = document.getElementById('newPlayerRole').value;
-        if(!name){ showAlert('Enter a player name.'); return; }
-        const id = slugify(name, nat, adminPlayers);
-        const {error} = await supabaseClient.from('players').insert({id, name, nat, role, series_id: adminSeriesId});
-        if(error){ showAlert(error.message); return; }
-        if(adminSeriesId === currentSeriesId) await loadPlayers(adminSeriesId);
-        renderSeriesSetup();
-      });
+      const addOpenBtn = document.getElementById('addPlayerOpenBtn');
+      if(addOpenBtn) addOpenBtn.addEventListener('click', openAddPlayerOverlay);
 
       subwrap.querySelectorAll('[data-action="edit"]').forEach(btn=>{
         btn.addEventListener('click', ()=>{ editingPlayerId = btn.dataset.pid; renderSeriesSetup(); });
@@ -262,6 +250,43 @@ async function renderSeriesSetup(){
       });
     }
   }
+}
+
+/* Add-a-player modal, reached from the "+" next to the Players heading —
+   defaults the Team field to whichever pool tab is currently showing. */
+function openAddPlayerOverlay(){
+  const backdrop = openOverlay(`
+    <div class="overlay-title">Add a player</div>
+    <div class="field-group"><label for="newPlayerNameOv">Name</label><input type="text" id="newPlayerNameOv" placeholder="e.g. Sam Konstas"></div>
+    <div class="field-group">
+      <label for="newPlayerNatOv">Team</label>
+      <select id="newPlayerNatOv" class="pick">${adminSeriesTeams.map(t=>`<option value="${t.short_code}" ${t.short_code===playersPoolTeam?'selected':''}>${t.name}</option>`).join('')}</select>
+    </div>
+    <div class="field-group">
+      <label for="newPlayerRoleOv">Role</label>
+      <select id="newPlayerRoleOv" class="pick">${Object.keys(ROLE_LABEL).map(r=>`<option value="${r}">${ROLE_LABEL[r]}</option>`).join('')}</select>
+    </div>
+    <div class="auth-error" id="addPlayerError"></div>
+    <div class="overlay-actions"><button class="btn" id="addPlayerBtnOv">Add player</button></div>
+  `);
+  backdrop.querySelector('[data-overlay-close]').addEventListener('click', closeOverlay);
+  backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
+  const addBtn = backdrop.querySelector('#addPlayerBtnOv');
+  const errBox = backdrop.querySelector('#addPlayerError');
+  addBtn.addEventListener('click', async ()=>{
+    const name = backdrop.querySelector('#newPlayerNameOv').value.trim();
+    const nat = backdrop.querySelector('#newPlayerNatOv').value;
+    const role = backdrop.querySelector('#newPlayerRoleOv').value;
+    if(!name){ errBox.textContent = 'Enter a player name.'; return; }
+    addBtn.disabled = true;
+    const id = slugify(name, nat, adminPlayers);
+    const {error} = await supabaseClient.from('players').insert({id, name, nat, role, series_id: adminSeriesId});
+    if(error){ addBtn.disabled = false; errBox.textContent = error.message; return; }
+    if(adminSeriesId === currentSeriesId) await loadPlayers(adminSeriesId);
+    playersPoolTeam = nat; // land back on whichever pool they just added to
+    closeOverlay();
+    renderSeriesSetup();
+  });
 }
 
 /* Create-series modal, reached from the "+" at the end of the series tabs. */
@@ -317,7 +342,8 @@ async function deleteSeries(s){
 
 /* League creation/management moved to the My Leagues tab (self-service —
    see leagueTabsHtml()/openLeagueAddOverlay()) since it no longer needs an
-   admin. editingPlayerId below is used by the Players section inside
-   renderSeriesSetup() above. */
+   admin. editingPlayerId/playersPoolTeam below are used by the Players
+   section inside renderSeriesSetup() above. */
 let editingPlayerId = null;
+let playersPoolTeam = null; // which team's pool tab is showing — short_code, re-defaulted to the first team whenever it's stale (switched series, etc.)
 

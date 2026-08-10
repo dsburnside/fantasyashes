@@ -57,6 +57,15 @@ function statPointsBreakdown(s){
   const parts = (s.inn1 || s.inn2) ? [inningsPointsBreakdown(s.inn1), inningsPointsBreakdown(s.inn2)] : [inningsPointsBreakdown(s)];
   return parts.reduce((acc,p)=>({bat:acc.bat+p.bat, bowl:acc.bowl+p.bowl, field:acc.field+p.field}), {bat:0, bowl:0, field:0});
 }
+// Raw (non-points) total for one tracked stat — e.g. statMetricTotal(s,'runs')
+// — summed across both innings the same way statPoints() sums points. Used
+// wherever a breakdown needs the actual counting stat rather than what it's
+// worth in points (the leaderboard's per-player team breakdown).
+function statMetricTotal(s, key){
+  if(!s) return 0;
+  if(s.inn1 || s.inn2) return ((s.inn1&&s.inn1[key])||0) + ((s.inn2&&s.inn2[key])||0);
+  return s[key]||0;
+}
 /* Works out who actually took the field for a locked XI once the real Playing XI
    is known. Anyone locked in who isn't on `playingXi` is treated as a non-player
    and replaced by their team's first bench player (in squad order) who is on
@@ -79,24 +88,69 @@ function resolveEffectiveXi(lockedEntry, playingXi){
   const captainDidNotPlay = !!lockedEntry.captain && !played.has(lockedEntry.captain);
   return {effectiveXi, captainDidNotPlay};
 }
+// One player's points for one Test, already carrying whatever multiplier
+// applies to them personally (assigned playing role's bonus doubling, plus
+// captain/vice-captain) — the shared building block behind computeTestScore
+// (summed across the XI) and the leaderboard's per-player, per-Test team
+// breakdown (kept per-player instead), so the two can never drift out of
+// sync with each other.
+// The Vice-Captain carries no bonus of their own — it only exists as backup
+// for the Captain. If the captain didn't play (and was subbed off), the
+// armband's 2x bonus passes to the vice-captain instead — but only if the
+// VC actually played too; otherwise the bonus is simply lost, same as if
+// neither had played.
+function playerPointsForTest(lockedEntry, statsForTest, pid, captainDidNotPlay){
+  const role = (lockedEntry.playingRoles && lockedEntry.playingRoles[pid]) || defaultPlayingRole(getPlayer(pid).role);
+  let pts = statPoints(statsForTest ? statsForTest[pid] : null, role);
+  if(pid === lockedEntry.captain && !captainDidNotPlay) pts *= 2;
+  else if(pid === lockedEntry.viceCaptain && captainDidNotPlay) pts *= 2;
+  return pts;
+}
 function computeTestScore(lockedEntry, statsForTest, playingXi){
   if(!lockedEntry) return 0;
   const {effectiveXi, captainDidNotPlay} = resolveEffectiveXi(lockedEntry, playingXi);
-  // The Vice-Captain carries no bonus of their own — it only exists as backup
-  // for the Captain. If the captain didn't play (and was subbed off), the
-  // armband's 2x bonus passes to the vice-captain instead — but only if the
-  // VC actually played too; otherwise the bonus is simply lost, same as if
-  // neither had played.
   let total = 0;
   effectiveXi.forEach(({pid})=>{
     if(!pid) return;
-    const role = (lockedEntry.playingRoles && lockedEntry.playingRoles[pid]) || defaultPlayingRole(getPlayer(pid).role);
-    let pts = statPoints(statsForTest ? statsForTest[pid] : null, role);
-    if(pid === lockedEntry.captain && !captainDidNotPlay) pts *= 2;
-    else if(pid === lockedEntry.viceCaptain && captainDidNotPlay) pts *= 2;
-    total += pts;
+    total += playerPointsForTest(lockedEntry, statsForTest, pid, captainDidNotPlay);
   });
   return Math.round(total*10)/10;
+}
+/* The best legal XI for one Test, picked from the full player pool of both
+   series teams (not any one manager's squad) purely on how they actually
+   performed — plain undoubled points (statPoints with no role), same rate
+   seriesPlayerTotals/the rankings lightbox already rank players by, since
+   there's no fantasy manager here to have assigned anyone a playing role.
+   "Legal" here means the one structural rule that applies to any XI in this
+   game: exactly 11, including at least one wicketkeeper — unlike the 14-man
+   squad rules, there's no 5-per-team requirement, since an all-star XI
+   drawing from both teams isn't a manager's roster to keep balanced.
+   Only players `stats` actually has an entry for are eligible (i.e. actually
+   played that Test) — a non-participant defaulting to 0 points must never
+   outrank a real performer who had a quiet game. Returns [] if nobody in
+   `stats` has an entry yet. */
+function computeTeamOfTest(players, stats){
+  if(!stats) return [];
+  const eligible = players
+    .filter(p => stats[p.id] !== undefined)
+    .map(p => ({p, pts: statPoints(stats[p.id])}))
+    .sort((a,b)=> b.pts - a.pts);
+  if(eligible.length===0) return [];
+  let xi = eligible.slice(0, 11);
+  if(xi.length===11 && !xi.some(x=>x.p.role==='WK')){
+    const bestWk = eligible.find(x=> x.p.role==='WK' && !xi.includes(x));
+    if(bestWk) xi = xi.slice(0, 10).concat([bestWk]);
+  }
+  xi.sort((a,b)=> b.pts - a.pts);
+  return xi.map(({p, pts})=>{
+    const s = stats[p.id];
+    return {
+      pid: p.id, name: p.name, nat: p.nat, role: p.role,
+      points: Math.round(pts*10)/10,
+      runs: statMetricTotal(s,'runs'), wickets: statMetricTotal(s,'wickets'),
+      catches: statMetricTotal(s,'catches'), stumpings: statMetricTotal(s,'stumpings'), runouts: statMetricTotal(s,'runouts'),
+    };
+  });
 }
 
 /* ================= SQUAD ROW <-> JS MAPPING ================= */

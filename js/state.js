@@ -1,6 +1,6 @@
 /* js/state.js — shared static lookups + the app's in-memory global state (players, session, drafts, etc). */
 /* ================= STATIC LOOKUPS ================= */
-const ROLE_LABEL = {BAT:'Batter', BOWL:'Bowler', AR:'All-rounder', WK:'Wicketkeeper'};
+const ROLE_LABEL = {BAT:'BAT', BOWL:'BOWL', AR:'ALL', WK:'WKT'};
 // Display/grouping order for the player picker: Batters, All-rounders,
 // Wicketkeepers, Bowlers.
 const ROLE_GROUP_ORDER = ['BAT', 'AR', 'WK', 'BOWL'];
