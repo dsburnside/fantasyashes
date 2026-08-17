@@ -606,10 +606,17 @@ begin
       )
     ),
     baseline_squad14 = squad14,
-    wildcard_used = case when wildcard_active_now and wildcard_committed_pending then true else wildcard_used end,
+    -- The 2-transfer limit (and so the wildcard that lifts it) only applies
+    -- from a squad's SECOND lock onward — its first lock has no prior
+    -- baseline to have transferred away from. locked_xi_by_test here is still
+    -- the pre-update value (every expression in this SET reads the old row),
+    -- so "= '{}'" means "this squad has never locked before" — guards against
+    -- an armed-too-early wildcard (e.g. from before the My XI button was
+    -- gated on hasLockedOnce) being burned for nothing on that first lock.
+    wildcard_used = case when wildcard_active_now and wildcard_committed_pending and locked_xi_by_test <> '{}'::jsonb then true else wildcard_used end,
     -- Stamped only on the lock that actually spends it, so reset_test() can
     -- hand exactly that wildcard back and no other.
-    wildcard_used_test = case when wildcard_active_now and wildcard_committed_pending then p_test else wildcard_used_test end,
+    wildcard_used_test = case when wildcard_active_now and wildcard_committed_pending and locked_xi_by_test <> '{}'::jsonb then p_test else wildcard_used_test end,
     wildcard_active_now = false,
     wildcard_committed_pending = false,
     updated_at = now()

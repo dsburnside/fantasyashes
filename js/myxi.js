@@ -183,6 +183,12 @@ function renderMyXI(){
   c.innerHTML = `
     ${seriesSwitcherHtml}
     ${!isBuilding ? `
+      <div class="team-name-row" style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <span style="font-family:var(--font-display); font-size:17px;">${squad.teamName}</span>
+        <button type="button" class="btn secondary small" id="renameTeamBtn">Rename</button>
+      </div>
+    ` : ''}
+    ${!isBuilding && hasLockedOnce ? `
       <div class="wildcard-row">
         ${squad.wildcardUsed
           ? `<button class="btn secondary" disabled>Wildcard used</button>`
@@ -396,6 +402,10 @@ function renderMyXI(){
     });
   });
 
+  /* ---- rename team ---- */
+  const renameTeamBtn = document.getElementById('renameTeamBtn');
+  if(renameTeamBtn) renameTeamBtn.addEventListener('click', ()=> openRenameTeamOverlay(squad));
+
   /* ---- wildcard ---- */
   const wcBtn = document.getElementById('wildcardBtn');
   if(wcBtn) wcBtn.addEventListener('click', async ()=>{
@@ -530,6 +540,37 @@ function renderMyXI(){
       : "Committed — this is what will be scored if the next Test locks right now. You can keep adjusting and re-committing until the deadline.";
     showAlert(commitMsg, 'Squad committed');
     renderMyXI();
+  });
+}
+
+/* Renames an already-created squad — team_name is only ever collected up
+   front during squad creation (see #teamNameField in the commit handler
+   above), so this is the only path back to it afterward. Mirrors
+   openRenameSeriesOverlay in admin-series.js. team_name is unique per series
+   (squads_series_id_team_name_key), so a clash surfaces as a 23505 same as
+   squad creation does. */
+function openRenameTeamOverlay(squad){
+  const backdrop = openOverlay(`
+    <div class="overlay-title">Rename team</div>
+    <div class="field-group"><label for="renameTeamInput">Team name</label><input type="text" id="renameTeamInput" value="${squad.teamName}" maxlength="30"></div>
+    <div class="auth-error" id="renameTeamError"></div>
+    <div class="overlay-actions"><button class="btn" data-overlay-ok>Save</button></div>
+  `);
+  const errBox = backdrop.querySelector('#renameTeamError');
+  backdrop.querySelector('[data-overlay-close]').addEventListener('click', closeOverlay);
+  backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
+  backdrop.querySelector('[data-overlay-ok]').addEventListener('click', async ()=>{
+    const newName = document.getElementById('renameTeamInput').value.trim();
+    if(!newName){ errBox.textContent = 'Enter a team name.'; return; }
+    if(newName === squad.teamName){ closeOverlay(); return; }
+    const {error} = await supabaseClient.from('squads').update({team_name: newName}).eq('id', squad.id);
+    if(error){
+      errBox.textContent = error.code === '23505' ? 'That team name is already taken on this series — pick a different one.' : error.message;
+      return;
+    }
+    closeOverlay();
+    await loadMySquads();
+    renderAll();
   });
 }
 
