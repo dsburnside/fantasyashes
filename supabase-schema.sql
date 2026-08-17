@@ -444,6 +444,11 @@ create table if not exists public.squads (
   -- armed, since the last lock. Only squads with this true actually spend their
   -- wildcard when lock_test() runs — arming it and never committing costs nothing.
   wildcard_committed_pending boolean not null default false,
+  -- Which Test actually consumed the wildcard, stamped by lock_test() at the
+  -- moment it flips wildcard_used true. Only reset_test() reads it: without
+  -- knowing which lock spent the wildcard, un-locking a Test couldn't tell
+  -- "spent here, hand it back" from "spent two Tests ago, leave it alone".
+  wildcard_used_test       int,
   locked_xi_by_test        jsonb not null default '{}'::jsonb,
   updated_at               timestamptz not null default now(),
   unique (user_id, series_id),
@@ -512,6 +517,10 @@ alter table public.squads drop column if exists league_id;
 
 alter table public.squads add column if not exists baseline_squad14 jsonb not null default '[]'::jsonb;
 alter table public.squads add column if not exists wildcard_committed_pending boolean not null default false;
+-- Left null on squads that spent their wildcard before this column existed —
+-- reset_test() then can't prove that Test was the one that spent it, so it
+-- leaves those wildcards used rather than handing one back by guesswork.
+alter table public.squads add column if not exists wildcard_used_test int;
 alter table public.squads add column if not exists playing_roles jsonb not null default '{}'::jsonb;
 alter table public.squads drop column if exists swaps_used_this_window;
 alter table public.squads drop column if exists baseline_xi11;
@@ -598,6 +607,9 @@ begin
     ),
     baseline_squad14 = squad14,
     wildcard_used = case when wildcard_active_now and wildcard_committed_pending then true else wildcard_used end,
+    -- Stamped only on the lock that actually spends it, so reset_test() can
+    -- hand exactly that wildcard back and no other.
+    wildcard_used_test = case when wildcard_active_now and wildcard_committed_pending then p_test else wildcard_used_test end,
     wildcard_active_now = false,
     wildcard_committed_pending = false,
     updated_at = now()
@@ -608,6 +620,61 @@ $$;
 
 revoke all on function public.lock_test(uuid, int) from public;
 grant execute on function public.lock_test(uuid, int) to authenticated;
+
+-- ---------- reset_test(): the inverse of lock_test() ----------
+-- Puts a Test back to how it was before anyone touched it: every stat, the
+-- Playing XI and the innings list are deleted outright, and lock_test()'s
+-- three cross-user side effects are rolled back on every squad in the series.
+--   * locked_xi_by_test loses this Test's key, so it contributes nothing to
+--     anyone's score and the Test reads as never-locked again.
+--   * baseline_squad14 (which lock_test() advanced to the then-current 14)
+--     rolls back to the 14 snapshotted by the latest Test still locked —
+--     xi + bench of that snapshot IS the squad of 14 — so the transfer count
+--     is measured from the right place again. With no locks left at all it
+--     falls back to the current squad14, matching the pre-first-lock state
+--     where transfers are unlimited anyway.
+--   * a wildcard spent on THIS Test (see wildcard_used_test) is handed back
+--     in the state it was in just before the lock: unused, armed, and with
+--     its commit still pending, so locking again re-spends it.
+-- Same admin-only SECURITY DEFINER shape as lock_test().
+create or replace function public.reset_test(p_series_id uuid, p_test int)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from public.profiles where user_id = auth.uid() and is_admin) then
+    raise exception 'Only admins can reset a Test';
+  end if;
+
+  delete from public.match_stats where series_id = p_series_id and test = p_test;
+
+  -- Target columns are unqualified on the left of SET (Postgres rejects an
+  -- alias there); the alias is only used on the right, where it reads the row
+  -- as it was BEFORE this update — so the baseline subquery's "minus this
+  -- Test" sees the pre-reset locked map.
+  update public.squads s
+  set
+    locked_xi_by_test = s.locked_xi_by_test - p_test::text,
+    baseline_squad14 = coalesce(
+      (select coalesce(e.value->'xi','[]'::jsonb) || coalesce(e.value->'bench','[]'::jsonb)
+         from jsonb_each(s.locked_xi_by_test - p_test::text) e
+        order by (e.key)::int desc
+        limit 1),
+      s.squad14
+    ),
+    wildcard_used = case when s.wildcard_used_test = p_test then false else s.wildcard_used end,
+    wildcard_active_now = case when s.wildcard_used_test = p_test then true else s.wildcard_active_now end,
+    wildcard_committed_pending = case when s.wildcard_used_test = p_test then true else s.wildcard_committed_pending end,
+    wildcard_used_test = case when s.wildcard_used_test = p_test then null else s.wildcard_used_test end,
+    updated_at = now()
+  where s.series_id = p_series_id;
+end;
+$$;
+
+revoke all on function public.reset_test(uuid, int) from public;
+grant execute on function public.reset_test(uuid, int) to authenticated;
 
 -- ============================================================
 -- Seed data — safe to re-run, existing rows are left untouched

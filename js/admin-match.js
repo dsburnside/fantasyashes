@@ -119,6 +119,12 @@ function renderMatchTestShell(){
         <button class="btn" id="lockTestBtn">Save stats &amp; lock this Test for all leagues on this series</button>
       </div>
     </div>
+    <div style="margin-top:22px; padding-top:14px; border-top:1px solid var(--parchment-dim);">
+      <p class="muted-on-light" style="font-size:12px; margin:0 0 10px;">Wipes this Test back to how it started — every stat, the Playing XI, the innings, and its lock (including any wildcard it used up).</p>
+      <div class="save-bar" style="margin-top:0;">
+        <button class="btn danger" id="resetTestBtn">Reset this Test</button>
+      </div>
+    </div>
   `;
   document.getElementById('playingXiHelpBtn').addEventListener('click', ()=> showAlert("Tick who actually took the field once the real teams are announced — this both drives automatic substitutions (anyone in a fantasy team's locked XI who isn't ticked is replaced by their first bench player, in squad order, who is — same idea as Fantasy Premier League's autosubs, with a captain's bonus passing to the vice-captain if the captain didn't play) and decides who you can log scoring against in the Scoring tab. Leave everyone unticked until the real teams are out.", 'Playing XI & automatic substitutions'));
   document.getElementById('lockingHelpBtn').addEventListener('click', ()=> showAlert("Runs/wickets/catches etc. are tracked per innings and summed automatically for scoring — a century in each innings both count. Locking snapshots every saved squad's current XI/captain, in every league on this series, into this Test's scoring record and resets their 2-swap window for the next Test.", 'Innings & scoring'));
@@ -298,6 +304,7 @@ function renderStatsTable(testNum){
     showAlert('Stats saved for Test '+testNum+'.');
   };
   document.getElementById('lockTestBtn').onclick = async ()=> lockTest(testNum);
+  document.getElementById('resetTestBtn').onclick = async ()=> resetTest(testNum);
 
   if(currentPlayingXiDraft.length===0){
     wrap.innerHTML = `<div class="empty-state" style="margin:12px 0;">Tick the Playing XI above first — innings can only be added once at least one player's on the field.</div>`;
@@ -466,4 +473,30 @@ async function lockTest(testNum){
   if(adminSeriesId === currentSeriesId) await loadMySquads();
   showAlert(`Test ${testNum} locked. All lineups on this series snapshotted and scored.`);
   renderAll();
+}
+
+/* The undo for everything the Match Setup tab can do to a Test — see
+   reset_test() in supabase-schema.sql for what it rolls back server-side.
+   Deliberately doesn't go via renderAll(): renderMatchSetup() would rebuild
+   the Test dropdown and bounce back to the first fixture, so the player-facing
+   views are refreshed individually and this Test is reloaded in place, leaving
+   the admin where they were. */
+async function resetTest(testNum){
+  const fixture = adminFixtures.find(f=>f.test===testNum);
+  if(!(await showConfirm(
+    `Every stat, the Playing XI and all innings for Test ${testNum}${fixture?' ('+fixture.venue+')':''} will be deleted, and its lock undone across every league on this series: the snapshotted XIs are removed so it scores nothing, transfer baselines roll back to the previous locked Test, and any wildcard spent on this Test is handed back to whoever spent it. This can't be undone.`,
+    `Reset Test ${testNum}?`
+  ))) return;
+
+  const {error} = await supabaseClient.rpc('reset_test', {p_series_id: adminSeriesId, p_test: testNum});
+  if(error){ showAlert('Could not reset Test: '+error.message); return; }
+
+  if(adminSeriesId === currentSeriesId){
+    await loadMySquads();
+    await loadSeriesPlayerTotals(currentSeriesId);
+    renderMyXI();
+  }
+  renderLeaderboard();
+  await loadAndRenderMatchSetup(testNum);
+  showAlert(`Test ${testNum} reset — it's back to how it was before it began.`);
 }
