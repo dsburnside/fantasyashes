@@ -3,27 +3,21 @@
 function genJoinCode(){
   return 'L' + Math.random().toString(36).slice(2, 8).toUpperCase();
 }
-/* Tab strip for switching between the leagues you're in — standings for
-   whichever one is active are the main event on this page now; creating or
-   joining another happens behind the "+" (openLeagueAddOverlay()) instead of
-   permanently-visible forms, to keep this down to just the tabs. */
-function leagueTabsHtml(){
-  return `
-    <div class="admin-subnav league-tabs" id="leagueTabs">
-      ${myLeagues.map(l=>`<button class="subtab-btn${l.id===currentLeagueId?' active':''}" data-lid="${l.id}">${l.name}</button>`).join('')}
-      <button type="button" class="tab-add-btn" id="leagueAddBtn" title="Create or join a league">+</button>
-    </div>`;
-}
-/* Scoped to a container, not document.getElementById — this tab strip could
-   in principle exist more than once in the DOM (only one tab panel is
-   visible at a time, others stay hidden), so an unscoped lookup could wire
-   the wrong copy and leave the visible one dead. */
-function wireLeagueTabs(container){
-  container.querySelectorAll('#leagueTabs [data-lid]').forEach(btn=>{
-    btn.addEventListener('click', ()=> switchToLeague(btn.dataset.lid));
-  });
-  const addBtn = container.querySelector('#leagueAddBtn');
-  if(addBtn) addBtn.addEventListener('click', openLeagueAddOverlay);
+/* The header's league pill (renderLeaderboard()) opens this — same generic
+   switcher lightbox (openSwitcherOverlay, js/overlays.js) My Squads/Home's
+   series pill and Admin's series pill use, just switching currentLeagueId
+   here instead. "Create or join a league" folds in openLeagueAddOverlay
+   underneath, replacing what used to be the tab strip's own "+". */
+function openLeagueSwitchOverlay(){
+  const rows = myLeagues.map(l=>({id: l.id, label: l.name, current: l.id===currentLeagueId}));
+  const extraHtml = `
+    <div class="overlay-actions" style="margin-top:14px;">
+      <button type="button" class="btn secondary" id="leagueSwitchAddBtn" style="width:100%;">Create or join a league</button>
+    </div>
+  `;
+  const backdrop = openSwitcherOverlay('Switch league', rows, id=> switchToLeague(id), extraHtml);
+  const addBtn = backdrop.querySelector('#leagueSwitchAddBtn');
+  if(addBtn) addBtn.addEventListener('click', ()=>{ closeOverlay(); openLeagueAddOverlay(); });
 }
 
 /* Create-or-join modal reached from the "+" at the end of the league tabs. */
@@ -114,7 +108,7 @@ function openLeagueAddOverlay(){
 
 /* ================= LEADERBOARD ================= */
 /* Fetches everything first and writes c.innerHTML exactly once at the end —
-   see the equivalent comment on renderSeriesSetup() in admin-series.js for
+   see the equivalent comment on renderAdminHub() in admin-series.js for
    why: the old version wrote a "Loading leaderboard…" placeholder into the
    DOM immediately and only replaced it with the real (often much taller)
    standings after several awaits, which collapsed the page out from under
@@ -132,15 +126,15 @@ async function renderLeaderboard(){
 
   if(!league){
     bodyHtml = myLeagues.length===0
-      ? `<div class="empty-state"><div class="big">No leagues yet</div>Tap the + above to create one or join with a code.</div>`
-      : `<div class="empty-state">Pick a league above to see its standings.</div>`;
+      ? `<div class="empty-state"><div class="big">No leagues yet</div>Tap the pill above to create one or join with a code.</div>`
+      : `<div class="empty-state">Tap the pill above to pick a league and see its standings.</div>`;
   } else {
     const canManage = isAdmin || league.createdBy === session.user.id;
     const seriesName = (seriesList.find(s=>s.id===league.seriesId)||{}).name || 'series';
     const cardHeadHtml = `
       <div class="flex-between" style="margin-bottom:10px;">
-        <h3 style="margin:0; font-family:var(--font-display);">${league.name}</h3>
-        <span class="role-pill">${seriesName}</span>
+        <h3 style="margin:0; font-family:var(--font-display); min-width:0; overflow-wrap:anywhere;">${league.name}</h3>
+        <span class="role-pill" style="max-width:100%; overflow:hidden; text-overflow:ellipsis;">${seriesName}</span>
       </div>`;
     const actionBarHtml = `
       <div class="save-bar" style="margin-top:16px; justify-content:flex-end;">
@@ -219,7 +213,7 @@ async function renderLeaderboard(){
                 <span class="player-name">${r.name}</span>
               </div>
               <div class="standing-meta-row">
-                <span class="muted-on-light" style="font-size:11px;">${r.managerName || ''}</span>
+                <span class="muted-on-light standing-manager-name">${r.managerName || ''}</span>
                 <span class="standing-points">${r.total} pts</span>
               </div>
             </div>
@@ -241,12 +235,14 @@ async function renderLeaderboard(){
   }
 
   c.innerHTML = `
-    <h2 class="panel-title">My Leagues <button type="button" class="help-icon" id="myLeaguesHelpBtn" title="What's this?" aria-label="Help">?</button></h2>
-    ${leagueTabsHtml()}
+    <div class="flex-between" style="margin-bottom:14px;">
+      <h2 class="panel-title" style="margin-bottom:0;">My Leagues <button type="button" class="help-icon" id="myLeaguesHelpBtn" title="What's this?" aria-label="Help">?</button></h2>
+      ${switcherPillHtml('leaguePillBtn', league ? league.name : (myLeagues.length ? 'Pick a league' : 'No leagues yet'), 'Switch league')}
+    </div>
     <div id="leaderboardBody">${bodyHtml}</div>
   `;
-  document.getElementById('myLeaguesHelpBtn').addEventListener('click', ()=> showAlert("Standings for whichever league you're viewing — tap a tab to switch, or add one with the +.", 'My Leagues'));
-  wireLeagueTabs(c);
+  document.getElementById('myLeaguesHelpBtn').addEventListener('click', ()=> showAlert("Standings for whichever league you're viewing — tap the pill above to switch, or create/join another.", 'My Leagues'));
+  document.getElementById('leaguePillBtn').addEventListener('click', openLeagueSwitchOverlay);
   postWire();
 }
 
@@ -306,28 +302,24 @@ function buildStandingRows(squadRows, matchDataByTest){
   return rows;
 }
 
-/* This team's locked XI and bench, one tab per Test — tapping a row in the
-   standings opens this. Starting XI first (in squad order), then the 3
-   bench players in order (bench order is the sub-priority queue). Captain/
-   VC and auto-subs can differ Test to Test (transfers, armband changes), so
-   these are read from that Test's own locked snapshot rather than the
-   squad's current state — same &#8646; swap icon used for "Replace" in My XI
-   marks anyone who didn't play and was auto-subbed, in either direction. */
-function openTeamBreakdownOverlay(r, leaguePlayerMap, leaguePlayerName){
-  const getP = pid => leaguePlayerMap[pid] || {id:pid, name:'(removed player)', nat:'?', role:'BAT'};
-  const testKeys = Object.keys(r.byTest).sort((a,b)=>a-b);
-
+/* Tabbed (one per locked Test, defaulting to most recent) breakdown-table
+   markup for one squad's byTest data — Starting XI first (in squad order),
+   then the 3 bench players in order (bench order is the sub-priority
+   queue). Captain/VC and auto-subs can differ Test to Test (transfers,
+   armband changes), so these are read from that Test's own locked snapshot
+   rather than the squad's current state — the &#8646; icon marks anyone who
+   didn't play and was auto-subbed, in either direction. Shared by
+   openTeamBreakdownOverlay below (any team in a league, in a lightbox) and
+   the Squad page's own Points tab (js/myxi.js, always your own squad,
+   embedded inline instead of behind a tap) — same content either way, so
+   this builds it once rather than twice. Returns {html, wire(container)}
+   instead of wiring itself immediately, since only the caller knows where
+   its own markup will actually land in the DOM. */
+function squadBreakdownPanelsHtml(byTest, getP, playerName){
+  const testKeys = Object.keys(byTest).sort((a,b)=>a-b);
   if(testKeys.length===0){
-    const backdrop = openOverlay(`
-      <div class="overlay-title">${r.name}</div>
-      <div class="overlay-message">${r.managerName ? r.managerName + ' &middot; ' : ''}${r.total} pts this series</div>
-      <p class="auth-hint">No Tests locked yet for this team.</p>
-    `);
-    backdrop.querySelector('[data-overlay-close]').addEventListener('click', closeOverlay);
-    backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
-    return;
+    return {html: '<p class="auth-hint">No Tests locked yet for this team.</p>', wire: ()=>{}};
   }
-
   const rowHtml = row=>{
     const p = getP(row.pid);
     // Fixed-width slot for the captain/VC badges — with or without one, the
@@ -336,22 +328,19 @@ function openTeamBreakdownOverlay(r, leaguePlayerMap, leaguePlayerName){
     const badges = (row.isCaptain ? '<span class="honours-star" title="Captain">&#9733;</span>' : '')
       + (row.isViceCaptain ? '<span style="font-family:var(--font-mono); font-size:9.5px;">VC</span>' : '');
     const swap = row.subOutOf
-      ? `<span class="sub-swap-icon" title="Didn't play — replaced by ${leaguePlayerName(row.subOutOf)}">&#8646;</span>`
+      ? `<span class="sub-swap-icon" title="Didn't play — replaced by ${playerName(row.subOutOf)}">&#8646;</span>`
       : row.subInFor
-        ? `<span class="sub-swap-icon" title="Came on for ${leaguePlayerName(row.subInFor)}">&#8646;</span>`
+        ? `<span class="sub-swap-icon" title="Came on for ${playerName(row.subInFor)}">&#8646;</span>`
         : '';
     return `<tr><td><span class="row-badge-slot">${badges}</span>${p.name}${swap}</td><td class="pts">${row.points}</td><td>${row.runs}</td><td>${row.wickets}</td><td>${row.catches}</td><td>${row.stumpings}</td><td>${row.runouts}</td></tr>`;
   };
   const defaultTest = testKeys[testKeys.length-1]; // most recently locked, i.e. the current-looking team
-
-  const backdrop = openOverlay(`
-    <div class="overlay-title">${r.name}</div>
-    <div class="overlay-message">${r.managerName ? r.managerName + ' &middot; ' : ''}${r.total} pts this series</div>
+  const html = `
     <div class="admin-subnav" style="margin:4px 0 14px;">
       ${testKeys.map(t=>`<button class="subtab-btn${t===defaultTest?' active':''}" data-testtab="${t}">Test ${t}</button>`).join('')}
     </div>
     ${testKeys.map(t=>{
-      const d = r.byTest[t];
+      const d = byTest[t];
       return `
       <div class="admin-subpanel${t===defaultTest?' active':''}" data-testpanel="${t}">
         <div class="table-scroll">
@@ -366,15 +355,32 @@ function openTeamBreakdownOverlay(r, leaguePlayerMap, leaguePlayerName){
         <p style="font-size:11px; margin-top:8px; color:var(--parchment-dim);">${d.pts} pts this Test${d.captainDidNotPlay ? ' — Captain sat out, armband passed to Vice-Captain' : ''}</p>
       </div>`;
     }).join('')}
+  `;
+  const wire = container=>{
+    container.querySelectorAll('[data-testtab]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        container.querySelectorAll('[data-testtab]').forEach(b=> b.classList.toggle('active', b===btn));
+        container.querySelectorAll('[data-testpanel]').forEach(p=> p.classList.toggle('active', p.dataset.testpanel===btn.dataset.testtab));
+      });
+    });
+  };
+  return {html, wire};
+}
+
+/* Tapping a row in the standings opens this — same breakdown
+   squadBreakdownPanelsHtml above builds, just wrapped in a lightbox with a
+   team-name/total header rather than embedded on a page. */
+function openTeamBreakdownOverlay(r, leaguePlayerMap, leaguePlayerName){
+  const getP = pid => leaguePlayerMap[pid] || {id:pid, name:'(removed player)', nat:'?', role:'BAT'};
+  const {html, wire} = squadBreakdownPanelsHtml(r.byTest, getP, leaguePlayerName);
+  const backdrop = openOverlay(`
+    <div class="overlay-title">${r.name}</div>
+    <div class="overlay-message">${r.managerName ? r.managerName + ' &middot; ' : ''}${r.total} pts this series</div>
+    ${html}
   `);
   backdrop.querySelector('[data-overlay-close]').addEventListener('click', closeOverlay);
   backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
-  backdrop.querySelectorAll('[data-testtab]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      backdrop.querySelectorAll('[data-testtab]').forEach(b=> b.classList.toggle('active', b===btn));
-      backdrop.querySelectorAll('[data-testpanel]').forEach(p=> p.classList.toggle('active', p.dataset.testpanel===btn.dataset.testtab));
-    });
-  });
+  wire(backdrop);
 }
 
 // Tab order for Player rankings specifically — Batters, Bowlers, All-rounders,

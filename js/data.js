@@ -142,12 +142,15 @@ async function loadSeriesPlayerTotals(seriesId){
 
 /* Switches which series My XI is building/showing a team for — points the
    player-facing PLAYERS/fixtures at it and resets any in-progress draft,
-   since it belonged to the previous series' squad. */
+   since it belonged to the previous series' squad. Also lands the Squad
+   page back on its Select Team sub-tab rather than leaving it on Points,
+   which is about to repaint with a different squad's data. */
 async function switchToSeries(seriesId){
   currentSeriesId = seriesId;
   localStorage.setItem('currentSeriesId', seriesId);
   mySquad = mySquads.find(s=>s.seriesId===seriesId) || null;
   draft = null;
+  myxiSubtab = 'select';
   await Promise.all([loadPlayers(seriesId), loadFixtures(seriesId), loadSeriesPlayerTotals(seriesId)]);
   renderMyXI();
   renderHome(); // Home's snapshot/summary cards are also scoped to currentSeriesId — see its own series tab strip

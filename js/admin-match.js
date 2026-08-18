@@ -1,58 +1,49 @@
-/* js/admin-match.js — Admin tab: entering match stats, Playing XI, and locking a Test. */
+/* js/admin-match.js — Admin Hub: Fixtures > Match Setup > Player Selection/Scoring (see js/admin-series.js for the Teams/Players/Fixtures-list side and the drill-down state itself, adminScreen/adminMatchTest). */
 /* ================= MATCH CENTRE ================= */
-/* ================= ADMIN: MATCH SETUP (stats + lock) ================= */
-async function renderMatchSetup(){
-  const c = document.getElementById('matchSetupContent');
-  if(!c) return;
-  if(!supabaseClient){ c.innerHTML = `<div class="empty-state">Configure Supabase first.</div>`; return; }
-  if(!isAdmin){ c.innerHTML = `<div class="empty-state"><div class="big">Admins only</div></div>`; return; }
-  if(!adminSeriesId) adminSeriesId = seriesList[0] ? seriesList[0].id : null;
-  if(!adminSeriesId){
-    c.innerHTML = `<h3 style="margin-top:0; font-family:var(--font-display);">Enter match stats &amp; lock a Test</h3>${adminSeriesPickerHtml()}`;
-    return;
-  }
-  adminPlayers = await fetchPlayers(adminSeriesId);
-  adminPlayerMap = Object.fromEntries(adminPlayers.map(p=>[p.id,p]));
-  adminFixtures = await fetchFixtures(adminSeriesId);
-  adminSeriesTeams = resolveSeriesTeams(adminSeriesId, adminPlayers);
 
-  // Nothing below the Test picker renders until a Test is actually loaded
-  // (#matchTestBody starts empty) — see loadAndRenderMatchSetup()/
-  // renderMatchTestShell(), triggered either by picking one from the select
-  // or, on first load, automatically for whichever Test comes first.
-  c.innerHTML = `
-    <h3 style="margin-top:0; font-family:var(--font-display);">Enter match stats &amp; lock a Test <button type="button" class="help-icon" id="matchSetupHelpBtn" title="What's this?" aria-label="Help">?</button></h3>
-    ${adminSeriesPickerHtml()}
-    ${adminSeriesTeams.length<2 ? '<div class="empty-state">This series needs both teams assigned first — set them under Admin &rarr; Series Setup.</div>' :
-      adminFixtures.length===0 ? '<div class="empty-state">This series has no fixtures yet — add some under Admin &rarr; Series Setup.</div>' : `
-    <div class="card">
-      <label class="field-label">Test</label>
-      <select class="pick" id="statsTestSelect" style="max-width:260px;">
-        ${adminFixtures.map(f=>`<option value="${f.test}">Test ${f.test} — ${f.venue}</option>`).join('')}
-      </select>
-      <div id="matchTestBody"></div>
+/* ---- Match (a fixture's own hub) -> [Player Selection] [Scoring] ---- */
+function renderAdminMatchScreen(){
+  const fixture = adminFixtures.find(f=>f.test===adminMatchTest);
+  const html = `
+    ${adminBackBtnHtml()}
+    <h3 style="margin:12px 0 14px; font-family:var(--font-display);">Test ${adminMatchTest}${fixture ? ' — '+fixture.venue : ''} <button type="button" class="help-icon" id="matchSetupHelpBtn" title="What's this?" aria-label="Help">?</button></h3>
+    ${adminSeriesTeams.length<2 ? '<div class="empty-state">This series needs both teams assigned first — set them under Teams.</div>' : adminHubGridHtml([
+      {goto:'xi', title:'Player Selection', sub: `${currentPlayingXiDraft.length} ticked`},
+      {goto:'scoring', title:'Scoring', sub: currentInningsDraft.length ? `${currentInningsDraft.length} innings` : 'No innings yet'},
+    ])}
+    <div style="margin-top:22px; padding-top:14px; border-top:1px solid var(--parchment-dim);">
+      <p class="muted-on-light" style="font-size:12px; margin:0 0 10px;">Wipes this Test back to how it started — every stat, the Playing XI, the innings, and its lock (including any wildcard it used up).</p>
+      <div class="save-bar" style="margin-top:0;">
+        <button class="btn danger" id="resetTestBtn">Reset this Test</button>
+      </div>
     </div>
-    `}
   `;
-  document.getElementById('matchSetupHelpBtn').addEventListener('click', ()=> showAlert("Enter each player's numbers after a Test finishes, then lock it in for scoring.", 'Match Setup'));
-  wireAdminSeriesPicker(c, renderMatchSetup);
-
-  const testSelect = document.getElementById('statsTestSelect');
-  if(testSelect){
-    testSelect.addEventListener('change', ()=> loadAndRenderMatchSetup(parseInt(testSelect.value)));
-    if(adminFixtures.length) loadAndRenderMatchSetup(adminFixtures[0].test);
-  }
+  const wire = c=>{
+    c.querySelector('#adminBackBtn').addEventListener('click', ()=>{ adminScreen='fixtures'; renderAdminHub(); });
+    c.querySelector('#matchSetupHelpBtn').addEventListener('click', ()=> showAlert("Player Selection is who actually took the field — tick them once the real teams are announced. Scoring is where each innings' runs/wickets/catches etc. get entered, and where a Test gets locked in for every league's scoring once it's done.", 'Match Setup'));
+    const xiCard = c.querySelector('[data-goto="xi"]');
+    if(xiCard) xiCard.addEventListener('click', ()=>{ adminScreen='xi'; renderAdminHub(); });
+    const scoringCard = c.querySelector('[data-goto="scoring"]');
+    if(scoringCard) scoringCard.addEventListener('click', ()=>{ adminScreen='scoring'; renderAdminHub(); });
+    c.querySelector('#resetTestBtn').addEventListener('click', ()=> resetTest(adminMatchTest));
+  };
+  return {html, wire};
 }
 
-async function loadAndRenderMatchSetup(testNum){
+/* Reached by tapping a fixture row on the Fixtures screen (js/admin-series.js)
+   — loads that Test's draft (stats/Playing XI/innings) once, then drops into
+   the Match screen above. Player Selection/Scoring below both just render
+   from this same draft afterward (no re-fetch switching between them —
+   they're plain screen navigation now, not a network round-trip each way). */
+async function goToAdminMatch(testNum){
   const {stats, playingXi, innings} = await getMatchDataForTest(adminSeriesId, testNum);
   currentStatsDraft = JSON.parse(JSON.stringify(stats));
   currentPlayingXiDraft = [...playingXi];
   currentInningsDraft = innings.map(e=>({...e}));
   activeInningsIdx = 0;
-  renderMatchTestShell();
-  renderStatsTable(testNum);
-  renderPlayingXiTable(testNum);
+  adminMatchTest = testNum;
+  adminScreen = 'match';
+  renderAdminHub();
 }
 
 let currentStatsDraft = {};
@@ -60,10 +51,6 @@ let currentPlayingXiDraft = [];
 let currentInningsDraft = []; // [{battingCode, inn}] in the order they were added, max 4, max 2 per team
 let activeInningsIdx = 0;
 let adminSeriesTeams = []; // the two {id,name,short_code} teams for adminSeriesId — see resolveSeriesTeams()
-// Which of the Players/Scoring tabs is showing — module-level (not reset per
-// Test) so flipping the Test dropdown while entering scoring doesn't bounce
-// you back to Players each time. See renderMatchTestShell().
-let currentMatchView = 'players'; // 'players' | 'scoring'
 let playingXiPoolTeam = null; // which team's XI tab is showing in renderPlayingXiTable — short_code, re-defaulted whenever stale
 const STAT_COLUMN_GROUPS = {
   batting: [
@@ -94,47 +81,94 @@ const CATEGORY_ROLE_ORDER = {
   fielding: ['WK','BAT','AR','BOWL'],
 };
 
-/* Renders the Players/Scoring tab shell for whichever Test is currently
-   loaded into #matchTestBody, then wires the tab switch. Called once per
-   Test load; renderStatsTable()/renderPlayingXiTable() fill in the two
-   wrap divs inside it afterward. */
-function renderMatchTestShell(){
-  const body = document.getElementById('matchTestBody');
-  if(!body) return;
-  body.innerHTML = `
-    <div class="admin-subnav light-subnav" style="margin:18px 0 14px;">
-      <button class="subtab-btn${currentMatchView==='players'?' active':''}" data-matchview="players">Players</button>
-      <button class="subtab-btn${currentMatchView==='scoring'?' active':''}" data-matchview="scoring">Scoring</button>
-    </div>
-    <div class="admin-subpanel${currentMatchView==='players'?' active':''}" data-matchpanel="players">
-      <h4 style="margin:0 0 10px; font-family:var(--font-display);">Playing XI &amp; automatic substitutions <button type="button" class="help-icon" id="playingXiHelpBtn" title="What's this?" aria-label="Help">?</button></h4>
-      <div id="playingXiWrap"></div>
-      <div class="save-bar"><button class="btn secondary" id="savePlayingXiBtn">Save playing XI</button></div>
-    </div>
-    <div class="admin-subpanel${currentMatchView==='scoring'?' active':''}" data-matchpanel="scoring">
-      <h4 style="margin:0 0 4px; font-family:var(--font-display);">Innings &amp; scoring <button type="button" class="help-icon" id="lockingHelpBtn" title="What does locking do?" aria-label="Help">?</button></h4>
-      <div id="statsTableWrap"></div>
-      <div class="save-bar">
-        <button class="btn secondary" id="saveStatsBtn">Save stats (don't lock yet)</button>
-        <button class="btn" id="lockTestBtn">Save stats &amp; lock this Test for all leagues on this series</button>
-      </div>
-    </div>
-    <div style="margin-top:22px; padding-top:14px; border-top:1px solid var(--parchment-dim);">
-      <p class="muted-on-light" style="font-size:12px; margin:0 0 10px;">Wipes this Test back to how it started — every stat, the Playing XI, the innings, and its lock (including any wildcard it used up).</p>
-      <div class="save-bar" style="margin-top:0;">
-        <button class="btn danger" id="resetTestBtn">Reset this Test</button>
-      </div>
-    </div>
+/* ---- Player Selection (under Match) ---- */
+function renderAdminXiScreen(){
+  const html = `
+    ${adminBackBtnHtml()}
+    <h4 style="margin:12px 0 10px; font-family:var(--font-display);">Playing XI &amp; automatic substitutions <button type="button" class="help-icon" id="playingXiHelpBtn" title="What's this?" aria-label="Help">?</button></h4>
+    <div id="playingXiWrap"></div>
+    <div class="save-bar"><button class="btn secondary" id="savePlayingXiBtn">Save playing XI</button></div>
   `;
-  document.getElementById('playingXiHelpBtn').addEventListener('click', ()=> showAlert("Tick who actually took the field once the real teams are announced — this both drives automatic substitutions (anyone in a fantasy team's locked XI who isn't ticked is replaced by their first bench player, in squad order, who is — same idea as Fantasy Premier League's autosubs, with a captain's bonus passing to the vice-captain if the captain didn't play) and decides who you can log scoring against in the Scoring tab. Leave everyone unticked until the real teams are out.", 'Playing XI & automatic substitutions'));
-  document.getElementById('lockingHelpBtn').addEventListener('click', ()=> showAlert("Runs/wickets/catches etc. are tracked per innings and summed automatically for scoring — a century in each innings both count. Locking snapshots every saved squad's current XI/captain, in every league on this series, into this Test's scoring record and resets their 2-swap window for the next Test.", 'Innings & scoring'));
-  body.querySelectorAll('[data-matchview]').forEach(btn=>{
+  const wire = c=>{
+    c.querySelector('#adminBackBtn').addEventListener('click', ()=>{ adminScreen='match'; renderAdminHub(); });
+    c.querySelector('#playingXiHelpBtn').addEventListener('click', ()=> showAlert("Tick who actually took the field once the real teams are announced — this both drives automatic substitutions (anyone in a fantasy team's locked XI who isn't ticked is replaced by their first bench player, in squad order, who is — same idea as Fantasy Premier League's autosubs, with a captain's bonus passing to the vice-captain if the captain didn't play) and decides who you can log scoring against on the Scoring screen. Leave everyone unticked until the real teams are out.", 'Playing XI & automatic substitutions'));
+    renderPlayingXiTable(adminMatchTest);
+  };
+  return {html, wire};
+}
+
+/* Two-column checklist (one per series team) of who actually took the field
+   for a Test — this is what resolveEffectiveXi() reads to work out automatic
+   substitutions. */
+function renderPlayingXiTable(testNum){
+  const wrap = document.getElementById('playingXiWrap');
+  if(!wrap) return;
+  if(!playingXiPoolTeam || !adminSeriesTeams.some(t=>t.short_code===playingXiPoolTeam)) playingXiPoolTeam = adminSeriesTeams[0].short_code;
+  const rowHtml = (p)=> `
+    <label class="teamnews-row" style="cursor:pointer;">
+      <span class="player-name">${p.name}</span>
+      <span class="teamnews-row-right">
+        <span class="role-pill">${ROLE_LABEL[p.role]}</span>
+        <input type="checkbox" data-pid="${p.id}" ${currentPlayingXiDraft.includes(p.id)?'checked':''}>
+      </span>
+    </label>`;
+  const playedCount = code=> adminPlayers.filter(p=>p.nat===code && currentPlayingXiDraft.includes(p.id)).length;
+  // Both teams' checklists render at once (each its own .admin-subpanel) so
+  // switching the tab is a plain local class-toggle — same as every other
+  // tab bar in the app — rather than re-rendering anything.
+  wrap.innerHTML = `
+    <div class="admin-subnav light-subnav even-tabs">
+      ${adminSeriesTeams.map(t=>`<button class="subtab-btn${t.short_code===playingXiPoolTeam?' active':''}" data-xiteam="${t.short_code}">${t.short_code} (${playedCount(t.short_code)}/11)</button>`).join('')}
+    </div>
+    ${adminSeriesTeams.map(t=>`
+      <div class="admin-subpanel${t.short_code===playingXiPoolTeam?' active':''}" data-xipanel="${t.short_code}" style="margin-top:12px;">
+        ${adminPlayers.filter(p=>p.nat===t.short_code).map(rowHtml).join('')}
+      </div>
+    `).join('')}`;
+  wrap.querySelectorAll('[data-xiteam]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      currentMatchView = btn.dataset.matchview;
-      body.querySelectorAll('[data-matchview]').forEach(b=> b.classList.toggle('active', b===btn));
-      body.querySelectorAll('[data-matchpanel]').forEach(p=> p.classList.toggle('active', p.dataset.matchpanel===btn.dataset.matchview));
+      playingXiPoolTeam = btn.dataset.xiteam;
+      wrap.querySelectorAll('[data-xiteam]').forEach(b=> b.classList.toggle('active', b===btn));
+      wrap.querySelectorAll('[data-xipanel]').forEach(p=> p.classList.toggle('active', p.dataset.xipanel===btn.dataset.xiteam));
     });
   });
+  wrap.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const pid = cb.dataset.pid;
+      currentPlayingXiDraft = cb.checked
+        ? [...currentPlayingXiDraft.filter(id=>id!==pid), pid]
+        : currentPlayingXiDraft.filter(id=>id!==pid);
+      // Scoring reads currentPlayingXiDraft fresh whenever it's next entered
+      // (a separate screen now, not a hidden tab sharing this DOM) — no
+      // #statsTableWrap to refresh in place from here.
+      renderPlayingXiTable(testNum);
+    });
+  });
+  const saveBtn = document.getElementById('savePlayingXiBtn');
+  if(saveBtn) saveBtn.onclick = async ()=>{
+    const {error} = await supabaseClient.from('match_stats').upsert({series_id: adminSeriesId, test: testNum, playing_xi: currentPlayingXiDraft});
+    if(error){ showAlert(error.message); return; }
+    showAlert('Playing XI saved for Test '+testNum+'.');
+  };
+}
+
+/* ---- Scoring (under Match) ---- */
+function renderAdminScoringScreen(){
+  const html = `
+    ${adminBackBtnHtml()}
+    <h4 style="margin:12px 0 4px; font-family:var(--font-display);">Innings &amp; scoring <button type="button" class="help-icon" id="lockingHelpBtn" title="What does locking do?" aria-label="Help">?</button></h4>
+    <div id="statsTableWrap"></div>
+    <div class="save-bar">
+      <button class="btn secondary" id="saveStatsBtn">Save stats (don't lock yet)</button>
+      <button class="btn" id="lockTestBtn">Save stats &amp; lock this Test for all leagues on this series</button>
+    </div>
+  `;
+  const wire = c=>{
+    c.querySelector('#adminBackBtn').addEventListener('click', ()=>{ adminScreen='match'; renderAdminHub(); });
+    c.querySelector('#lockingHelpBtn').addEventListener('click', ()=> showAlert("Runs/wickets/catches etc. are tracked per innings and summed automatically for scoring — a century in each innings both count. Locking snapshots every saved squad's current XI/captain, in every league on this series, into this Test's scoring record and resets their 2-swap window for the next Test.", 'Innings & scoring'));
+    renderStatsTable(adminMatchTest);
+  };
+  return {html, wire};
 }
 
 /* Innings are added one at a time by an admin picking who's batting — up to
@@ -162,11 +196,9 @@ function wireAddInningsButton(container, testNum){
   btn.addEventListener('click', ()=> openAddInningsOverlay(testNum));
 }
 /* Lightbox for picking which team's batting the new innings belongs to — the
-   mechanics are unchanged from before, just the picker itself is now a
-   proper overlay instead of swapping the + button out in place: the other
-   team is still derived automatically as bowling/fielding (bowlingTeamFor),
+   other team is derived automatically as bowling/fielding (bowlingTeamFor),
    and if only one team still has room for another innings this skips the
-   prompt entirely and adds it straight away, same as it always did. */
+   prompt entirely and adds it straight away. */
 function openAddInningsOverlay(testNum){
   const avail = availableBattingTeams();
   if(!avail.length) return;
@@ -304,10 +336,15 @@ function renderStatsTable(testNum){
     showAlert('Stats saved for Test '+testNum+'.');
   };
   document.getElementById('lockTestBtn').onclick = async ()=> lockTest(testNum);
-  document.getElementById('resetTestBtn').onclick = async ()=> resetTest(testNum);
 
   if(currentPlayingXiDraft.length===0){
-    wrap.innerHTML = `<div class="empty-state" style="margin:12px 0;">Tick the Playing XI above first — innings can only be added once at least one player's on the field.</div>`;
+    wrap.innerHTML = `
+      <div class="empty-state" style="margin:12px 0;">
+        Tick the Playing XI on Player Selection first — innings can only be added once at least one player's on the field.
+        <div style="margin-top:14px;"><button type="button" class="btn secondary small" id="goToXiFromScoringBtn">Go to Player Selection</button></div>
+      </div>`;
+    const goBtn = document.getElementById('goToXiFromScoringBtn');
+    if(goBtn) goBtn.addEventListener('click', ()=>{ adminScreen='xi'; renderAdminHub(); });
     return;
   }
 
@@ -409,59 +446,6 @@ function renderStatsTable(testNum){
 
 }
 
-/* Two-column checklist (one per series team) of who actually took the field
-   for a Test — this is what resolveEffectiveXi() reads to work out automatic
-   substitutions. */
-function renderPlayingXiTable(testNum){
-  const wrap = document.getElementById('playingXiWrap');
-  if(!wrap) return;
-  if(!playingXiPoolTeam || !adminSeriesTeams.some(t=>t.short_code===playingXiPoolTeam)) playingXiPoolTeam = adminSeriesTeams[0].short_code;
-  const rowHtml = (p)=> `
-    <label class="teamnews-row" style="cursor:pointer;">
-      <span class="player-name">${p.name}</span>
-      <span class="teamnews-row-right">
-        <span class="role-pill">${ROLE_LABEL[p.role]}</span>
-        <input type="checkbox" data-pid="${p.id}" ${currentPlayingXiDraft.includes(p.id)?'checked':''}>
-      </span>
-    </label>`;
-  const playedCount = code=> adminPlayers.filter(p=>p.nat===code && currentPlayingXiDraft.includes(p.id)).length;
-  // Both teams' checklists render at once (each its own .admin-subpanel) so
-  // switching the tab is a plain local class-toggle — same as every other
-  // tab bar in the app — rather than re-rendering anything.
-  wrap.innerHTML = `
-    <div class="admin-subnav light-subnav even-tabs">
-      ${adminSeriesTeams.map(t=>`<button class="subtab-btn${t.short_code===playingXiPoolTeam?' active':''}" data-xiteam="${t.short_code}">${t.short_code} (${playedCount(t.short_code)}/11)</button>`).join('')}
-    </div>
-    ${adminSeriesTeams.map(t=>`
-      <div class="admin-subpanel${t.short_code===playingXiPoolTeam?' active':''}" data-xipanel="${t.short_code}" style="margin-top:12px;">
-        ${adminPlayers.filter(p=>p.nat===t.short_code).map(rowHtml).join('')}
-      </div>
-    `).join('')}`;
-  wrap.querySelectorAll('[data-xiteam]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      playingXiPoolTeam = btn.dataset.xiteam;
-      wrap.querySelectorAll('[data-xiteam]').forEach(b=> b.classList.toggle('active', b===btn));
-      wrap.querySelectorAll('[data-xipanel]').forEach(p=> p.classList.toggle('active', p.dataset.xipanel===btn.dataset.xiteam));
-    });
-  });
-  wrap.querySelectorAll('input[type=checkbox]').forEach(cb=>{
-    cb.addEventListener('change', ()=>{
-      const pid = cb.dataset.pid;
-      currentPlayingXiDraft = cb.checked
-        ? [...currentPlayingXiDraft.filter(id=>id!==pid), pid]
-        : currentPlayingXiDraft.filter(id=>id!==pid);
-      renderPlayingXiTable(testNum);
-      renderStatsTable(testNum);
-    });
-  });
-  const saveBtn = document.getElementById('savePlayingXiBtn');
-  if(saveBtn) saveBtn.onclick = async ()=>{
-    const {error} = await supabaseClient.from('match_stats').upsert({series_id: adminSeriesId, test: testNum, playing_xi: currentPlayingXiDraft});
-    if(error){ showAlert(error.message); return; }
-    showAlert('Playing XI saved for Test '+testNum+'.');
-  };
-}
-
 async function lockTest(testNum){
   if(!(await showConfirm(`This snapshots every league's committed XI on this series for scoring, and becomes their new baseline for the next round of changes.`, `Lock Test ${testNum}?`))) return;
   const {error: statsErr} = await supabaseClient.from('match_stats').upsert({series_id: adminSeriesId, test: testNum, stats: currentStatsDraft, playing_xi: currentPlayingXiDraft, innings: currentInningsDraft});
@@ -475,12 +459,12 @@ async function lockTest(testNum){
   renderAll();
 }
 
-/* The undo for everything the Match Setup tab can do to a Test — see
-   reset_test() in supabase-schema.sql for what it rolls back server-side.
-   Deliberately doesn't go via renderAll(): renderMatchSetup() would rebuild
-   the Test dropdown and bounce back to the first fixture, so the player-facing
-   views are refreshed individually and this Test is reloaded in place, leaving
-   the admin where they were. */
+/* The undo for everything Match Setup can do to a Test — see reset_test() in
+   supabase-schema.sql for what it rolls back server-side. Deliberately
+   doesn't go via renderAll() (which would bounce back to the top of Admin
+   Hub) — the player-facing views are refreshed individually and the Test's
+   draft is reloaded via goToAdminMatch, leaving the admin on the Match
+   screen for the same Test they were just resetting. */
 async function resetTest(testNum){
   const fixture = adminFixtures.find(f=>f.test===testNum);
   if(!(await showConfirm(
@@ -497,6 +481,6 @@ async function resetTest(testNum){
     renderMyXI();
   }
   renderLeaderboard();
-  await loadAndRenderMatchSetup(testNum);
+  await goToAdminMatch(testNum);
   showAlert(`Test ${testNum} reset — it's back to how it was before it began.`);
 }

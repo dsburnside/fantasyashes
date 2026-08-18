@@ -14,10 +14,7 @@ async function init(){
   document.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> switchTab(btn.dataset.tab));
   });
-  document.querySelectorAll('.subtab-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=> switchAdminSubtab(btn.dataset.subtab));
-  });
-  document.getElementById('adminHelpBtn').addEventListener('click', ()=> showAlert('Series, fixtures and player pools — visible only to admin accounts. Leagues are self-service now: anyone can create or join one under My Leagues.', 'Admin'));
+  document.getElementById('adminHelpBtn').addEventListener('click', ()=> showAlert('Teams sets the two sides a series is contested between, and the player pool both Squad-building and Match Setup draw from underneath it. Fixtures is every Test — add one, then drill into it to select the Playing XI and enter/lock scoring once it\'s played. All visible only to admin accounts. Leagues are self-service now: anyone can create or join one under My Leagues.', 'Admin Hub'));
 
   // The bottom nav's Profile item just opens the account overlay directly —
   // it's not a real tab-panel, so it doesn't go through switchTab()/the
@@ -125,11 +122,11 @@ function applyTabSwitch(tab){
   if(tab==='home') renderHome();
   if(tab==='leaderboard') renderLeaderboard();
   if(tab==='myxi') renderMyXI();
-  if(tab==='admin') switchAdminSubtab('setup');
+  if(tab==='admin') renderAdminHub();
 }
 
 function renderAll(){
-  if(isAdmin){ renderSeriesSetup(); renderMatchSetup(); }
+  if(isAdmin) renderAdminHub();
   renderHome();
   renderMyXI();
   renderLeaderboard();

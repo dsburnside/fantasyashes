@@ -1,280 +1,367 @@
-/* js/admin-series.js — Admin tab: series/teams/fixtures/players setup. */
-/* ================= ADMIN: shared "which series am I editing" picker =================
-   Fixtures/Match Setup/Player Setup all edit one series at a time (adminSeriesId),
-   independent of whichever league/series the admin themself happens to be
-   playing in (currentLeagueId) — this picker is how they choose which. */
-function adminSeriesPickerHtml(){
+/* js/admin-series.js — Admin Hub: series pill, and the Teams/Players/Fixtures side of the drill-down (see js/admin-match.js for the Fixtures > Match Setup > Player Selection/Scoring side). */
+/* ================= ADMIN HUB: shared "which series am I editing" pill =================
+   Every screen below edits one series at a time (adminSeriesId), independent
+   of whichever league/series the admin themself happens to be playing in
+   (currentSeriesId). Lives once, in the Admin Hub's own header (index.html's
+   #adminSeriesPillWrap, above the whole drill-down) rather than a separate
+   copy per screen — renderAdminSeriesPill() is what renderAdminHub() calls
+   on every render to keep it in sync. */
+function renderAdminSeriesPill(){
+  const wrap = document.getElementById('adminSeriesPillWrap');
+  if(!wrap) return;
   if(seriesList.length===0){
-    return `<div class="notice">No series yet — create one under Admin &rarr; Series first.</div>`;
+    wrap.innerHTML = `<button type="button" class="btn secondary small" id="adminSeriesFirstAddBtn">+ Create a series</button>`;
+    document.getElementById('adminSeriesFirstAddBtn').addEventListener('click', ()=> openSeriesAddOverlay(renderAdminHub));
+    return;
   }
-  return `
-    <div class="card" style="margin-bottom:16px;">
-      <label class="field-label">Series being managed</label>
-      <select class="pick" id="adminSeriesSelect" style="max-width:320px;">
-        ${seriesList.map(s=>`<option value="${s.id}" ${s.id===adminSeriesId?'selected':''}>${s.name}</option>`).join('')}
-      </select>
-    </div>`;
-}
-/* Scoped to a container (not document.getElementById) because Fixtures/Match
-   Setup/Player Setup can all be in the DOM at once (renderAll() renders every
-   admin subpanel, not just the visible one) and each has its own picker with
-   this same id — an unscoped lookup would silently grab the wrong one. */
-function wireAdminSeriesPicker(container, onChange){
-  const sel = container.querySelector('#adminSeriesSelect');
-  if(sel) sel.addEventListener('change', ()=>{ adminSeriesId = sel.value; onChange(); });
+  const current = seriesList.find(s=>s.id===adminSeriesId);
+  wrap.innerHTML = switcherPillHtml('adminSeriesPillBtn', current ? current.name : 'Pick a series', "Switch which series you're managing");
+  document.getElementById('adminSeriesPillBtn').addEventListener('click', ()=> openAdminSeriesSwitchOverlay(renderAdminHub));
 }
 
-/* ================= ADMIN: SERIES SETUP (series, teams, fixtures & players — one interface) ================= */
-let seriesSetupView = 'teams'; // 'teams' | 'fixtures' | 'players' — which light box shows below the series summary; persists across series switches, like the standings card does for My Leagues
-/* Every branch below builds an HTML string (bodyHtml) and, where it needs
-   click handlers, a postWire() closure — nothing touches the DOM until the
-   single c.innerHTML write at the very end, once every await has resolved.
-   Writing c.innerHTML immediately (with the real content filled in only
-   after a later await) is what used to make editing/adding/removing a
-   player — or switching any tab here — visibly "jump to the top of the
-   page" on mobile: the panel would collapse to whatever placeholder was left
-   in the DOM while the fetch was in flight, and however far down the page
-   you'd scrolled, mobile browsers clamp scroll position to fit the now much
-   shorter content — a clamp that doesn't undo itself once the real content
-   reappears a moment later. Fetching first and writing once (the same
-   pattern renderMatchSetup() in admin-match.js already used) avoids that gap
-   entirely: old content stays on screen, unchanged, right up until it's
-   replaced by the finished new content in one shot. renderLeaderboard() in
-   leagues.js had the same bug for the same reason and got the same fix. */
-async function renderSeriesSetup(){
-  const c = document.getElementById('seriesSetupContent');
+/* Admin's own series-switcher lightbox, behind the pill above — unlike the
+   generic switcher (openSwitcherOverlay, js/overlays.js) every other pill in
+   the app uses, each row here also carries little rename/delete controls
+   (same row-icon-btn ✎/× pattern as the fixture/player rows elsewhere in
+   this file), since Admin is the only place a series' own name or existence
+   is something you'd change from this list rather than just switch away
+   from. That means each row's own click has to share space with those two
+   buttons instead of being one big button itself (a button nested inside a
+   button isn't reliably clickable), so this builds its rows by hand rather
+   than going through openSwitcherOverlay's. */
+function openAdminSeriesSwitchOverlay(onChange){
+  const backdrop = openOverlay(`
+    <div class="overlay-title">Switch series</div>
+    <div class="picker-list">
+      ${seriesList.map(s=>`
+        <div class="player-row" data-sid="${s.id}" style="${s.id===adminSeriesId?'':'cursor:pointer;'}">
+          <div class="player-name-wrap">
+            <span class="player-name">${s.name}</span>
+            ${s.id===adminSeriesId ? '<span class="nat-pill">Current</span>' : ''}
+          </div>
+          <div class="player-row-actions">
+            <button type="button" class="row-icon-btn primary" data-action="renameSeries" data-sid="${s.id}" title="Rename series" aria-label="Rename series">&#9998;</button>
+            <button type="button" class="row-icon-btn danger" data-action="deleteSeries" data-sid="${s.id}" title="Delete series" aria-label="Delete series">&times;</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="overlay-actions" style="margin-top:14px;">
+      <button type="button" class="btn secondary" id="adminSeriesSwitchAddBtn" style="width:100%;">Create a new series</button>
+    </div>
+  `);
+  backdrop.querySelector('[data-overlay-close]').addEventListener('click', closeOverlay);
+  backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
+  backdrop.querySelectorAll('.player-row[data-sid]').forEach(row=>{
+    row.addEventListener('click', e=>{
+      if(e.target.closest('[data-action]')) return; // rename/delete handle their own click below
+      if(row.dataset.sid===adminSeriesId) return; // already viewing it
+      closeOverlay();
+      adminSeriesId = row.dataset.sid;
+      adminScreen = 'top'; // land back at the top rather than a screen that belonged to the old series
+      onChange();
+    });
+  });
+  backdrop.querySelectorAll('[data-action="renameSeries"]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation();
+      const s = seriesList.find(x=>x.id===btn.dataset.sid);
+      closeOverlay();
+      openRenameSeriesOverlay(s, onChange);
+    });
+  });
+  backdrop.querySelectorAll('[data-action="deleteSeries"]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation();
+      const s = seriesList.find(x=>x.id===btn.dataset.sid);
+      closeOverlay();
+      deleteSeries(s, onChange);
+    });
+  });
+  const addBtn = backdrop.querySelector('#adminSeriesSwitchAddBtn');
+  if(addBtn) addBtn.addEventListener('click', ()=>{ closeOverlay(); openSeriesAddOverlay(onChange); });
+}
+
+/* ================= ADMIN HUB: drill-down navigation =================
+   Replaces what used to be two permanently-visible tab bars (Series Setup's
+   own Teams/Fixtures/Players tabs, and a separate Match Setup tab with a
+   Test <select>) with one 2-card-grid-and-a-back-button hierarchy:
+     top -> Teams -> Players
+     top -> Fixtures -> (pick a Test) -> Match -> Player Selection
+                                                -> Scoring
+   adminScreen is which of those is currently showing; adminMatchTest is
+   which fixture/Test the Match/Player Selection/Scoring screens are for
+   (set once, on drilling into a fixture — see goToAdminMatch, js/admin-match.js). */
+let adminScreen = 'top'; // 'top' | 'teams' | 'players' | 'fixtures' | 'match' | 'xi' | 'scoring'
+let adminMatchTest = null;
+
+/* One nav tile — same shape used for the top-level Teams/Fixtures pair and
+   the nested Player Selection/Scoring pair, so both read as the same
+   interaction language even though they sit at different depths. */
+function adminHubCardHtml(goto, title, sub){
+  return `
+    <button type="button" class="admin-hub-card" data-goto="${goto}">
+      <span class="admin-hub-card-title">${title}</span>
+      <span class="admin-hub-card-sub">${sub}</span>
+    </button>`;
+}
+function adminHubGridHtml(cards){
+  return `<div class="admin-hub-grid${cards.length===1?' single':''}">${cards.map(c=>adminHubCardHtml(c.goto,c.title,c.sub)).join('')}</div>`;
+}
+function adminBackBtnHtml(){
+  return `<button type="button" class="btn secondary small" id="adminBackBtn">&larr; Back</button>`;
+}
+
+/* The one entry point for all of Admin now — fetches once (adminPlayers/
+   adminFixtures/adminSeriesTeams, previously fetched separately by the old
+   renderSeriesSetup()/renderMatchSetup()) and dispatches to whichever screen
+   adminScreen currently points at. Every screen builder returns
+   {html, wire(container)} — nothing touches the DOM until the single
+   c.innerHTML write at the end, same reasoning as the old per-file version
+   of this comment: writing immediately and filling in after a later await
+   is what used to make switching screens jump to the top of the page on
+   mobile. */
+async function renderAdminHub(){
+  const c = document.getElementById('adminHubContent');
   if(!c) return;
   if(!supabaseClient){ c.innerHTML = `<div class="empty-state">Configure Supabase first.</div>`; return; }
   if(!isAdmin){ c.innerHTML = `<div class="empty-state"><div class="big">Admins only</div></div>`; return; }
+  renderAdminSeriesPill();
 
   if(!adminSeriesId) adminSeriesId = seriesList[0] ? seriesList[0].id : null;
   const currentSeries = seriesList.find(s=>s.id===adminSeriesId);
-
-  let bodyHtml;
-  let postWire = ()=>{};
-
   if(!currentSeries){
-    bodyHtml = `<div class="empty-state"><div class="big">No series yet</div>Tap the + above to create one.</div>`;
-  } else {
-    adminPlayers = await fetchPlayers(adminSeriesId);
-    adminPlayerMap = Object.fromEntries(adminPlayers.map(p=>[p.id,p]));
-    adminFixtures = await fetchFixtures(adminSeriesId);
-    adminSeriesTeams = resolveSeriesTeams(adminSeriesId, adminPlayers);
-    const hasBothTeams = !!(currentSeries.teamA && currentSeries.teamB);
-    if(seriesSetupView==='players' && !hasBothTeams) seriesSetupView = 'teams'; // players view needs teams first
-
-    let subviewHtml = '';
-    let wireSubview = ()=>{};
-
-    /* ---- Configure teams ---- */
-    if(seriesSetupView==='teams'){
-      subviewHtml = `
-        <div class="card">
-          <div class="flex-between">
-            <h3 style="margin:0; font-family:var(--font-display);">Teams</h3>
-            <button class="btn secondary small" id="editTeamsBtn">Edit teams</button>
-          </div>
-          <p class="panel-sub" style="margin:8px 0 0;">
-            ${hasBothTeams
-              ? `<strong>${currentSeries.teamA.name}</strong> (${currentSeries.teamA.short_code}) vs <strong>${currentSeries.teamB.name}</strong> (${currentSeries.teamB.short_code})`
-              : 'Not set yet — pick the two teams this series is contested between before adding fixtures or players.'}
-          </p>
-        </div>
-      `;
-      wireSubview = ()=>{
-        document.getElementById('editTeamsBtn').addEventListener('click', ()=> openTeamsFormOverlay(currentSeries));
-      };
-    }
-
-    /* ---- Fixtures ---- */
-    if(seriesSetupView==='fixtures'){
-      subviewHtml = `
-        <div class="card">
-          <div class="flex-between">
-            <h3 style="margin:0; font-family:var(--font-display);">Fixtures</h3>
-            <button class="btn secondary small" id="addFixtureBtn">+ Add fixture</button>
-          </div>
-          ${adminFixtures.length===0 ? '<div class="empty-state" style="margin-top:10px;">No fixtures yet.</div>' :
-            adminFixtures.slice().sort((a,b)=>a.test-b.test).map(f=>`
-            <div class="player-row" data-test="${f.test}" style="margin-top:10px;">
-              <div class="player-name-wrap">
-                <span class="player-name">Test ${f.test} — ${f.venue}</span>
-                <span class="role-pill">${f.date}</span>
-              </div>
-              <div class="player-row-actions" style="align-items:center; gap:10px;">
-                <span class="muted-on-light" style="font-size:11px;">locks ${new Date(f.deadline).toLocaleString()}</span>
-                <button type="button" class="row-icon-btn primary" data-action="editFixture" data-test="${f.test}" title="Edit fixture" aria-label="Edit fixture">&#9998;</button>
-                <button type="button" class="row-icon-btn danger" data-action="removeFixture" data-test="${f.test}" title="Delete fixture" aria-label="Delete fixture">&times;</button>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      `;
-      wireSubview = (subwrap)=>{
-        document.getElementById('addFixtureBtn').addEventListener('click', ()=> openFixtureFormOverlay(null));
-        subwrap.querySelectorAll('[data-action="editFixture"]').forEach(btn=>{
-          btn.addEventListener('click', ()=> openFixtureFormOverlay(adminFixtures.find(f=>String(f.test)===btn.dataset.test)));
-        });
-        subwrap.querySelectorAll('[data-action="removeFixture"]').forEach(btn=>{
-          btn.addEventListener('click', async ()=>{
-            const test = parseInt(btn.dataset.test);
-            if(!(await showConfirm(`Remove Test ${test} from this series? Any match stats already entered for it go too.`, 'Remove fixture'))) return;
-            const {error} = await supabaseClient.from('fixtures').delete().eq('series_id', adminSeriesId).eq('test', test);
-            if(error){ showAlert(error.message); return; }
-            if(adminSeriesId === currentSeriesId){ await loadFixtures(adminSeriesId); renderCountdown(); }
-            renderSeriesSetup();
-          });
-        });
-      };
-    }
-
-    /* ---- Players ---- */
-    if(seriesSetupView==='players' && hasBothTeams){
-      if(!playersPoolTeam || !adminSeriesTeams.some(t=>t.short_code===playersPoolTeam)) playersPoolTeam = adminSeriesTeams[0].short_code;
-      const rowHtml = (p)=>{
-        if(editingPlayerId === p.id){
-          return `
-            <div class="player-row added" data-pid="${p.id}">
-              <div class="player-edit-fields">
-                <input type="text" id="editName" value="${p.name}">
-                <select id="editNat" class="pick">
-                  ${adminSeriesTeams.map(t=>`<option value="${t.short_code}" ${p.nat===t.short_code?'selected':''}>${t.short_code}</option>`).join('')}
-                </select>
-                <select id="editRole" class="pick">
-                  ${Object.keys(ROLE_LABEL).map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${ROLE_LABEL[r]}</option>`).join('')}
-                </select>
-              </div>
-              <div class="player-row-actions">
-                <button class="row-icon-btn primary" data-action="saveEdit" data-pid="${p.id}" title="Save" aria-label="Save">&#10003;</button>
-                <button class="row-icon-btn" data-action="cancelEdit" title="Cancel" aria-label="Cancel">&times;</button>
-              </div>
-            </div>`;
-        }
-        return `
-          <div class="player-row" data-pid="${p.id}">
-            <div class="player-name-wrap">
-              <span class="player-name">${p.name}</span>
-              <span class="role-pill">${ROLE_LABEL[p.role]}</span>
-            </div>
-            <div class="player-row-actions">
-              <button class="row-icon-btn primary" data-action="edit" data-pid="${p.id}" ${session?'':'disabled'} title="Edit player" aria-label="Edit player">&#9998;</button>
-              <button class="row-icon-btn danger" data-action="remove" data-pid="${p.id}" ${session?'':'disabled'} title="Remove player" aria-label="Remove player">&times;</button>
-            </div>
-          </div>`;
-      };
-
-      // All pools render at once (each its own .admin-subpanel) so switching
-      // the ENG/AUS tab is a plain local class-toggle, same as every other tab
-      // bar in the app — not a full renderSeriesSetup() re-fetch/re-render.
-      subviewHtml = `
-        <div class="card">
-          <div class="flex-between">
-            <h3 style="margin:0; font-family:var(--font-display);">Players <button type="button" class="help-icon" id="playersHelpBtn" title="What's this?" aria-label="Help">?</button></h3>
-            ${session ? '<button type="button" class="innings-add-btn" id="addPlayerOpenBtn" title="Add a player">+</button>' : ''}
-          </div>
-          <div class="admin-subnav light-subnav even-tabs" style="margin-top:12px;">
-            ${adminSeriesTeams.map(t=>`<button class="subtab-btn${t.short_code===playersPoolTeam?' active':''}" data-poolteam="${t.short_code}">${t.short_code}</button>`).join('')}
-          </div>
-          ${adminSeriesTeams.map(t=>{
-            const teamPlayers = adminPlayers.filter(p=>p.nat===t.short_code);
-            return `
-            <div class="admin-subpanel${t.short_code===playersPoolTeam?' active':''}" data-poolpanel="${t.short_code}" style="margin-top:12px;">
-              ${teamPlayers.length ? teamPlayers.map(rowHtml).join('') : `<p class="muted">No ${t.name} players yet.</p>`}
-            </div>`;
-          }).join('')}
-        </div>
-      `;
-      wireSubview = (subwrap)=>{
-        document.getElementById('playersHelpBtn').addEventListener('click', ()=> showAlert('Add, edit or remove players from the pool that My Squads and Match Setup draw from for this series. Changes are shared with every league on this series. Removing a player already picked in someone\'s squad won\'t delete their squad — it just shows as "(removed player)" there, so remove sparingly once the series is underway.', 'Players'));
-        subwrap.querySelectorAll('[data-poolteam]').forEach(btn=>{
-          btn.addEventListener('click', ()=>{
-            playersPoolTeam = btn.dataset.poolteam;
-            subwrap.querySelectorAll('[data-poolteam]').forEach(b=> b.classList.toggle('active', b===btn));
-            subwrap.querySelectorAll('[data-poolpanel]').forEach(p=> p.classList.toggle('active', p.dataset.poolpanel===btn.dataset.poolteam));
-          });
-        });
-
-        if(session){
-          const addOpenBtn = document.getElementById('addPlayerOpenBtn');
-          if(addOpenBtn) addOpenBtn.addEventListener('click', openAddPlayerOverlay);
-
-          subwrap.querySelectorAll('[data-action="edit"]').forEach(btn=>{
-            btn.addEventListener('click', ()=>{ editingPlayerId = btn.dataset.pid; renderSeriesSetup(); });
-          });
-          subwrap.querySelectorAll('[data-action="cancelEdit"]').forEach(btn=>{
-            btn.addEventListener('click', ()=>{ editingPlayerId = null; renderSeriesSetup(); });
-          });
-          subwrap.querySelectorAll('[data-action="saveEdit"]').forEach(btn=>{
-            btn.addEventListener('click', async ()=>{
-              const pid = btn.dataset.pid;
-              const name = document.getElementById('editName').value.trim();
-              const nat = document.getElementById('editNat').value;
-              const role = document.getElementById('editRole').value;
-              const {error} = await supabaseClient.from('players').update({name, nat, role}).eq('series_id', adminSeriesId).eq('id', pid);
-              if(error){ showAlert(error.message); return; }
-              editingPlayerId = null;
-              if(adminSeriesId === currentSeriesId) await loadPlayers(adminSeriesId);
-              renderSeriesSetup();
-            });
-          });
-          subwrap.querySelectorAll('[data-action="remove"]').forEach(btn=>{
-            btn.addEventListener('click', async ()=>{
-              const pid = btn.dataset.pid;
-              const p = adminPlayerMap[pid];
-              if(!(await showConfirm(`Remove ${p ? p.name : pid} from the pool?`, 'Remove player'))) return;
-              const {error} = await supabaseClient.from('players').delete().eq('series_id', adminSeriesId).eq('id', pid);
-              if(error){ showAlert(error.message); return; }
-              if(adminSeriesId === currentSeriesId) await loadPlayers(adminSeriesId);
-              renderSeriesSetup();
-            });
-          });
-        }
-      };
-    }
-
-    bodyHtml = `
-      <div class="card">
-        <div class="flex-between" style="margin-bottom:4px;">
-          <h3 style="margin:0; font-family:var(--font-display);">${currentSeries.name}</h3>
-          <span class="role-pill">${hasBothTeams ? `${currentSeries.teamA.short_code} vs ${currentSeries.teamB.short_code}` : 'teams not set'}</span>
-        </div>
-        <div class="admin-subnav light-subnav even-tabs" style="margin:12px 0 0;">
-          <button class="subtab-btn${seriesSetupView==='teams'?' active':''}" data-view="teams">Teams</button>
-          <button class="subtab-btn${seriesSetupView==='fixtures'?' active':''}" data-view="fixtures">Fixtures${adminFixtures.length?` (${adminFixtures.length})`:''}</button>
-          <button class="subtab-btn${seriesSetupView==='players'?' active':''}" data-view="players" ${hasBothTeams?'':'disabled'} title="${hasBothTeams?'':'Configure first'}">Players${adminPlayers.length?` (${adminPlayers.length})`:''}</button>
-        </div>
-        <div class="save-bar" style="margin-top:16px; justify-content:flex-end;">
-          <button class="btn secondary small" id="renameSeriesBtn">Rename</button>
-          <button class="btn small danger" id="deleteSeriesBtn">Delete series</button>
-        </div>
-      </div>
-      <div id="seriesSubviewWrap" style="margin-top:16px;">${subviewHtml}</div>
-    `;
-    postWire = ()=>{
-      const body = document.getElementById('seriesSetupBody');
-      body.querySelectorAll('[data-view]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{ seriesSetupView = btn.dataset.view; renderSeriesSetup(); });
-      });
-      document.getElementById('renameSeriesBtn').addEventListener('click', ()=> openRenameSeriesOverlay(currentSeries));
-      document.getElementById('deleteSeriesBtn').addEventListener('click', ()=> deleteSeries(currentSeries));
-      wireSubview(document.getElementById('seriesSubviewWrap'));
-    };
+    c.innerHTML = `<div class="empty-state"><div class="big">No series selected</div>Pick or create one above.</div>`;
+    return;
   }
 
-  c.innerHTML = `
-    <h2 class="panel-title">Series Setup <button type="button" class="help-icon" id="seriesSetupHelpBtn" title="What's this?" aria-label="Help">?</button></h2>
-    <div class="admin-subnav league-tabs" id="seriesTabs">
-      ${seriesList.map(s=>`<button class="subtab-btn${s.id===adminSeriesId?' active':''}" data-sid="${s.id}">${s.name}</button>`).join('')}
-      <button type="button" class="tab-add-btn" id="seriesAddBtn" title="Create a series">+</button>
-    </div>
-    <div id="seriesSetupBody">${bodyHtml}</div>
+  adminPlayers = await fetchPlayers(adminSeriesId);
+  adminPlayerMap = Object.fromEntries(adminPlayers.map(p=>[p.id,p]));
+  adminFixtures = await fetchFixtures(adminSeriesId);
+  adminSeriesTeams = resolveSeriesTeams(adminSeriesId, adminPlayers);
+  const hasBothTeams = !!(currentSeries.teamA && currentSeries.teamB);
+
+  // Guard against a stale screen — switched series out from under Players
+  // (needs teams first) or a Test that no longer has a fixture (deleted, or
+  // just switched series) bounces back rather than rendering broken.
+  if(adminScreen==='players' && !hasBothTeams) adminScreen = 'teams';
+  if((adminScreen==='match'||adminScreen==='xi'||adminScreen==='scoring') && !adminFixtures.some(f=>f.test===adminMatchTest)) adminScreen = 'fixtures';
+
+  let built;
+  if(adminScreen==='teams') built = renderAdminTeamsScreen(currentSeries, hasBothTeams);
+  else if(adminScreen==='players') built = renderAdminPlayersScreen();
+  else if(adminScreen==='fixtures') built = renderAdminFixturesScreen();
+  else if(adminScreen==='match') built = renderAdminMatchScreen();
+  else if(adminScreen==='xi') built = renderAdminXiScreen();
+  else if(adminScreen==='scoring') built = renderAdminScoringScreen();
+  else built = renderAdminTopScreen(currentSeries, hasBothTeams);
+
+  c.innerHTML = built.html;
+  built.wire(c);
+}
+
+/* ---- top: [Teams] [Fixtures] ---- */
+// No repeat-the-series-name heading here anymore — the pill right above
+// (renderAdminSeriesPill, in the same header row as "Admin Hub") already
+// names it, so this used to just say the same thing twice.
+function renderAdminTopScreen(currentSeries, hasBothTeams){
+  const html = `
+    ${adminHubGridHtml([
+      {goto:'teams', title:'Teams', sub: hasBothTeams ? `${currentSeries.teamA.short_code} vs ${currentSeries.teamB.short_code}` : 'Not set yet'},
+      {goto:'fixtures', title:'Fixtures', sub: adminFixtures.length ? `${adminFixtures.length} Test${adminFixtures.length===1?'':'s'}` : 'None yet'},
+    ])}
   `;
-  document.getElementById('seriesSetupHelpBtn').addEventListener('click', ()=> showAlert('A series is one real-world tour — its own teams, player pool, fixtures and match stats. Leagues (a separate tab) group friends competing within a series, and can share it with other leagues.', 'Series Setup'));
-  c.querySelectorAll('#seriesTabs [data-sid]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{ adminSeriesId = btn.dataset.sid; renderSeriesSetup(); });
-  });
-  document.getElementById('seriesAddBtn').addEventListener('click', openSeriesAddOverlay);
-  postWire();
+  const wire = c=>{
+    c.querySelector('[data-goto="teams"]').addEventListener('click', ()=>{ adminScreen='teams'; renderAdminHub(); });
+    c.querySelector('[data-goto="fixtures"]').addEventListener('click', ()=>{ adminScreen='fixtures'; renderAdminHub(); });
+  };
+  return {html, wire};
+}
+
+/* ---- Teams -> [Players] ---- */
+function renderAdminTeamsScreen(currentSeries, hasBothTeams){
+  const html = `
+    ${adminBackBtnHtml()}
+    <div class="card" style="margin-top:12px;">
+      <div class="flex-between">
+        <h3 style="margin:0; font-family:var(--font-display);">Teams</h3>
+        <button class="btn secondary small" id="editTeamsBtn">Edit teams</button>
+      </div>
+      <p class="panel-sub" style="margin:8px 0 0;">
+        ${hasBothTeams
+          ? `<strong>${currentSeries.teamA.name}</strong> (${currentSeries.teamA.short_code}) vs <strong>${currentSeries.teamB.name}</strong> (${currentSeries.teamB.short_code})`
+          : 'Not set yet — pick the two teams this series is contested between before adding fixtures or players.'}
+      </p>
+    </div>
+    ${hasBothTeams ? adminHubGridHtml([{goto:'players', title:'Players', sub: `${adminPlayers.length} in the pool`}]) : ''}
+  `;
+  const wire = c=>{
+    c.querySelector('#adminBackBtn').addEventListener('click', ()=>{ adminScreen='top'; renderAdminHub(); });
+    c.querySelector('#editTeamsBtn').addEventListener('click', ()=> openTeamsFormOverlay(currentSeries));
+    const playersCard = c.querySelector('[data-goto="players"]');
+    if(playersCard) playersCard.addEventListener('click', ()=>{ adminScreen='players'; renderAdminHub(); });
+  };
+  return {html, wire};
+}
+
+/* ---- Players (under Teams) ---- */
+function renderAdminPlayersScreen(){
+  if(!playersPoolTeam || !adminSeriesTeams.some(t=>t.short_code===playersPoolTeam)) playersPoolTeam = adminSeriesTeams[0].short_code;
+  const rowHtml = p=>{
+    if(editingPlayerId === p.id){
+      return `
+        <div class="player-row added" data-pid="${p.id}">
+          <div class="player-edit-fields">
+            <input type="text" id="editName" value="${p.name}">
+            <select id="editNat" class="pick">
+              ${adminSeriesTeams.map(t=>`<option value="${t.short_code}" ${p.nat===t.short_code?'selected':''}>${t.short_code}</option>`).join('')}
+            </select>
+            <select id="editRole" class="pick">
+              ${Object.keys(ROLE_LABEL).map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${ROLE_LABEL[r]}</option>`).join('')}
+            </select>
+          </div>
+          <div class="player-row-actions">
+            <button class="row-icon-btn primary" data-action="saveEdit" data-pid="${p.id}" title="Save" aria-label="Save">&#10003;</button>
+            <button class="row-icon-btn" data-action="cancelEdit" title="Cancel" aria-label="Cancel">&times;</button>
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="player-row" data-pid="${p.id}">
+        <div class="player-name-wrap">
+          <span class="player-name">${p.name}</span>
+          <span class="role-pill">${ROLE_LABEL[p.role]}</span>
+        </div>
+        <div class="player-row-actions">
+          <button class="row-icon-btn primary" data-action="edit" data-pid="${p.id}" ${session?'':'disabled'} title="Edit player" aria-label="Edit player">&#9998;</button>
+          <button class="row-icon-btn danger" data-action="remove" data-pid="${p.id}" ${session?'':'disabled'} title="Remove player" aria-label="Remove player">&times;</button>
+        </div>
+      </div>`;
+  };
+
+  // All pools render at once (each its own .admin-subpanel) so switching the
+  // ENG/AUS tab is a plain local class-toggle, same as every other tab bar
+  // in the app — not a full renderAdminHub() re-fetch/re-render.
+  const html = `
+    ${adminBackBtnHtml()}
+    <div class="card" style="margin-top:12px;">
+      <div class="flex-between">
+        <h3 style="margin:0; font-family:var(--font-display);">Players <button type="button" class="help-icon" id="playersHelpBtn" title="What's this?" aria-label="Help">?</button></h3>
+        ${session ? '<button type="button" class="innings-add-btn" id="addPlayerOpenBtn" title="Add a player">+</button>' : ''}
+      </div>
+      <div class="admin-subnav light-subnav even-tabs" style="margin-top:12px;">
+        ${adminSeriesTeams.map(t=>`<button class="subtab-btn${t.short_code===playersPoolTeam?' active':''}" data-poolteam="${t.short_code}">${t.short_code}</button>`).join('')}
+      </div>
+      ${adminSeriesTeams.map(t=>{
+        const teamPlayers = adminPlayers.filter(p=>p.nat===t.short_code);
+        return `
+        <div class="admin-subpanel${t.short_code===playersPoolTeam?' active':''}" data-poolpanel="${t.short_code}" style="margin-top:12px;">
+          ${teamPlayers.length ? teamPlayers.map(rowHtml).join('') : `<p class="muted">No ${t.name} players yet.</p>`}
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+  const wire = c=>{
+    c.querySelector('#adminBackBtn').addEventListener('click', ()=>{ adminScreen='teams'; renderAdminHub(); });
+    c.querySelector('#playersHelpBtn').addEventListener('click', ()=> showAlert('Add, edit or remove players from the pool that My Squads and Match Setup draw from for this series. Changes are shared with every league on this series. Removing a player already picked in someone\'s squad won\'t delete their squad — it just shows as "(removed player)" there, so remove sparingly once the series is underway.', 'Players'));
+    c.querySelectorAll('[data-poolteam]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        playersPoolTeam = btn.dataset.poolteam;
+        c.querySelectorAll('[data-poolteam]').forEach(b=> b.classList.toggle('active', b===btn));
+        c.querySelectorAll('[data-poolpanel]').forEach(p=> p.classList.toggle('active', p.dataset.poolpanel===btn.dataset.poolteam));
+      });
+    });
+    if(!session) return;
+    const addOpenBtn = c.querySelector('#addPlayerOpenBtn');
+    if(addOpenBtn) addOpenBtn.addEventListener('click', openAddPlayerOverlay);
+    c.querySelectorAll('[data-action="edit"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{ editingPlayerId = btn.dataset.pid; renderAdminHub(); });
+    });
+    c.querySelectorAll('[data-action="cancelEdit"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{ editingPlayerId = null; renderAdminHub(); });
+    });
+    c.querySelectorAll('[data-action="saveEdit"]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const pid = btn.dataset.pid;
+        const name = document.getElementById('editName').value.trim();
+        const nat = document.getElementById('editNat').value;
+        const role = document.getElementById('editRole').value;
+        const {error} = await supabaseClient.from('players').update({name, nat, role}).eq('series_id', adminSeriesId).eq('id', pid);
+        if(error){ showAlert(error.message); return; }
+        editingPlayerId = null;
+        if(adminSeriesId === currentSeriesId) await loadPlayers(adminSeriesId);
+        renderAdminHub();
+      });
+    });
+    c.querySelectorAll('[data-action="remove"]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const pid = btn.dataset.pid;
+        const p = adminPlayerMap[pid];
+        if(!(await showConfirm(`Remove ${p ? p.name : pid} from the pool?`, 'Remove player'))) return;
+        const {error} = await supabaseClient.from('players').delete().eq('series_id', adminSeriesId).eq('id', pid);
+        if(error){ showAlert(error.message); return; }
+        if(adminSeriesId === currentSeriesId) await loadPlayers(adminSeriesId);
+        renderAdminHub();
+      });
+    });
+  };
+  return {html, wire};
+}
+
+/* ---- Fixtures -> (pick one) -> Match Setup (js/admin-match.js) ---- */
+function renderAdminFixturesScreen(){
+  const html = `
+    ${adminBackBtnHtml()}
+    <div class="card" style="margin-top:12px;">
+      <div class="flex-between">
+        <h3 style="margin:0; font-family:var(--font-display);">Fixtures</h3>
+        <button class="btn secondary small" id="addFixtureBtn">+ Add fixture</button>
+      </div>
+      ${adminFixtures.length===0 ? '<div class="empty-state" style="margin-top:10px;">No fixtures yet.</div>' :
+        `<p class="panel-sub" style="margin:8px 0 0;">Tap a Test to select its Playing XI and enter/lock scoring.</p>` +
+        adminFixtures.slice().sort((a,b)=>a.test-b.test).map(f=>`
+        <div class="player-row" data-test="${f.test}" style="margin-top:10px; cursor:pointer; flex-direction:column; align-items:stretch; gap:6px;">
+          <div class="player-name-wrap">
+            <span class="player-name">Test ${f.test} — ${f.venue}</span>
+            <span class="role-pill">${f.date}</span>
+            <span class="muted-on-light" style="margin-left:auto; font-size:11px;">locks ${new Date(f.deadline).toLocaleString()}</span>
+          </div>
+          <div class="player-row-actions" style="justify-content:flex-end;">
+            <button type="button" class="row-icon-btn primary" data-action="editFixture" data-test="${f.test}" title="Edit fixture" aria-label="Edit fixture">&#9998;</button>
+            <button type="button" class="row-icon-btn danger" data-action="removeFixture" data-test="${f.test}" title="Delete fixture" aria-label="Delete fixture">&times;</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  const wire = c=>{
+    c.querySelector('#adminBackBtn').addEventListener('click', ()=>{ adminScreen='top'; renderAdminHub(); });
+    c.querySelector('#addFixtureBtn').addEventListener('click', ()=> openFixtureFormOverlay(null));
+    c.querySelectorAll('.player-row[data-test]').forEach(row=>{
+      row.addEventListener('click', e=>{
+        if(e.target.closest('[data-action]')) return; // edit/delete handle their own click below
+        goToAdminMatch(parseInt(row.dataset.test));
+      });
+    });
+    c.querySelectorAll('[data-action="editFixture"]').forEach(btn=>{
+      btn.addEventListener('click', e=>{
+        e.stopPropagation();
+        openFixtureFormOverlay(adminFixtures.find(f=>String(f.test)===btn.dataset.test));
+      });
+    });
+    c.querySelectorAll('[data-action="removeFixture"]').forEach(btn=>{
+      btn.addEventListener('click', async e=>{
+        e.stopPropagation();
+        const test = parseInt(btn.dataset.test);
+        if(!(await showConfirm(`Remove Test ${test} from this series? Any match stats already entered for it go too.`, 'Remove fixture'))) return;
+        const {error} = await supabaseClient.from('fixtures').delete().eq('series_id', adminSeriesId).eq('test', test);
+        if(error){ showAlert(error.message); return; }
+        if(adminSeriesId === currentSeriesId){ await loadFixtures(adminSeriesId); renderCountdown(); }
+        renderAdminHub();
+      });
+    });
+  };
+  return {html, wire};
 }
 
 /* Add/edit a fixture — Test number, venue, match date and squad-lock
@@ -342,7 +429,45 @@ function openFixtureFormOverlay(fixture){
     }
     if(adminSeriesId === currentSeriesId){ await loadFixtures(adminSeriesId); renderCountdown(); }
     closeOverlay();
-    renderSeriesSetup();
+    renderAdminHub();
+  });
+}
+
+/* Picks the two teams (from the shared teams master data, teamsList —
+   js/data.js) this series is contested between. Was referenced from the
+   Teams screen's "Edit teams" button without ever being written — a
+   pre-existing gap, not something this drill-down rework introduced, just
+   the first time this exact screen got touched since. */
+function openTeamsFormOverlay(series){
+  if(teamsList.length<2){
+    showAlert('Fewer than two teams exist in the shared teams list yet — add another directly in the database (public.teams) before a series can be assigned two.', 'No teams to pick from');
+    return;
+  }
+  const backdrop = openOverlay(`
+    <div class="overlay-title">Edit teams</div>
+    <div class="field-group">
+      <label for="teamASelect">Team A</label>
+      <select id="teamASelect" class="pick">${teamsList.map(t=>`<option value="${t.id}" ${series.teamA && series.teamA.id===t.id?'selected':''}>${t.name} (${t.short_code})</option>`).join('')}</select>
+    </div>
+    <div class="field-group">
+      <label for="teamBSelect">Team B</label>
+      <select id="teamBSelect" class="pick">${teamsList.map(t=>`<option value="${t.id}" ${series.teamB && series.teamB.id===t.id?'selected':''}>${t.name} (${t.short_code})</option>`).join('')}</select>
+    </div>
+    <div class="auth-error" id="teamsFormError"></div>
+    <div class="overlay-actions"><button class="btn" id="teamsFormSaveBtn">Save</button></div>
+  `);
+  backdrop.querySelector('[data-overlay-close]').addEventListener('click', closeOverlay);
+  backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
+  const errBox = backdrop.querySelector('#teamsFormError');
+  backdrop.querySelector('#teamsFormSaveBtn').addEventListener('click', async ()=>{
+    const teamAId = backdrop.querySelector('#teamASelect').value;
+    const teamBId = backdrop.querySelector('#teamBSelect').value;
+    if(teamAId===teamBId){ errBox.textContent = 'Pick two different teams.'; return; }
+    const {error} = await supabaseClient.from('series').update({team_a_id: teamAId, team_b_id: teamBId}).eq('id', series.id);
+    if(error){ errBox.textContent = error.message; return; }
+    await loadSeriesList();
+    closeOverlay();
+    renderAdminHub();
   });
 }
 
@@ -379,12 +504,19 @@ function openAddPlayerOverlay(){
     if(adminSeriesId === currentSeriesId) await loadPlayers(adminSeriesId);
     playersPoolTeam = nat; // land back on whichever pool they just added to
     closeOverlay();
-    renderSeriesSetup();
+    renderAdminHub();
   });
 }
 
-/* Create-series modal, reached from the "+" at the end of the series tabs. */
-function openSeriesAddOverlay(){
+/* Create-series modal, reached from "Create a new series" in the Admin Hub's
+   series-switcher lightbox (openAdminSeriesSwitchOverlay above), or straight
+   off the pill itself when there's no series yet at all (renderAdminSeriesPill).
+   onCreated: re-renders the whole hub once the new series exists — always
+   renderAdminHub in practice now (both callers above pass it), kept as a
+   param rather than hardcoded since this used to be reachable from two
+   separately-rendered subpanels and there's no reason to reintroduce that
+   coupling if this ever gets a second caller again. */
+function openSeriesAddOverlay(onCreated){
   const backdrop = openOverlay(`
     <div class="overlay-title">Create a series</div>
     <div class="field-group"><label for="newSeriesNameOv">Name</label><input type="text" id="newSeriesNameOv" placeholder="e.g. India tour of Australia 2027"></div>
@@ -401,12 +533,12 @@ function openSeriesAddOverlay(){
     if(error){ errBox.textContent = error.message; return; }
     await loadSeriesList();
     adminSeriesId = data.id;
-    seriesSetupView = 'teams';
+    adminScreen = 'top';
     closeOverlay();
-    renderSeriesSetup();
+    (onCreated || renderAdminHub)();
   });
 }
-function openRenameSeriesOverlay(s){
+function openRenameSeriesOverlay(s, onChange){
   const backdrop = openOverlay(`
     <div class="overlay-title">Rename series</div>
     <div class="field-group"><label for="renameSeriesInput">Name</label><input type="text" id="renameSeriesInput" value="${s.name}"></div>
@@ -421,23 +553,28 @@ function openRenameSeriesOverlay(s){
     closeOverlay();
     if(error){ showAlert(error.message); return; }
     await loadSeriesList();
-    renderSeriesSetup();
+    (onChange || renderAdminHub)();
   });
 }
-async function deleteSeries(s){
+/* Requires the admin's own account password (showPasswordConfirm, same
+   two-step are-you-sure-then-reauth pattern deleteLeagueBtn — js/leagues.js
+   — uses) on top of the usual confirm, given how much a series deletion
+   cascades (every league/player/fixture/stat under it, permanently). */
+async function deleteSeries(s, onChange){
   if(!(await showConfirm(`Delete "${s.name}" and every league, player, fixture and stat under it? This cannot be undone.`, 'Delete series'))) return;
+  if(!(await showPasswordConfirm('Enter your account password to finish deleting this series.', 'Confirm deletion'))) return;
   const {error} = await supabaseClient.from('series').delete().eq('id', s.id);
   if(error){ showAlert(error.message); return; }
   adminSeriesId = null;
   await loadSeriesList();
   if(!adminSeriesId) adminSeriesId = seriesList[0] ? seriesList[0].id : null;
-  renderSeriesSetup();
+  adminScreen = 'top';
+  (onChange || renderAdminHub)();
 }
 
 /* League creation/management moved to the My Leagues tab (self-service —
    see leagueTabsHtml()/openLeagueAddOverlay()) since it no longer needs an
    admin. editingPlayerId/playersPoolTeam below are used by the Players
-   section inside renderSeriesSetup() above. */
+   screen above. */
 let editingPlayerId = null;
 let playersPoolTeam = null; // which team's pool tab is showing — short_code, re-defaulted to the first team whenever it's stale (switched series, etc.)
-

@@ -66,28 +66,6 @@ async function computeMyLeagueStanding(league, matchDataByTest){
   return {league, rank: myIdx+1, outOf: rows.length, points: rows[myIdx].total};
 }
 
-/* Tab strip for switching which series Home is showing a snapshot of — same
-   tab-per-squad pattern (and the same switchToSeries() this drives) as
-   My Squads' own seriesSwitcherHtml (myxi.js), just without that one's
-   "start a new team" (+) option, since Home isn't where a build begins. Only
-   worth showing once there's actually more than one series to pick between. */
-function homeSeriesTabsHtml(){
-  if(mySquads.length < 2) return '';
-  return `
-    <div class="admin-subnav" id="homeSeriesTabs" style="margin:4px 0 20px;">
-      ${mySquads.map(s=>{
-        const sname = (seriesList.find(x=>x.id===s.seriesId)||{}).name || 'Unknown series';
-        return `<button class="subtab-btn${s.seriesId===currentSeriesId?' active':''}" data-switch-series="${s.seriesId}">${sname}</button>`;
-      }).join('')}
-    </div>
-  `;
-}
-function wireHomeSeriesTabs(c){
-  c.querySelectorAll('[data-switch-series]').forEach(btn=>{
-    btn.addEventListener('click', ()=> switchToSeries(btn.dataset.switchSeries));
-  });
-}
-
 async function renderHome(){
   const c = document.getElementById('homeContent');
   if(!c) return;
@@ -104,21 +82,27 @@ async function renderHome(){
 
   if(!currentSeriesId || !mySquad){
     const activeSeries = seriesList.find(s=>s.id===currentSeriesId);
+    // Same pill (and same overlay) My Squads' own header uses — see
+    // openSeriesSwitchOverlay, js/overlays.js.
+    const newSeriesOptions = seriesList.filter(s=> s.id!==currentSeriesId && !mySquads.some(sq=>sq.seriesId===s.id));
     c.innerHTML = `
-      <h2 class="home-greeting">Welcome${myFirstName ? ', '+myFirstName : ''}</h2>
-      ${homeSeriesTabsHtml()}
+      <div class="flex-between" style="margin-bottom:14px;">
+        <h2 class="home-greeting" style="margin-bottom:0;">Welcome${myFirstName ? ', '+myFirstName : ''}</h2>
+        ${currentSeriesId ? switcherPillHtml('homeSeriesPillBtn', activeSeries ? activeSeries.name : 'this series', 'Switch series') : ''}
+      </div>
       <p class="panel-sub">${seriesList.length===0
         ? 'No series available yet — ask an admin to set one up.'
         : `You haven't built a squad${activeSeries ? ' for '+activeSeries.name : ''} yet — that's the only thing standing between you and a spot on the board.`}</p>
       ${seriesList.length ? `<div class="card"><button class="btn" id="homeBuildBtn">Build your XI</button></div>` : ''}
     `;
-    wireHomeSeriesTabs(c);
+    const seriesPillBtn = document.getElementById('homeSeriesPillBtn');
+    if(seriesPillBtn) seriesPillBtn.addEventListener('click', ()=> openSeriesSwitchOverlay(newSeriesOptions));
     const buildBtn = document.getElementById('homeBuildBtn');
     if(buildBtn) buildBtn.addEventListener('click', ()=> switchTab('myxi'));
     return;
   }
 
-  // Fetch everything before touching the DOM — see renderSeriesSetup()
+  // Fetch everything before touching the DOM — see renderAdminHub()
   // (admin-series.js) and renderLeaderboard() (leagues.js) for why: writing
   // c.innerHTML immediately and filling it in after later awaits collapses
   // the page out from under anyone already scrolled down, which mobile
@@ -155,10 +139,15 @@ async function renderHome(){
   const topRanked = topPlayersByPoints(PLAYERS, seriesPlayerTotals, 3);
   const totPreview = latestTeamOfTestPreview(homeFixtures, matchDataByTest, 3);
 
+  // Same pill (and same overlay) My Squads' own header uses — see
+  // openSeriesSwitchOverlay, js/overlays.js.
+  const newSeriesOptions = seriesList.filter(s=> s.id!==currentSeriesId && !mySquads.some(sq=>sq.seriesId===s.id));
+
   c.innerHTML = `
-    <h2 class="home-greeting">Welcome back${myFirstName ? ', '+myFirstName : ''}</h2>
-    ${homeSeriesTabsHtml()}
-    <p class="panel-sub">${activeSeries ? activeSeries.name : 'Your series'}</p>
+    <div class="flex-between" style="margin-bottom:18px;">
+      <h2 class="home-greeting" style="margin-bottom:0;">Welcome back${myFirstName ? ', '+myFirstName : ''}</h2>
+      ${switcherPillHtml('homeSeriesPillBtn', activeSeries ? activeSeries.name : 'this series', 'Switch series')}
+    </div>
 
     <div class="scoreboard" id="homeScoreboardCard" title="Tap to see the full breakdown">
       <div class="sb-row">
@@ -234,7 +223,7 @@ async function renderHome(){
     </div>
   `;
 
-  wireHomeSeriesTabs(c);
+  document.getElementById('homeSeriesPillBtn').addEventListener('click', ()=> openSeriesSwitchOverlay(newSeriesOptions));
   document.getElementById('homeScoreboardCard').addEventListener('click', ()=>{
     openTeamBreakdownOverlay(myBreakdownRow, PLAYER_MAP, id=> getPlayer(id).name);
   });

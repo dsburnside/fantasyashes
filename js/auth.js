@@ -73,14 +73,6 @@ function updateAdminTabVisibility(){
   }
 }
 
-function switchAdminSubtab(subtab){
-  document.querySelectorAll('.subtab-btn').forEach(b=> b.classList.toggle('active', b.dataset.subtab===subtab));
-  document.querySelectorAll('.admin-subpanel').forEach(p=> p.classList.remove('active'));
-  document.getElementById('adminsub-'+subtab).classList.add('active');
-  if(subtab==='setup') renderSeriesSetup();
-  if(subtab==='match') renderMatchSetup();
-}
-
 /* Points the player-facing PLAYERS/fixtures at whichever series My XI
    currently has open (currentSeriesId, already resolved by loadMySquads()).
    Shared by init() and the auth-state-change handler so login/logout always

@@ -61,7 +61,7 @@ let pendingJoinCode = null;
 // Admin-editing state — deliberately separate from the player-facing state
 // above, since an admin might be setting up a series/league other than the
 // one they're currently playing in themselves.
-let adminSeriesId = null;   // which series Admin > Fixtures/Match Setup/Player Setup are currently editing
+let adminSeriesId = null;   // which series the whole Admin Hub drill-down (js/admin-series.js, js/admin-match.js) is currently editing
 let adminPlayers = [];
 let adminPlayerMap = {};
 let adminFixtures = [];

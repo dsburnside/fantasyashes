@@ -16,7 +16,7 @@ function renderCountdown(){
   }
   const nd = nextDeadline();
   if(!nd){
-    box.innerHTML = `<span class="countdown-meta">No upcoming lock deadlines — fixtures are edited under Admin &rarr; Series Setup.</span>`;
+    box.innerHTML = `<span class="countdown-meta">No upcoming lock deadlines — fixtures are edited under Admin Hub &rarr; Fixtures.</span>`;
     return;
   }
   const diff = Math.max(0, nd.dl - new Date());

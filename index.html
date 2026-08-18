@@ -321,7 +321,7 @@
   .notice strong{color:var(--gilt-bright);}
   .notice.warn strong{color:var(--oxblood-bright);}
   /* .notice used to need a dark-text variant for use inside a light .card
-     (e.g. Admin > Series Setup > Players) — now that .card is dark too, the
+     (e.g. Admin Hub > Teams > Players) — now that .card is dark too, the
      base light-on-dark colors already work there, so these just track the
      base rules instead of diverging into their own (now-unreadable) dark
      shades. Same story for .muted-on-light/.link-btn.on-light etc. below. */
@@ -362,13 +362,24 @@
     border:1px solid var(--line); border-radius:12px;
     padding:10px 12px; margin-bottom:6px;
   }
-  /* .added is admin's "just-added player" highlight (see Series Setup); .leader
-     is the leaderboard's unrelated "1st place" highlight — same accent-border
+  /* .added is admin's "just-added player" highlight (see Admin Hub > Teams >
+     Players); .leader is the leaderboard's unrelated "1st place" highlight — same accent-border
      look, but kept as a separate class so admin's mobile .added rule below
      (which stacks that row into a column) can never reach the leaderboard row. */
   .player-row.added, .player-row.leader{border-color:var(--gilt); box-shadow:inset 0 0 0 1px var(--gilt);}
-  .player-name-wrap{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
-  .player-name{font-weight:700; font-size:14.5px;}
+  /* min-width:0 is the actual fix for cards overflowing on a long team/
+     league/player name: as a flex item (of .player-row, which is
+     justify-content:space-between against a sibling like .standing-points/
+     .player-row-actions), .player-name-wrap's default min-width is auto —
+     i.e. never allowed to shrink narrower than its content's longest
+     unbreakable word — which silently pushes the whole row (and the .card
+     around it) wider than the screen on a name with no spaces to wrap at
+     (a one-word team/league name is common). overflow-wrap:anywhere on
+     .player-name is the other half: once the wrap CAN shrink that far, this
+     lets a too-long single word actually break mid-word to fit, rather than
+     just overflowing anyway once there's nowhere left to wrap to. */
+  .player-name-wrap{display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0;}
+  .player-name{font-weight:700; font-size:14.5px; overflow-wrap:anywhere;}
   .role-pill{
     font-family:var(--font-mono); font-size:10px; letter-spacing:.06em;
     background:var(--turf); color:var(--chalk); padding:3px 9px; border-radius:20px;
@@ -392,13 +403,22 @@
      dark treatment as every other form input in the app. */
   .player-edit-fields input[type=text]{padding:7px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px; width:160px; max-width:100%; background:var(--turf-deeper); color:var(--chalk);}
   .player-edit-fields select{width:auto; padding:7px 8px;}
-  .player-row-actions{display:flex; gap:6px; flex-shrink:0;}
+  /* margin-left:auto so this pushes fully right whenever .player-row wraps
+     it onto its own line (name/pill too long to share the row with it) —
+     without it, a lone item on a wrapped flex line sits flush left instead,
+     reading like it's spilled off the row rather than a deliberate button
+     group. */
+  .player-row-actions{display:flex; gap:6px; flex-shrink:0; margin-left:auto;}
   @media (max-width:520px){
     .player-row.added{flex-direction:column; align-items:stretch;}
     .player-edit-fields{flex-direction:column; align-items:stretch;}
     .player-edit-fields input[type=text],
     .player-edit-fields select{width:100%;}
-    .player-row-actions{width:100%;}
+    /* Full width here overrides the margin-left:auto above (nothing left
+       for it to push against once the container already fills the row), so
+       justify-content takes over doing the same job: keep the buttons
+       themselves flush right rather than defaulting to the row's start. */
+    .player-row-actions{width:100%; justify-content:flex-end;}
     .player-row-actions button{flex:1;}
     /* ...except the small square icon buttons (edit/save/cancel/delete) —
        stretching a 30px icon button to fill the row width would leave it a
@@ -484,7 +504,7 @@
     color:var(--gilt-bright); text-align:left; padding:14px 4px 4px; border-bottom:1px solid var(--gilt);
   }
   /* Marks a player who was auto-subbed (either direction) in that Test's
-     breakdown row — same &#8646; glyph as the "Replace" action in My XI. */
+     breakdown row. */
   .sub-swap-icon{color:var(--gilt-bright); margin-left:5px; font-size:11px; cursor:help;}
   /* Reserves the same width whether a row has a captain star, a VC tag, both,
      or neither, so player names line up in a clean column instead of each
@@ -496,8 +516,7 @@
      than the pill sitting glued to the end of the name) — see renderPlayingXiTable(). */
   .teamnews-row-right{display:flex; align-items:center; gap:12px;}
 
-  /* ---------- league tabs + standings (My Leagues tab) ---------- */
-  .league-tabs{margin-bottom:0;}
+  /* ---------- standings (My Leagues tab) ---------- */
   .standing-row{cursor:pointer;}
   /* Matches the style guide's own leaderboard demo exactly — .lb-rank is
      plain fog, not an alarm color; rust (captain/premium) is reserved for
@@ -520,6 +539,13 @@
   .standing-row-full .standing-team-row{display:flex; align-items:center; gap:8px; min-width:0;}
   .standing-row-full .standing-team-row .player-name{min-width:0; overflow-wrap:anywhere;}
   .standing-row-full .standing-meta-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding-left:28px;}
+  /* Manager name is free-text (whatever they signed up with) same as the team
+     name above it — needs the same min-width:0/overflow-wrap:anywhere pair
+     to actually shrink and break rather than force the row (and the whole
+     card) wider than the screen when it's one long unbroken word. .standing-
+     points stays nowrap (it's always short, "N pts") and simply gets pushed
+     to its own line if there's truly nothing left for the name to give up. */
+  .standing-manager-name{min-width:0; overflow-wrap:anywhere;}
 
   /* ---------- Home tab summary cards (Player rankings / Team of the Test) ----------
      Condensed previews that open the real thing (leagues.js's
@@ -553,6 +579,25 @@
   .role-legend span{font-family:var(--font-mono);}
 
   .flex-between{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;}
+  /* Generic switcher pill (switcherPillHtml/openSwitcherOverlay, js/overlays.js)
+     — names whatever a screen is currently showing, tap anywhere on it (name
+     or cog) to pick something else. Same look everywhere it appears: My
+     Squads' series/squad pill, Home's series pill, My Leagues' league pill,
+     Admin's series pill. Replaced what used to be a permanently-visible tab
+     strip (or, for Admin, a plain <select>) taking up its own row under each
+     screen's heading; this sits in the heading's own row instead (top
+     right), so switching got a lot less prominent on screen without losing
+     anything it could do. */
+  .switcher-pill-btn{
+    display:inline-flex; align-items:center; gap:6px;
+    background:var(--turf); color:var(--chalk); border:none;
+    padding:6px 10px 6px 12px; border-radius:20px; cursor:pointer;
+    font-family:var(--font-mono); font-size:11px; letter-spacing:.03em; white-space:nowrap;
+    flex-shrink:0; max-width:100%;
+  }
+  .switcher-pill-btn span{overflow:hidden; text-overflow:ellipsis;}
+  .switcher-pill-btn:hover{background:var(--gilt);}
+  .switcher-pill-btn svg{width:14px; height:14px; stroke:currentColor; flex-shrink:0;}
   .muted{color:var(--parchment-dim);}
   .card .muted{color:var(--parchment-dim);}
   /* Used to be the dark-text variant for light .card/.parchment-panel
@@ -564,10 +609,11 @@
   .overlay-box input::placeholder{color:var(--parchment-dim); opacity:1;}
 
   /* ---------- admin sub-navigation ----------
-     Shared by every tab strip in the app (Series Setup, Match Setup's
-     Players/Scoring and Batting/Bowling/Fielding, the innings tab row, My
-     Leagues' league picker, the add-a-league Create/Join tabs) so they all
-     look and behave the same. Never wraps to a second line — with more tabs
+     Shared by every tab strip in the app (the Players pool's per-team tabs,
+     Match Setup's Playing XI team tabs and Batting/Bowling/Fielding tabs,
+     the innings tab row, My Leagues' league picker, the add-a-league
+     Create/Join tabs) so they all look and behave the same. Never wraps to
+     a second line — with more tabs
      (or longer labels, e.g. "Players (15)") than fit, the strip scrolls
      horizontally instead; the scrollbar itself is hidden since swipe/drag is
      how it's meant to be used, same as it would be on any app's tab bar. */
@@ -591,11 +637,29 @@
   .subtab-btn.active{color:var(--gilt-bright); border-bottom-color:var(--gilt);}
   .subtab-btn:hover{color:var(--chalk);}
   .admin-subpanel{display:none;}
-  /* Opt-in modifier (Series Setup's Configure/Fixtures/Players) — tabs share
-     the row equally instead of sitting content-width against the left, for a
-     small fixed set of short, similarly-weighted labels. Not the default,
-     since it'd fight the "scroll instead of wrap" behavior above on tab bars
-     with more or longer labels (My Leagues, Team of the Test, ...). */
+  /* Admin Hub's own drill-down nav (renderAdminHub() and friends,
+     js/admin-series.js + js/admin-match.js) — Teams/Fixtures at the top,
+     Player Selection/Scoring nested under a Test, always exactly one card
+     pair per level (or a single full-width one via .single, e.g. just
+     Players under Teams) rather than a wall of tabs. */
+  .admin-hub-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:14px 0;}
+  .admin-hub-grid.single{grid-template-columns:1fr;}
+  @media (max-width:480px){ .admin-hub-grid{grid-template-columns:1fr;} }
+  .admin-hub-card{
+    display:flex; flex-direction:column; align-items:flex-start; gap:4px;
+    width:100%; text-align:left; font-family:inherit;
+    background:var(--slate-raised); color:var(--ink);
+    border-radius:14px; padding:18px; border:1px solid var(--line); cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .admin-hub-card:hover{border-color:var(--gilt-bright); background:rgba(91,110,232,.1);}
+  .admin-hub-card-title{font-family:var(--font-display); font-size:17px; font-weight:600; color:var(--chalk);}
+  .admin-hub-card-sub{font-family:var(--font-mono); font-size:11.5px; color:var(--parchment-dim);}
+  /* Opt-in modifier (Players' and Playing XI's per-team pool tabs) — tabs
+     share the row equally instead of sitting content-width against the left,
+     for a small fixed set of short, similarly-weighted labels. Not the
+     default, since it'd fight the "scroll instead of wrap" behavior above on
+     tab bars with more or longer labels (My Leagues, Team of the Test, ...). */
   .admin-subnav.even-tabs .subtab-btn{flex:1 1 0; justify-content:center;}
   /* Used to be a separate dark-text variant for tab bars sitting on a light
      .card — now that .card is dark too, it can just match the base
@@ -673,19 +737,12 @@
   .overlay-box input[type=datetime-local]::-webkit-calendar-picker-indicator{filter:invert(1);}
   .overlay-lock-icon{font-size:28px; margin-bottom:8px; display:block;}
 
-  /* ---------- squad editor (My XI: drag-drop XI/bench + player cards) ---------- */
+  /* ---------- squad editor (My Squads: XI/bench + player cards) ---------- */
   .squad-editor{display:grid; grid-template-columns:1.6fr 1fr; gap:18px; margin-top:6px;}
   @media (max-width:820px){.squad-editor{grid-template-columns:1fr;}}
   .squad-zone{
     background:var(--turf-dark); border:1px solid var(--line); border-radius:14px; padding:14px;
-    transition:outline-color .15s ease;
   }
-  .squad-zone.drop-hover{outline:2px dashed var(--gilt); outline-offset:-2px;}
-  /* Floating clone that follows the pointer/finger during a drag (see the
-     drag handler wired up in renderMyXI, js/myxi.js) — pointer-events:none so
-     document.elementFromPoint sees the real card/zone underneath it rather
-     than the ghost itself. */
-  .drag-ghost{position:fixed; top:0; left:0; z-index:2000; pointer-events:none; box-shadow:0 10px 24px rgba(0,0,0,.4); border-radius:12px; opacity:.92;}
   .zone-title{
     font-family:var(--font-mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase;
     color:var(--gilt-bright); margin-bottom:10px;
@@ -699,20 +756,8 @@
        tier up to still read as a distinct raised element rather than
        blending into its own container. */
     background:var(--slate-raised); border:1px solid var(--line); border-radius:12px;
-    padding:8px 9px; cursor:grab;
-    /* The whole card is the drag surface (js/myxi.js, renderMyXI); a plain
-       tap (no movement) opens that player's detail overlay instead, and a
-       long press (held still past LONG_PRESS_MS there) picks it up to drag.
-       pan-y — not none — leaves vertical scrolling to the browser by
-       default: myxi.js never preventDefault()s a touch until its own
-       long-press timer has actually armed a drag, so an ordinary swipe to
-       scroll the list still works even though it starts on a card; only a
-       held-still press gets taken over. */
-    touch-action:pan-y; -webkit-user-select:none; user-select:none;
+    padding:8px 9px; cursor:pointer;
   }
-  .squad-card:active{cursor:grabbing;}
-  .squad-card.dragging{opacity:.35;}
-  .squad-card.drop-target{outline:2px solid var(--oxblood); outline-offset:-2px;}
   .squad-card.empty{
     justify-content:center; background:transparent; border:1px dashed var(--line); color:var(--parchment-dim);
     cursor:pointer; padding:13px; touch-action:auto; user-select:auto;
@@ -721,10 +766,11 @@
   }
   .squad-card.empty:hover{background:rgba(91,110,232,.1); border-color:var(--gilt-bright); color:var(--chalk);}
   .squad-card.empty:focus-visible{outline:2px solid var(--gilt-bright); outline-offset:2px;}
-  /* Just name + read-only status tags now — playing role, captain/VC and
-     replace all moved into the player detail overlay (openPlayerDetailOverlay,
-     js/overlays.js), opened by tapping the card, so there's nothing left to
-     lay out beyond a single info block. Every card (XI or bench) has the
+  /* Just name + read-only status tags now — playing role, captain/VC, Sub
+     and Transfer all moved into the player detail overlay
+     (openPlayerDetailOverlay, js/overlays.js), opened by tapping the card,
+     so there's nothing left to lay out beyond a single info block. Every
+     card (XI or bench) has the
      same content, so consistent height falls out for free rather than
      needing a grid to force it. Name and the nat-pill share one row (rather
      than the pill sitting on its own line below) specifically so every
@@ -736,7 +782,20 @@
     display:flex; align-items:center; gap:5px; flex-wrap:wrap;
   }
   .squad-card-name .honours-star{font-size:12px;}
-  .squad-card-tags{display:flex; align-items:center; margin-left:auto;}
+  .squad-card-tags{display:flex; align-items:center; gap:4px; margin-left:auto;}
+  /* Bench cards' sub-priority Up/Down (squadCardHtml, js/myxi.js) — sits to
+     the left of the nat-pill in that same right-pushed tags group, small and
+     square like .role-icon-badge next to it rather than full .pd-btn sized,
+     since this is a compact read-mostly card, not the detail overlay. */
+  .bench-order-btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:20px; height:20px; border-radius:5px; border:1px solid var(--line);
+    background:var(--turf-deeper); color:var(--gilt-bright); cursor:pointer; padding:0;
+    font-size:9px; line-height:1; flex-shrink:0;
+  }
+  .bench-order-btn:hover{border-color:var(--gilt-bright);}
+  .bench-order-btn:disabled{opacity:.35; cursor:not-allowed;}
+  .bench-order-btn:disabled:hover{border-color:var(--line);}
   /* This player's raw season points so far (seriesPlayerTotals, js/data.js)
      — same mono/bold/gilt-bright treatment as .rank-total-points elsewhere,
      right-aligned as its own column so it lines up down the whole XI/bench
@@ -772,6 +831,8 @@
     font-family:var(--font-mono); font-size:12.5px; font-weight:700; letter-spacing:.02em;
   }
   .pd-btn:hover{border-color:var(--gilt-bright);}
+  .pd-btn:disabled{opacity:.4; cursor:not-allowed;}
+  .pd-btn:disabled:hover{border-color:var(--line);}
   .pd-btn svg{width:16px; height:16px; stroke:currentColor;}
   .pd-btn.active{background:var(--gilt); border-color:var(--gilt); color:var(--chalk);}
   /* Captain/vice-captain reuse the style guide's rust/plum accents (same
@@ -929,15 +990,18 @@
     <div id="leaderboardContent"></div>
   </section>
 
-  <!-- ADMIN (nested: Series Setup / Match Setup) -->
+  <!-- ADMIN HUB: a 2-card drill-down (Teams > Players, Fixtures > Match Setup
+       > Player Selection/Scoring) rather than a wall of tabs — see
+       renderAdminHub() in js/admin-series.js for the whole navigation tree. -->
   <section class="tab-panel" id="tab-admin">
-    <h2 class="panel-title">Admin <button type="button" class="help-icon" id="adminHelpBtn" title="What's this?" aria-label="Help">?</button></h2>
-    <div class="admin-subnav" id="adminSubnav">
-      <button class="subtab-btn active" data-subtab="setup">Series Setup</button>
-      <button class="subtab-btn" data-subtab="match">Match Setup</button>
+    <div class="flex-between" style="margin-bottom:14px;">
+      <h2 class="panel-title" style="margin-bottom:0;">Admin Hub <button type="button" class="help-icon" id="adminHelpBtn" title="What's this?" aria-label="Help">?</button></h2>
+      <!-- Filled/wired by renderAdminSeriesPill() (js/admin-series.js) — the
+           one series switcher for all of Admin Hub, regardless of how deep
+           into the drill-down you are. -->
+      <div id="adminSeriesPillWrap"></div>
     </div>
-    <div class="admin-subpanel active" id="adminsub-setup"><div id="seriesSetupContent"></div></div>
-    <div class="admin-subpanel" id="adminsub-match"><div id="matchSetupContent"></div></div>
+    <div id="adminHubContent"></div>
   </section>
 
 </div>

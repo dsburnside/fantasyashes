@@ -1,31 +1,76 @@
-/* js/myxi.js — the My XI tab: squad building, XI/bench drag-drop, captain/VC/playing-role assignment, commit flow. */
+/* js/myxi.js — the My XI tab: squad building, Sub/Transfer swaps, captain/VC/playing-role assignment, commit flow. */
 /* ================= MY XI ================= */
 let draft = null; // local, unsaved editing state for My XI: {_squadId, squad14, xi11, captain, viceCaptain, playingRoles}
 
-/* Squad page's own "most recent Test" scoreboard card — kept separate from
-   draft/render state on purpose: renderMyXI() re-renders on every single
-   draft edit (a role toggle, a drag reorder, ...), but this only actually
-   changes once a Test locks, so it's fetched lazily and cached rather than
-   re-fetched on every one of those re-renders. Keyed on squadId + how many
-   Tests are locked (not just squadId) so a newly-locked Test on the *same*
-   squad still triggers a re-fetch next render. */
-let myxiRecentScore = null; // {test, pts} for mySquad's most recently locked Test, or null if none locked yet
-let myxiRecentScoreKey;
-async function loadMyxiRecentScore(){
+/* Squad page's Points tab data — kept separate from draft/render state on
+   purpose: renderMyXI() re-renders on every single draft edit (a role
+   toggle, a Sub swap, ...), but this only actually changes once a Test
+   locks, so it's fetched lazily and cached rather than re-fetched on every
+   one of those re-renders. Keyed on squadId + how many Tests are locked
+   (not just squadId) so a newly-locked Test on the *same* squad still
+   triggers a re-fetch next render. Same shape buildSquadBreakdownRow
+   (js/leagues.js) builds for a league standings row — {userId, name,
+   managerName, total, byTest} — just built here for mySquad specifically. */
+let myxiScoreBreakdown = null; // or null if nothing locked yet
+let myxiScoreBreakdownKey;
+async function loadMyxiScoreBreakdown(){
   const squad = mySquad;
   const lockedTests = squad ? Object.keys(squad.lockedXiByTest||{}).map(Number) : [];
   const key = squad ? `${squad.id}:${lockedTests.length}` : 'none';
-  if(myxiRecentScoreKey === key) return; // already have it (or already know there's nothing to have) for this squad
-  myxiRecentScoreKey = key;
+  if(myxiScoreBreakdownKey === key) return; // already have it (or already know there's nothing to have) for this squad
+  myxiScoreBreakdownKey = key;
   if(lockedTests.length===0){
-    myxiRecentScore = null;
+    myxiScoreBreakdown = null;
   } else {
-    const test = Math.max(...lockedTests);
-    const {stats, playingXi} = await getMatchDataForTest(currentSeriesId, test);
-    if(myxiRecentScoreKey !== key) return; // squad/series moved on again while this was in flight
-    myxiRecentScore = {test, pts: Math.round(computeTestScore(squad.lockedXiByTest[test], stats, playingXi)*10)/10};
+    // Only this squad's own locked Tests, not every fixture in the series —
+    // no need to fetch match data for a Test it never played through.
+    const matchDataByTest = {};
+    for(const t of lockedTests){
+      matchDataByTest[t] = await getMatchDataForTest(currentSeriesId, t);
+    }
+    if(myxiScoreBreakdownKey !== key) return; // squad/series moved on again while this was in flight
+    myxiScoreBreakdown = buildSquadBreakdownRow(squad, matchDataByTest);
   }
   renderMyXI();
+}
+
+// Which of the Squad page's own two sub-tabs is showing — persists across
+// re-renders the same way adminScreen (admin-series.js) does. Reset to
+// 'select' on switchToSeries() (js/data.js) so switching squads always lands
+// back on the editor rather than leaving you on a Points tab that's about to
+// repaint with a different squad's data.
+let myxiSubtab = 'select'; // 'select' | 'points'
+
+/* Points tab content — the detailed, tabbed-by-Test breakdown for mySquad,
+   built from myxiScoreBreakdown above (squadBreakdownPanelsHtml, js/leagues.js
+   — same table markup a league standings row's lightbox uses, just embedded
+   on the page here instead of behind a tap). Headlines with the most
+   recently locked Test's own score, same figure the breakdown panels
+   already default their tab to, before the full history underneath it.
+   Returns {html, wire(container)} like squadBreakdownPanelsHtml itself,
+   since renderMyXI() is the one deciding whether/where this HTML actually
+   lands in the DOM this render. */
+function renderMyXiPointsTab(){
+  if(!myxiScoreBreakdown){
+    return {
+      html: `<div class="card"><div class="empty-state" style="padding:26px 20px;">No Tests locked yet — once your squad's been through its first lock, detailed scores for each Test show up here.</div></div>`,
+      wire: ()=>{},
+    };
+  }
+  const mostRecentTest = Math.max(...Object.keys(myxiScoreBreakdown.byTest).map(Number));
+  const {html, wire} = squadBreakdownPanelsHtml(myxiScoreBreakdown.byTest, getPlayer, id=> getPlayer(id).name);
+  return {
+    html: `
+      <div class="scoreboard" style="margin-bottom:16px;">
+        <div class="sb-row">
+          <div class="sb-team">Test ${mostRecentTest} score</div>
+          <div class="sb-score">${myxiScoreBreakdown.byTest[mostRecentTest].pts}</div>
+        </div>
+      </div>
+      <div class="card">${html}</div>
+    `,
+    wire,
+  };
 }
 
 /* Local-only autosave for the in-progress draft — so a refresh, an accidental
@@ -112,16 +157,15 @@ function hasUncommittedMyXiChanges(){
   );
 }
 
-// Playing role, captain/VC and replace all used to be separate buttons
-// crammed onto the card itself (a select, then icon toggles, then a labeled
-// button, across several rounds of "make it cleaner"). They now all live in
-// one place instead — the player detail overlay (openPlayerDetailOverlay,
-// js/overlays.js), opened by a plain tap on the card (dragging still
-// repositions/swaps zones — see the pointer handler below). The card itself
-// just shows read-only status icons reflecting whatever was chosen there:
-// the captain star, a VC tag, and a small icon for the assigned playing
-// role — no interactive controls of its own left to fight the drag gesture
-// for the pointer, which is also why DRAG_EXCLUDE_SELECTOR is gone below.
+// Playing role, captain/VC, Sub and Transfer all used to be separate
+// controls crammed onto the card itself (a select, then icon toggles, then a
+// labeled button, then a drag gesture, across several rounds of "make it
+// cleaner"/"the drag doesn't really work"). They now all live in one place
+// instead — the player detail overlay (openPlayerDetailOverlay,
+// js/overlays.js), opened by a plain tap on the card. The card itself just
+// shows read-only status icons reflecting whatever was chosen there: the
+// captain star, a VC tag, and a small icon for the assigned playing role —
+// no interactive controls of its own left.
 function squadCardHtml(id, zone, baselineSquad14){
   const p = getPlayer(id);
   const isCap = id===draft.captain, isVc = id===draft.viceCaptain;
@@ -133,6 +177,22 @@ function squadCardHtml(id, zone, baselineSquad14){
   // bench players too (who aren't being multiplied by anything yet) and
   // matches what you'd have compared when you picked them in the first place.
   const points = (seriesPlayerTotals[id] || {total:0}).total;
+  // Bench order is the auto-sub priority queue (resolveEffectiveXi,
+  // js/scoring.js) — right on the card, to the left of the nat-pill, rather
+  // than behind the detail overlay: reordering the bench is common enough
+  // (every squad change potentially wants it re-checked) that a whole extra
+  // tap just to get to the Up/Down buttons wasn't worth it. See
+  // moveBenchPlayer for why this needs the bench-only subset's index, not
+  // squad14's raw one — XI members are freely interspersed in squad14.
+  let benchOrderBtns = '';
+  if(zone==='bench'){
+    const benchIds = draft.squad14.filter(bid=>!draft.xi11.includes(bid));
+    const benchIdx = benchIds.indexOf(id);
+    benchOrderBtns = `
+      <button type="button" class="bench-order-btn" data-action="benchUp" data-pid="${id}" ${benchIdx<=0?'disabled':''} title="Move up the sub-priority order" aria-label="Move up the sub-priority order">&#9650;</button>
+      <button type="button" class="bench-order-btn" data-action="benchDown" data-pid="${id}" ${benchIdx===-1||benchIdx>=benchIds.length-1?'disabled':''} title="Move down the sub-priority order" aria-label="Move down the sub-priority order">&#9660;</button>
+    `;
+  }
   return `
     <div class="squad-card" data-pid="${id}" data-zone="${zone}">
       <div class="squad-card-info">
@@ -143,6 +203,7 @@ function squadCardHtml(id, zone, baselineSquad14){
           </span>
         </div>
         <div class="squad-card-tags">
+          ${benchOrderBtns}
           <span class="nat-pill">${p.nat}</span>
         </div>
       </div>
@@ -153,11 +214,11 @@ function emptySlotHtml(zone){
   return `<button type="button" class="squad-card empty" data-empty-zone="${zone}" data-action="add" data-zone="${zone}">+ Add player</button>`;
 }
 
-/* Opens the player picker and, on pick, swaps outId for whoever's chosen.
-   Used to be inline in the card's own "Replace" button; now the only caller
-   is the player detail overlay (openPlayerDetailOverlay, js/overlays.js),
-   since that's where the action lives — see squadCardHtml's comment above. */
-function replaceSquadPlayer(outId){
+/* "Transfer" — opens the full player picker (anyone in the series not
+   already in your 14) and, on pick, swaps outId out of the squad entirely
+   for whoever's chosen. The only caller is the player detail overlay's
+   Transfer button (openPlayerDetailOverlay, js/overlays.js). */
+function transferSquadPlayer(outId){
   openPlayerPicker(draft.squad14, (newId)=>{
     const newSquad14 = draft.squad14.filter(id=>id!==outId).concat([newId]);
     // Belt-and-braces: the picker already greys out infeasible candidates
@@ -180,13 +241,61 @@ function replaceSquadPlayer(outId){
   }, draft.squad14.filter(id=>id!==outId));
 }
 
+/* "Sub" — opens a lightbox listing whoever's currently in the OTHER zone
+   (bench, if pid is in the XI; XI, if pid is on the bench) and swaps pid
+   with whichever one gets picked. Same "one out, one in, same two zones" swap
+   the drag gesture used to do — this is what replaced it (see squadCardHtml's
+   comment) once it turned out not to be reliable enough on touch. Doesn't
+   touch squad14 itself (just which 11 of the same 14 are the starting XI),
+   so — unlike Transfer — there's no 5-per-team/14-man check to redo here.
+   The only caller is the player detail overlay's Sub button
+   (openPlayerDetailOverlay, js/overlays.js). */
+function subSquadPlayer(pid, zone){
+  const otherZoneIds = zone==='xi' ? draft.squad14.filter(id=>!draft.xi11.includes(id)) : draft.xi11;
+  if(otherZoneIds.length===0){
+    showAlert(zone==='xi' ? "There's no one on the bench to sub in." : 'Your starting XI is empty — add players to it first.');
+    return;
+  }
+  openSquadZonePicker(otherZoneIds, zone==='xi' ? 'Sub in from the bench' : 'Sub in from the XI', swapId=>{
+    if(zone==='xi'){
+      draft.xi11 = draft.xi11.filter(id=>id!==pid).concat([swapId]);
+    } else {
+      draft.xi11 = draft.xi11.filter(id=>id!==swapId).concat([pid]);
+    }
+    renderMyXI();
+  });
+}
+
+/* Moves pid up (direction -1) or down (direction 1) among the OTHER bench
+   players — bench order is the auto-sub priority queue (resolveEffectiveXi,
+   js/scoring.js: the first bench player in this order who actually played
+   fills in for an XI player who didn't), and this is its only editing path
+   now that reordering-by-drag is gone. Bench order is read off squad14's own
+   relative order (see draftBench in renderMyXI()), with XI members freely
+   interspersed in that same array — so "swap with the neighbouring bench
+   player" means finding that neighbour among bench-only entries first, then
+   swapping their two absolute squad14 positions, not just adjacent squad14
+   indices. A pure mutator (like assignedPlayingRole is a pure getter) — the
+   bench card's own Up/Down buttons (squadCardHtml, wired in renderMyXI())
+   call renderMyXI() themselves straight after. */
+function moveBenchPlayer(pid, direction){
+  const benchIds = draft.squad14.filter(id=>!draft.xi11.includes(id));
+  const idx = benchIds.indexOf(pid);
+  const swapIdx = idx + direction;
+  if(idx===-1 || swapIdx<0 || swapIdx>=benchIds.length) return;
+  const otherId = benchIds[swapIdx];
+  const aIdx = draft.squad14.indexOf(pid), bIdx = draft.squad14.indexOf(otherId);
+  if(aIdx===-1 || bIdx===-1) return;
+  [draft.squad14[aIdx], draft.squad14[bIdx]] = [draft.squad14[bIdx], draft.squad14[aIdx]];
+}
+
 function renderMyXI(){
   const c = document.getElementById('myxiContent');
   if(!session){ c.innerHTML = `<div class="empty-state"><div class="big">Log in to see your XI</div></div>`; return; }
 
   if(!currentSeriesId){
     if(seriesList.length===0){
-      c.innerHTML = `<div class="empty-state"><div class="big">No series available yet</div>Ask an admin to set one up under Admin &rarr; Series Setup.</div>`;
+      c.innerHTML = `<div class="empty-state"><div class="big">No series available yet</div>Ask an admin to set one up under Admin Hub.</div>`;
       return;
     }
     c.innerHTML = `
@@ -207,7 +316,7 @@ function renderMyXI(){
   }
 
   const activeSeries = seriesList.find(s=>s.id===currentSeriesId) || {id: currentSeriesId, name: 'this series'};
-  loadMyxiRecentScore(); // fire-and-forget — see its own comment; re-renders itself once (if) it resolves with something new
+  loadMyxiScoreBreakdown(); // fire-and-forget — see its own comment; re-renders itself once (if) it resolves with something new
   ensureDraft();
   // Every draft mutation below re-renders via renderMyXI(), so caching right
   // here after ensureDraft() catches every one of them in a single place
@@ -237,39 +346,19 @@ function renderMyXI(){
   ];
   const draftBench = draft.squad14.filter(id=>!draft.xi11.includes(id));
   const draftDiffersFromCommitted = hasUncommittedMyXiChanges();
-  // Tab strip rather than a <select> — same pattern (and same reasoning) as
-  // Admin's series tabs and My Leagues' league tabs: switching between a
-  // handful of options is more immediately obvious as tabs you tap than as a
-  // dropdown you have to open first, and it sits flush under the heading
-  // (no card wrapper) rather than in its own indented box.
+  // Which series/squad options the header pill's overlay should offer (see
+  // openSeriesSwitchOverlay) — every series that isn't the one showing now
+  // and doesn't already have a squad on it.
   const newSeriesOptions = seriesList.filter(s=> s.id!==currentSeriesId && !mySquads.some(sq=>sq.seriesId===s.id));
-  const seriesSwitcherHtml = (mySquads.length>0 || newSeriesOptions.length>0) ? `
-    <div class="admin-subnav" id="seriesSwitchTabs" style="margin:4px 0 20px;">
-      ${mySquads.map(s=>{
-        const sname = (seriesList.find(x=>x.id===s.seriesId)||{}).name || 'Unknown series';
-        return `<button class="subtab-btn${s.seriesId===currentSeriesId?' active':''}" data-switch-series="${s.seriesId}">${sname}</button>`;
-      }).join('')}
-      ${isBuilding ? `<button class="subtab-btn active" data-switch-series="${currentSeriesId}">${activeSeries.name} <span class="muted" style="font-size:10px;">(new)</span></button>` : ''}
-      ${newSeriesOptions.length ? `<button type="button" class="tab-add-btn" id="seriesSwitchAddBtn" title="Start a team in another series">+</button>` : ''}
-    </div>
-  ` : '';
 
   const xiSlotsHtml = Array.from({length:11}, (_,i)=> draft.xi11[i] ? squadCardHtml(draft.xi11[i], 'xi', baselineSquad14) : emptySlotHtml('xi')).join('');
   const benchSlotsHtml = Array.from({length:3}, (_,i)=> draftBench[i] ? squadCardHtml(draftBench[i], 'bench', baselineSquad14) : emptySlotHtml('bench')).join('');
 
-  c.innerHTML = `
-    <h2 class="panel-title">My Squads <button type="button" class="help-icon" id="myXiHelpBtn" title="What's this?" aria-label="Help">?</button></h2>
-    ${draftDiffersFromCommitted ? `
-      <div class="notice warn" style="margin-bottom:18px;">
-        <strong>Unsaved changes</strong> — they won't count for scoring until you confirm.
-        ${blockingIssues.length ? `<button type="button" class="warn-icon" id="commitIssuesBtn" title="Why can't I confirm?" aria-label="Warning">!</button>` : ''}
-        <div style="display:flex; gap:10px; margin-top:12px;">
-          <button type="button" class="btn secondary" id="revertBtn" style="flex:1;" title="${isBuilding ? 'Clear all' : 'Revert to last committed squad'}">Undo</button>
-          <button type="button" class="btn" id="commitBtn" ${canCommit?'':'disabled'} style="flex:1;" title="${isBuilding ? 'Create squad' : 'Confirm changes'}">Confirm</button>
-        </div>
-      </div>
-    ` : ''}
-    ${seriesSwitcherHtml}
+  // "Select Team" tab — the squad-building UI, unchanged from before this
+  // page had tabs at all. Also what shows on its own, with no tab strip,
+  // while still building a brand-new squad (isBuilding) — there's no Points
+  // to show yet, and no committed squad underneath it to switch back to.
+  const selectTeamTabHtml = `
     <div class="team-name-row" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
       ${!isBuilding ? `
         <span style="font-family:var(--font-display); font-size:17px;">${squad.teamName}</span>
@@ -277,14 +366,6 @@ function renderMyXI(){
         ${squad.wildcardActiveNow ? `<button type="button" class="btn danger small" id="resetSquadBtn">Reset Team</button>` : ''}
       ` : `<span style="font-family:var(--font-display); font-size:17px; color:var(--parchment-dim);">New team</span>`}
     </div>
-    ${myxiRecentScore ? `
-      <div class="scoreboard" style="margin-bottom:14px;">
-        <div class="sb-row">
-          <div class="sb-team">Test ${myxiRecentScore.test} score</div>
-          <div class="sb-score">${myxiRecentScore.pts}</div>
-        </div>
-      </div>
-    ` : ''}
     ${!isBuilding && hasLockedOnce ? `
       <div class="wildcard-row">
         ${squad.wildcardUsed
@@ -322,7 +403,39 @@ function renderMyXI(){
     </div>
   `;
 
+  // "Points" tab — nothing to show it for yet while still building.
+  const pointsTab = isBuilding ? {html: '', wire: ()=>{}} : renderMyXiPointsTab();
+
+  c.innerHTML = `
+    <div class="flex-between" style="margin-bottom:14px;">
+      <h2 class="panel-title" style="margin-bottom:0;">My Squads <button type="button" class="help-icon" id="myXiHelpBtn" title="What's this?" aria-label="Help">?</button></h2>
+      ${switcherPillHtml('seriesPillBtn', activeSeries.name, 'Switch series or squad')}
+    </div>
+    ${draftDiffersFromCommitted ? `
+      <div class="notice warn" style="margin-bottom:18px;">
+        <strong>Unsaved changes</strong> — they won't count for scoring until you confirm.
+        ${blockingIssues.length ? `<button type="button" class="warn-icon" id="commitIssuesBtn" title="Why can't I confirm?" aria-label="Warning">!</button>` : ''}
+        <div style="display:flex; gap:10px; margin-top:12px;">
+          <button type="button" class="btn secondary" id="revertBtn" style="flex:1;" title="${isBuilding ? 'Clear all' : 'Revert to last committed squad'}">Undo</button>
+          <button type="button" class="btn" id="commitBtn" ${canCommit?'':'disabled'} style="flex:1;" title="${isBuilding ? 'Create squad' : 'Confirm changes'}">Confirm</button>
+        </div>
+      </div>
+    ` : ''}
+    ${!isBuilding ? `
+      <div class="admin-subnav" id="myxiSubtabs" style="margin:4px 0 20px;">
+        <button type="button" class="subtab-btn${myxiSubtab==='points'?' active':''}" data-myxi-subtab="points">Points</button>
+        <button type="button" class="subtab-btn${myxiSubtab==='select'?' active':''}" data-myxi-subtab="select">Select Team</button>
+      </div>
+    ` : ''}
+    ${isBuilding || myxiSubtab==='select' ? selectTeamTabHtml : pointsTab.html}
+  `;
+
   document.getElementById('myXiHelpBtn').addEventListener('click', ()=> showAlert("Build your 14-man squad, arrange your starting XI (11 of the 14 — the rest sit on the bench), assign each XI player a playing role, and set a captain and vice-captain, then commit to declare your squad for the next Test. Moving between XI and bench (or reordering the bench) is always free. There's no transfer limit until your first Test locks — after that, swapping anyone in or out of your 14 counts as a transfer, capped at 2 per Test unless you arm your wildcard. Team names must be unique within the series.", 'My Squads'));
+  document.getElementById('seriesPillBtn').addEventListener('click', ()=> openSeriesSwitchOverlay(newSeriesOptions));
+  c.querySelectorAll('[data-myxi-subtab]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ myxiSubtab = btn.dataset.myxiSubtab; renderMyXI(); });
+  });
+  if(!isBuilding && myxiSubtab==='points') pointsTab.wire(c);
 
   const transferWarnBtn = document.getElementById('transferWarnBtn');
   if(transferWarnBtn) transferWarnBtn.addEventListener('click', e=>{
@@ -331,12 +444,6 @@ function renderMyXI(){
   });
   const commitIssuesBtn = document.getElementById('commitIssuesBtn');
   if(commitIssuesBtn) commitIssuesBtn.addEventListener('click', ()=> showAlert(blockingIssues.join(' '), "Can't commit yet"));
-
-  c.querySelectorAll('[data-switch-series]').forEach(btn=>{
-    btn.addEventListener('click', ()=> switchToSeries(btn.dataset.switchSeries));
-  });
-  const seriesSwitchAddBtn = document.getElementById('seriesSwitchAddBtn');
-  if(seriesSwitchAddBtn) seriesSwitchAddBtn.addEventListener('click', ()=> openStartNewTeamOverlay(newSeriesOptions));
 
   /* ---- persist team name field across re-renders (every card action re-renders this panel) ---- */
   const teamNameFieldEl = document.getElementById('teamNameField');
@@ -362,189 +469,36 @@ function renderMyXI(){
     });
   });
 
-  /* ---- drag and drop between zones (and onto a card to swap or reorder) ---- */
-  function moveOrSwap(draggedId, targetZone, targetId){
-    if(!draggedId || draggedId===targetId) return;
-    const draggedInXi = draft.xi11.includes(draggedId);
-    const draggedZone = draggedInXi ? 'xi' : 'bench';
-
-    if(targetId){
-      const targetInXi = draft.xi11.includes(targetId);
-      const targetZoneActual = targetInXi ? 'xi' : 'bench';
-      if(draggedZone === targetZoneActual){
-        // dropped onto a card in its own zone — reorder rather than swap zones.
-        // Bench order matters (it's the substitute priority queue) and is
-        // read off squad14's own relative order (see draftBench above), so
-        // reordering there splices squad14. The XI is rendered off xi11's
-        // own array order instead (see xiSlotsHtml above) — splicing
-        // squad14 for an XI-to-XI reorder was a no-op as far as the visible
-        // XI order went, which is why reordering the XI never appeared to
-        // do anything; splice xi11 itself instead.
-        const list = draggedZone==='xi' ? draft.xi11 : draft.squad14;
-        const from = list.indexOf(draggedId);
-        const targetIdxBefore = list.indexOf(targetId);
-        if(from===-1 || targetIdxBefore===-1) return;
-        list.splice(from, 1);
-        let to = list.indexOf(targetId); // shifts down by 1 once `from` is removed, if it was after `from`
-        // Dragging DOWN the list (from was above target): land just past the
-        // target, not right before it — before this fix, removing `from`
-        // shifted the target's index down by 1 too, so re-inserting "at" that
-        // index always put the dragged card one slot short of wherever it
-        // was actually dropped (it looked like every downward drag landed
-        // above the card you dropped on). Dragging up is unaffected — the
-        // target's index never moves when something after it is removed, so
-        // "insert at the target's index" already lands right above it there.
-        if(from < targetIdxBefore) to += 1;
-        list.splice(to, 0, draggedId);
-        renderMyXI();
-        return;
-      }
-      // dropped onto a card in the other zone — swap the two players' zones
-      if(draggedZone==='bench' && targetZoneActual==='xi'){
-        draft.xi11 = draft.xi11.filter(id=>id!==targetId).concat([draggedId]);
-      } else {
-        draft.xi11 = draft.xi11.filter(id=>id!==draggedId).concat([targetId]);
-      }
-      renderMyXI();
-      return;
-    }
-
-    // dropped on empty zone space
-    if(draggedZone === targetZone) return;
-    if(targetZone==='xi'){
-      if(draft.xi11.length>=11){ showAlert('Your starting XI already has 11 — drop onto a starter to swap instead.'); return; }
-      draft.xi11.push(draggedId);
-    } else {
-      draft.xi11 = draft.xi11.filter(id=>id!==draggedId);
-    }
-    renderMyXI();
-  }
-
-  /* ---- drag (and tap-to-open-detail) — one Pointer Events handler drives both ----
-     Pointer Events unify mouse, trackpad and touch input, so a single
-     pointerdown/move/up sequence on the card gives a real, cursor/finger-
-     following drag on every device — replacing the old split between native
-     HTML5 drag-and-drop (which never fires on touch at all) and a tap-to-swap
-     fallback for touch. Dragging is long-press-gated: a press only turns into
-     a drag once it's been held roughly still for LONG_PRESS_MS (see the timer
-     in pointerdown below and beginActualDrag() firing from it), not the
-     instant it moves. That's deliberate — with the whole card as the drag
-     surface (nothing left on it to carve a drag-handle out of, see
-     squadCardHtml's comment) and .squad-card's touch-action:pan-y (index.html)
-     leaving vertical swipes to the browser by default, an ordinary scroll
-     down the Starting XI/Bench list no longer gets hijacked into a drag
-     partway through — only a still, held-down press does. A press that
-     moves past DRAG_THRESHOLD before the timer fires is read as exactly that
-     kind of scroll attempt and abandoned outright (no tap, no drag); a
-     release before the timer fires without moving that far is a plain tap,
-     which opens that player's detail overlay (openPlayerDetailOverlay,
-     js/overlays.js) rather than arming a tap-to-swap — repositioning within/
-     between zones is drag-only now that there's nothing else on the card to
-     compete with a tap for meaning. */
-  const DRAG_THRESHOLD = 6; // px of movement, before the long-press timer fires, that abandons a press as a scroll attempt rather than a tap
-  const LONG_PRESS_MS = 350; // how long a still press has to hold before it's picked up as a drag rather than left to scroll
-  let dragState = null; // {pid, zone, el, startX, startY, dragging, ghost, pointerId, timer}
-
-  function dropTargetAt(x, y, draggedPid){
-    const el = document.elementFromPoint(x, y);
-    if(!el) return null;
-    const overCard = el.closest('.squad-card[data-pid]');
-    if(overCard && overCard.dataset.pid !== draggedPid) return {zone: overCard.dataset.zone, pid: overCard.dataset.pid, el: overCard};
-    const overZone = el.closest('[data-zone-slots]');
-    if(overZone) return {zone: overZone.dataset.zoneSlots, pid: null, el: overZone.closest('.squad-zone')};
-    return null;
-  }
-  function clearDropHighlights(){
-    c.querySelectorAll('.drop-hover').forEach(z=> z.classList.remove('drop-hover'));
-    c.querySelectorAll('.drop-target').forEach(cd=> cd.classList.remove('drop-target'));
-  }
-  function beginActualDrag(){
-    dragState.dragging = true;
-    const source = c.querySelector(`.squad-card[data-pid="${dragState.pid}"]`);
-    if(!source) return;
-    source.classList.add('dragging');
-    const ghost = source.cloneNode(true);
-    ghost.classList.add('drag-ghost');
-    ghost.style.width = source.getBoundingClientRect().width + 'px';
-    document.body.appendChild(ghost);
-    dragState.ghost = ghost;
-  }
-  function positionGhost(x, y){
-    if(!dragState.ghost) return;
-    dragState.ghost.style.left = (x + 14) + 'px';
-    dragState.ghost.style.top = (y + 14) + 'px';
-  }
-  function endDragVisuals(){
-    if(!dragState) return;
-    if(dragState.ghost) dragState.ghost.remove();
-    const source = c.querySelector(`.squad-card[data-pid="${dragState.pid}"]`);
-    if(source) source.classList.remove('dragging');
-    clearDropHighlights();
-  }
-
+  /* ---- tap a card to open its detail overlay ----
+     Used to also handle a long-press-to-drag gesture for reordering/swapping
+     zones directly on the card — dropped in favour of the player detail
+     overlay's explicit Sub/Transfer buttons (openPlayerDetailOverlay,
+     js/overlays.js) instead, since the drag never worked reliably enough
+     across devices. Every other card action already lived in that overlay
+     anyway (see squadCardHtml's comment above), so this is now a plain tap —
+     except the bench Up/Down buttons below, which stay right on the card. */
   c.querySelectorAll('.squad-card[data-pid]').forEach(card=>{
-    card.addEventListener('pointerdown', e=>{
-      if(e.button) return; // ignore right/middle click; touch/pen report button 0
-      // No preventDefault()/setPointerCapture-as-a-scroll-blocker here — see
-      // the comment above the constants: the browser stays free to scroll
-      // this touch natively unless/until the long-press timer below actually
-      // arms a drag. Still calling setPointerCapture is safe on its own; it
-      // only routes future pointer events for this touch to this element,
-      // it doesn't affect touch-action/scrolling by itself.
+    card.addEventListener('click', ()=> openPlayerDetailOverlay(card.dataset.pid, card.dataset.zone));
+  });
+
+  /* ---- bench order (Up/Down, on the card itself — see squadCardHtml) ----
+     Reordering the sub-priority queue is common enough to want without a
+     detour through the detail overlay first, unlike everything else that
+     lives there. stopPropagation so a tap on either button doesn't also
+     bubble up to the card's own click listener above and pop the overlay
+     open behind it. */
+  c.querySelectorAll('[data-action="benchUp"]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
       e.stopPropagation();
-      card.setPointerCapture(e.pointerId);
-      dragState = {pid: card.dataset.pid, zone: card.dataset.zone, el: card, startX: e.clientX, startY: e.clientY, dragging: false, ghost: null, pointerId: e.pointerId, timer: null};
-      dragState.timer = setTimeout(()=>{
-        if(!dragState || dragState.el!==card || dragState.dragging) return; // released, moved away, or already armed since this fired
-        dragState.timer = null;
-        beginActualDrag();
-        positionGhost(dragState.startX, dragState.startY);
-      }, LONG_PRESS_MS);
+      moveBenchPlayer(btn.dataset.pid, -1);
+      renderMyXI();
     });
-    card.addEventListener('pointermove', e=>{
-      if(!dragState || dragState.el!==card) return;
-      if(!dragState.dragging){
-        // Still waiting on the long-press timer. Real movement this early
-        // reads as a scroll attempt, not a hold-to-drag — let it go (the
-        // browser's already free to scroll on its own, having never been
-        // preventDefault()'d) rather than racing it, and abandon the press
-        // entirely so release doesn't also fire a tap.
-        if(Math.hypot(e.clientX-dragState.startX, e.clientY-dragState.startY) >= DRAG_THRESHOLD){
-          clearTimeout(dragState.timer);
-          dragState = null;
-        }
-        return;
-      }
-      e.preventDefault();
-      positionGhost(e.clientX, e.clientY);
-      clearDropHighlights();
-      const target = dropTargetAt(e.clientX, e.clientY, dragState.pid);
-      if(target) target.el.classList.add(target.pid ? 'drop-target' : 'drop-hover');
-    });
-    const release = e=>{
-      if(!dragState || dragState.el!==card) return;
-      if(dragState.timer) clearTimeout(dragState.timer);
-      const {pid, zone, dragging} = dragState;
-      if(dragging){
-        const target = dropTargetAt(e.clientX, e.clientY, pid);
-        endDragVisuals();
-        dragState = null;
-        if(target) moveOrSwap(pid, target.zone, target.pid);
-      } else {
-        // Released before the long-press armed a drag, without moving far
-        // enough to look like a scroll either — a plain tap, opening this
-        // player's detail overlay (see the comment on the drag handler above).
-        dragState = null;
-        openPlayerDetailOverlay(pid, zone);
-      }
-    };
-    card.addEventListener('pointerup', release);
-    card.addEventListener('pointercancel', ()=>{
-      if(dragState && dragState.el===card){
-        if(dragState.timer) clearTimeout(dragState.timer);
-        endDragVisuals();
-        dragState = null;
-      }
+  });
+  c.querySelectorAll('[data-action="benchDown"]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation();
+      moveBenchPlayer(btn.dataset.pid, 1);
+      renderMyXI();
     });
   });
 
@@ -624,9 +578,10 @@ function renderMyXI(){
     }
 
     // Fill in a default playing role for anyone who never touched the
-    // selector (or joined via drag/add rather than the XI's role select), so
-    // what actually gets committed/locked always has an explicit role for
-    // every squad member rather than relying on the fallback at score time.
+    // selector (or joined via Sub/Transfer/add rather than explicitly
+    // choosing one), so what actually gets committed/locked always has an
+    // explicit role for every squad member rather than relying on the
+    // fallback at score time.
     draft.squad14.forEach(pid=>{
       if(!draft.playingRoles[pid]) draft.playingRoles[pid] = defaultPlayingRole(getPlayer(pid).role);
     });
@@ -723,10 +678,10 @@ function openRenameTeamOverlay(squad){
   });
 }
 
-/* Reached from the "+" at the end of the series tab strip (see
-   seriesSwitcherHtml above) — picks which series to start a new team on,
-   same "skip the prompt if there's only one option" shortcut
-   openAddInningsOverlay (admin-match.js) uses. */
+/* Reached from openSeriesSwitchOverlay's (js/overlays.js) "Start a team in
+   another series" — picks which series to start a new team on, same "skip
+   the prompt if there's only one option" shortcut openAddInningsOverlay
+   (admin-match.js) uses. */
 function openStartNewTeamOverlay(options){
   if(options.length===1){ switchToSeries(options[0].id); return; }
   const backdrop = openOverlay(`

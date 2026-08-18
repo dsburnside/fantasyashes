@@ -133,6 +133,83 @@ function showLoginOverlay(dismissible=true){
   }
 }
 
+/* ================= SWITCHER PILL (generic "current X, tap to pick another") =================
+   One small pill (name + cog) that opens a lightbox list to switch what a
+   screen is showing — the same look and interaction everywhere it appears
+   (My Squads' series/squad pill, Home's series pill, My Leagues' league
+   pill, Admin's series pill), even though each is actually switching a
+   different underlying piece of state (currentSeriesId, currentLeagueId,
+   adminSeriesId). Two pieces: switcherPillHtml() is just the button markup a
+   caller embeds in its own header row; openSwitcherOverlay() is the list
+   lightbox a caller opens on click, wiring the actual state change itself
+   via onPick. Replaces what used to be a permanently-visible tab strip (or,
+   for Admin, a plain <select>) on each of those screens — that took up its
+   own row under the heading everywhere it appeared; this sits in the
+   heading's own row instead (top right), so switching got a lot less
+   prominent on screen without losing anything it could do. */
+function switcherPillHtml(id, label, title){
+  return `
+    <button type="button" class="switcher-pill-btn" id="${id}" title="${title}">
+      <span>${label}</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  `;
+}
+/* options: [{id, label, current}]. onPick(id) fires (backdrop already
+   closed) once a non-current row is tapped. extraHtml is an optional block
+   rendered below the list (e.g. "Create a new series") — the caller wires
+   whatever's in it itself, using the returned backdrop, same as it would
+   wire anything else inside an overlay it opened directly. */
+function openSwitcherOverlay(title, options, onPick, extraHtml){
+  const backdrop = openOverlay(`
+    <div class="overlay-title">${title}</div>
+    <div class="picker-list">
+      ${options.map(o=>`
+        <button type="button" class="picker-row" data-switch-id="${o.id}" ${o.current?'disabled':''}>
+          <span>${o.label}</span>
+          ${o.current ? '<span class="nat-pill">Current</span>' : ''}
+        </button>
+      `).join('')}
+    </div>
+    ${extraHtml||''}
+  `);
+  backdrop.querySelector('[data-overlay-close]').addEventListener('click', closeOverlay);
+  backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
+  backdrop.querySelectorAll('[data-switch-id]').forEach(btn=>{
+    if(btn.disabled) return;
+    btn.addEventListener('click', ()=>{ closeOverlay(); onPick(btn.dataset.switchId); });
+  });
+  return backdrop;
+}
+
+/* The series/squad pill's own overlay (My Squads, and Home's own series
+   pill — see homeSeriesTabsHtml's old comment in js/home.js; both switch the
+   exact same currentSeriesId via switchToSeries, so they share this one
+   rather than each building their own) — every series with a squad already
+   on it (mySquads), plus the one being built right now if there isn't a
+   squad row for it yet, each tappable; "Start a team in another series"
+   folds in openStartNewTeamOverlay's own picker (js/myxi.js) underneath,
+   when there's anywhere left to start one. */
+function openSeriesSwitchOverlay(newSeriesOptions){
+  const activeSeries = seriesList.find(s=>s.id===currentSeriesId) || {id: currentSeriesId, name: 'this series'};
+  const isBuilding = !mySquad;
+  const rows = mySquads.map(s=>({
+    id: s.seriesId,
+    label: (seriesList.find(x=>x.id===s.seriesId)||{}).name || 'Unknown series',
+    current: s.seriesId===currentSeriesId,
+  }));
+  if(isBuilding) rows.push({id: currentSeriesId, label: `${activeSeries.name} (new)`, current: true});
+
+  const extraHtml = newSeriesOptions.length ? `
+    <div class="overlay-actions" style="margin-top:14px;">
+      <button type="button" class="btn secondary" id="seriesSwitchStartBtn" style="width:100%;">Start a team in another series</button>
+    </div>
+  ` : '';
+  const backdrop = openSwitcherOverlay('Switch series', rows, id=> switchToSeries(id), extraHtml);
+  const startBtn = backdrop.querySelector('#seriesSwitchStartBtn');
+  if(startBtn) startBtn.addEventListener('click', ()=>{ closeOverlay(); openStartNewTeamOverlay(newSeriesOptions); });
+}
+
 /* Lightbox listing every available player (not already in excludeIds) at
    once, grouped by base role — Batters, All-rounders, Wicketkeepers, Bowlers
    — and sorted within each group by total series points scored so far
@@ -205,12 +282,41 @@ function openPlayerPicker(excludeIds, onPick, countBasisIds){
   });
 }
 
-/* Player detail lightbox — reached by tapping a squad card in My XI (a plain
-   tap; dragging still repositions/swaps zones — see the pointer handler in
-   js/myxi.js). This is where playing role, captain/VC and replace all live
-   now instead of as separate buttons crammed onto the card, plus this
-   player's series-to-date stats (seriesPlayerTotals, js/data.js) — the card
-   itself just shows read-only status icons for whatever's chosen here. */
+/* Small lightbox listing specific squad players (not the wider series pool)
+   — currently just the "who do you want to sub in" picker behind the player
+   detail overlay's Sub button (subSquadPlayer, js/myxi.js). Simpler than
+   openPlayerPicker above: no role grouping or 5-per-team feasibility greying,
+   since swapping one already-picked squad player for another never touches
+   squad14 itself or either team's count. */
+function openSquadZonePicker(ids, title, onPick){
+  const totalsFor = pid => seriesPlayerTotals[pid] || {total:0};
+  const sorted = [...ids].sort((a,b)=> totalsFor(b).total - totalsFor(a).total || getPlayer(a).name.localeCompare(getPlayer(b).name));
+  const backdrop = openOverlay(`
+    <div class="overlay-title">${title}</div>
+    <div class="picker-list">
+      ${sorted.map(pid=>{
+        const p = getPlayer(pid);
+        return `
+        <button type="button" class="picker-row" data-pid="${pid}">
+          <span>${p.name} <span class="nat-pill">${p.nat}</span></span>
+          <span class="picker-points"><span title="Total points this series">${totalsFor(pid).total} pts</span></span>
+        </button>`;
+      }).join('')}
+    </div>
+  `);
+  backdrop.querySelector('[data-overlay-close]').addEventListener('click', closeOverlay);
+  backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
+  backdrop.querySelectorAll('.picker-row').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ closeOverlay(); onPick(btn.dataset.pid); });
+  });
+}
+
+/* Player detail lightbox — reached by tapping a squad card in My Squads.
+   This is where playing role, captain/VC, Sub and Transfer all live now
+   instead of as separate buttons (or a drag gesture) crammed onto the card,
+   plus this player's series-to-date stats (seriesPlayerTotals, js/data.js)
+   — the card itself just shows read-only status icons for whatever's chosen
+   here. */
 function openPlayerDetailOverlay(pid, zone){
   // dismissible:false drops the usual corner × — Cancel/Confirm at the
   // bottom of the overlay body are the explicit way out now, so a second,
@@ -264,7 +370,10 @@ function renderPlayerDetailBody(pid, zone){
         ` : ''}
       </div>
     </div>
-    <button type="button" class="btn danger" id="pdReplaceBtn" style="width:100%; margin-top:18px;">Replace</button>
+    <div style="display:flex; gap:10px; margin-top:18px;">
+      <button type="button" class="btn secondary" id="pdSubBtn" style="flex:1;">Sub</button>
+      <button type="button" class="btn danger" id="pdTransferBtn" style="flex:1;">Transfer</button>
+    </div>
     <div class="overlay-actions" style="margin-top:14px;">
       <button type="button" class="btn secondary" id="pdCancelBtn" style="flex:1;">Cancel</button>
       <button type="button" class="btn" id="pdConfirmBtn" style="flex:1;">Confirm</button>
@@ -291,10 +400,15 @@ function renderPlayerDetailBody(pid, zone){
     renderMyXI();
     renderPlayerDetailBody(pid, zone);
   });
-  const replaceBtn = document.getElementById('pdReplaceBtn');
-  if(replaceBtn) replaceBtn.addEventListener('click', ()=>{
+  const subBtn = document.getElementById('pdSubBtn');
+  if(subBtn) subBtn.addEventListener('click', ()=>{
     closeOverlay();
-    replaceSquadPlayer(pid);
+    subSquadPlayer(pid, zone);
+  });
+  const transferBtn = document.getElementById('pdTransferBtn');
+  if(transferBtn) transferBtn.addEventListener('click', ()=>{
+    closeOverlay();
+    transferSquadPlayer(pid);
   });
   // Role/captain/VC above all apply the moment you tap them (same as every
   // other toggle in this app) rather than staging changes for these two to
