@@ -9,24 +9,20 @@ async function init(){
     history.replaceState(null, '', window.location.pathname);
   }
 
+  // .tab-btn now lives on the bottom nav (index.html) rather than an
+  // off-canvas drawer — same class, same wiring, no drawer left to close.
   document.querySelectorAll('.tab-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      switchTab(btn.dataset.tab);
-      closeMobileDrawer();
-    });
+    btn.addEventListener('click', ()=> switchTab(btn.dataset.tab));
   });
   document.querySelectorAll('.subtab-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> switchAdminSubtab(btn.dataset.subtab));
   });
   document.getElementById('adminHelpBtn').addEventListener('click', ()=> showAlert('Series, fixtures and player pools — visible only to admin accounts. Leagues are self-service now: anyone can create or join one under My Leagues.', 'Admin'));
 
-  const hamburgerBtn = document.getElementById('hamburgerBtn');
-  const drawerCloseBtn = document.getElementById('drawerCloseBtn');
-  const tabnavBackdrop = document.getElementById('tabnavBackdrop');
-  hamburgerBtn.addEventListener('click', openMobileDrawer);
-  drawerCloseBtn.addEventListener('click', closeMobileDrawer);
-  tabnavBackdrop.addEventListener('click', closeMobileDrawer);
-  document.getElementById('profileBtn').addEventListener('click', openAccountOverlay);
+  // The bottom nav's Profile item just opens the account overlay directly —
+  // it's not a real tab-panel, so it doesn't go through switchTab()/the
+  // .tab-btn wiring above.
+  document.getElementById('profileNavBtn').addEventListener('click', openAccountOverlay);
 
   if(!supabaseClient){
     renderAuthRow();
@@ -103,22 +99,30 @@ function applyPendingJoinCode(){
   if(input){ input.value = code; input.focus(); }
 }
 
-function openMobileDrawer(){
-  document.getElementById('tabnav').classList.add('open');
-  document.getElementById('tabnavBackdrop').classList.add('open');
-  document.getElementById('hamburgerBtn').setAttribute('aria-expanded', 'true');
-}
-function closeMobileDrawer(){
-  document.getElementById('tabnav').classList.remove('open');
-  document.getElementById('tabnavBackdrop').classList.remove('open');
-  document.getElementById('hamburgerBtn').setAttribute('aria-expanded', 'false');
-}
-
+/* Stays a plain (non-async) function on purpose — every existing caller
+   fires it and moves on without awaiting a result, and that keeps working
+   whether or not this particular call ends up going through the confirm
+   below: the common case (not leaving My XI, or leaving it with nothing
+   uncommitted) still applies the switch synchronously, exactly as before;
+   only "leaving My XI with unsaved changes" branches into the async confirm
+   and applies the switch afterward instead, once the user's answered it. */
 function switchTab(tab){
-  if(tab==='admin' && !isAdmin) tab = 'rules';
+  if(tab==='admin' && !isAdmin) tab = 'home';
+  const activePanel = document.querySelector('.tab-panel.active');
+  const leavingMyXi = activePanel && activePanel.id==='tab-myxi' && tab!=='myxi';
+  if(leavingMyXi && hasUncommittedMyXiChanges()){
+    showConfirm("You've made changes in Squad that you haven't confirmed yet — they're saved and will still be here, but they won't count for scoring until you hit Confirm. Leave without confirming?", 'Uncommitted changes').then(ok=>{
+      if(ok) applyTabSwitch(tab);
+    });
+    return;
+  }
+  applyTabSwitch(tab);
+}
+function applyTabSwitch(tab){
   document.querySelectorAll('.tab-btn').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
   document.querySelectorAll('.tab-panel').forEach(p=> p.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
+  if(tab==='home') renderHome();
   if(tab==='leaderboard') renderLeaderboard();
   if(tab==='myxi') renderMyXI();
   if(tab==='admin') switchAdminSubtab('setup');
@@ -126,6 +130,7 @@ function switchTab(tab){
 
 function renderAll(){
   if(isAdmin){ renderSeriesSetup(); renderMatchSetup(); }
+  renderHome();
   renderMyXI();
   renderLeaderboard();
 }

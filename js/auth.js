@@ -1,26 +1,27 @@
 /* js/auth.js — the top-bar auth-state row (renderAuthRow). */
 /* ================= AUTH ================= */
-/* Account state now lives behind the profile icon (openAccountOverlay())
-   rather than a persistent topbar row — this just keeps the config-error
-   banner current and gives the icon a visual signed-in/out state. */
+/* Account state lives behind the bottom nav's Profile item
+   (openAccountOverlay(), wired in init.js) — this just keeps the
+   config-error banner current. */
 function renderAuthRow(){
   const box = document.getElementById('authRow');
   box.innerHTML = !supabaseClient
     ? `<span class="auth-error">Supabase isn't configured yet — paste your Project URL and anon key into SUPABASE_URL / SUPABASE_ANON_KEY near the top of the script.</span>`
     : '';
-  const profileBtn = document.getElementById('profileBtn');
-  if(profileBtn) profileBtn.classList.toggle('is-signed-in', !!session);
 }
 
-/* Profile icon: not signed in opens the same login/signup overlay as
-   everywhere else; signed in opens account details + change password. */
+/* Profile icon (topbar and bottom nav both open this — see js/init.js): not
+   signed in opens the same login/signup overlay as everywhere else; signed
+   in opens account details + change password. Admin has its own bottom-nav
+   entry now (shown/hidden by updateAdminTabVisibility below), so there's no
+   second "Admin tools" path in here duplicating it. */
 function openAccountOverlay(){
   if(!session){ showLoginOverlay(true); return; }
   const backdrop = openOverlay(`
     <div class="overlay-title">Your account</div>
     <div class="overlay-message">
       Signed in as <strong>${myFirstName} ${myLastName}</strong> (${session.user.email})${isAdmin ? ' &middot; <span style="color:var(--gilt-bright);">admin</span>' : ''}<br>
-      ${mySquad ? `Team: ${mySquad.teamName}` : 'No squad yet — build one in My XI.'}
+      ${mySquad ? `Team: ${mySquad.teamName}` : 'No squad yet — build one in Squad.'}
     </div>
     <div class="field-group"><label for="acctNewPassword">New password</label><input type="password" id="acctNewPassword" placeholder="6+ characters"></div>
     <div class="field-group"><label for="acctNewPassword2">Confirm new password</label><input type="password" id="acctNewPassword2" placeholder="Repeat password"></div>
@@ -61,12 +62,14 @@ async function loadIsAdmin(){
   myLastName = (data && data.last_name) || '';
 }
 
+/* Shows/hides the bottom nav's Admin item for admin accounts only, and
+   bounces away from the Admin tab if someone's admin status gets revoked
+   while they're actually sitting on it mid-session. */
 function updateAdminTabVisibility(){
-  const btn = document.querySelector('.tab-btn[data-tab="admin"]');
-  if(!btn) return;
-  btn.style.display = isAdmin ? '' : 'none';
+  const adminNavBtn = document.getElementById('adminNavBtn');
+  if(adminNavBtn) adminNavBtn.style.display = isAdmin ? '' : 'none';
   if(!isAdmin && document.getElementById('tab-admin').classList.contains('active')){
-    switchTab('rules');
+    switchTab('home');
   }
 }
 

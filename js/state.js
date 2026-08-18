@@ -14,6 +14,16 @@ const ROLE_GROUP_ORDER = ['BAT', 'AR', 'WK', 'BOWL'];
 function defaultPlayingRole(baseRole){
   return (baseRole==='BAT' || baseRole==='BOWL' || baseRole==='WK') ? baseRole : 'BAT';
 }
+// Inline SVG path content (viewBox 0 0 24 24, stroke-width 1.75, round caps —
+// the style guide's icon spec, wicket-style-guide.html) for the playing-role
+// toggle buttons in My XI (js/myxi.js, squadCardHtml) — same Bat/Ball/Wicket
+// glyphs the guide's own icon grid and the bottom nav already use, so a
+// player's assigned role reads as the same iconography everywhere in the app.
+const ROLE_ICON_PATH = {
+  BAT: '<path d="M5 19 15 9"/><rect x="14" y="4" width="6" height="6" rx="1" transform="rotate(45 17 7)"/>',
+  BOWL: '<circle cx="12" cy="12" r="8"/><path d="M8 8c2 2 6 2 8 0M8 16c2-2 6-2 8 0"/>',
+  WK: '<line x1="8" y1="4" x2="8" y2="18"/><line x1="12" y1="4" x2="12" y2="18"/><line x1="16" y1="4" x2="16" y2="18"/><line x1="6" y1="4" x2="18" y2="4"/>',
+};
 
 /* ================= STATE ================= */
 // My XI's player-facing state, scoped to whichever series the user is

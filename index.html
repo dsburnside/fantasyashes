@@ -5,27 +5,42 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Ashes · Fantasy XI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Libre+Franklin:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  
+  /* Wicket design system (wicket-style-guide.html) — a unified dark surface
+     stack (charcoal → slate → slate-raised) with indigo as the primary
+     accent, rust for captain/premium highlights, plum for vice-captain/
+     tertiary accents, and coral for alerts/danger/negative values.
+     Existing variable NAMES below are kept as-is (so every var() reference
+     throughout this file and every inline style in js/*.js keeps working
+     unchanged) — only their VALUES move to the new palette. The one thing
+     that doesn't survive a pure value swap: this app used to put light
+     "parchment" cards on a dark page, so plenty of rules assumed dark text
+     on a light surface (--ink, the many "-on-light" variants, button text
+     colors). Now that --parchment-panel is a dark slate like everything
+     else, those specific rules are hand-corrected to light-on-dark right
+     alongside the token redefinition — see the comments at each. */
   :root{
-    --turf:#0F3D2E;
-    --turf-dark:#0A2B20;
-    --turf-deeper:#081F18;
-    --parchment:#EFE3BE;
-    --parchment-dim:#E4D6AC;
-    --parchment-panel:#F6EFD9;
-    --gilt:#C9973B;
-    --gilt-bright:#E3BE72;
-    --oxblood:#7A1F2B;
-    --oxblood-bright:#9C2C3A;
-    --ink:#1C2321;
-    --chalk:#F7F2E4;
-    --line:#2C5C46;
-    --font-display:'Fraunces', serif;
-    --font-body:'Libre Franklin', sans-serif;
-    --font-mono:'Space Mono', monospace;
+    --turf:#5B6EE8;          /* was mid-green, now Ice Indigo — primary accent */
+    --turf-dark:#1E2129;     /* was dark green, now Midnight Slate — card/surface bg */
+    --turf-deeper:#12141A;   /* was darkest green, now Deep Charcoal — page bg */
+    --parchment:#F4F3EF;     /* was cream, now Bone White — readable text on dark */
+    --parchment-dim:#9BA1AC; /* was dim cream, now Fog Grey — secondary text & dividers */
+    --parchment-panel:#1E2129; /* was light cream card bg, now dark slate — see note above */
+    --gilt:#5B6EE8;          /* was gold, now indigo — primary buttons/accents */
+    --gilt-bright:#8D9AF2;   /* lighter indigo tint, for emphasis text/active states */
+    --oxblood:#D17E6E;       /* was dark red, now Dusty Coral — danger/alerts/negative */
+    --oxblood-bright:#E3998C;/* lighter coral tint, for emphasis within a warning */
+    --ink:#F4F3EF;           /* was near-black (dark card text), now bone (light card text) */
+    --chalk:#F4F3EF;         /* near-white text, unchanged role */
+    --line:#2C303B;          /* was dark green divider, now Hairline — dark-surface borders */
+    --rust:#C0684A;          /* Warm Rust — captain badges, premium highlights */
+    --plum:#8A5A7A;          /* Muted Plum — vice-captain, tertiary accents */
+    --slate-raised:#262A34;  /* nested/raised surface inside a card, e.g. recessed inputs */
+    --font-display:'Space Grotesk', sans-serif;
+    --font-body:'Inter', sans-serif;
+    --font-mono:'IBM Plex Mono', monospace;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -40,18 +55,38 @@
   button{font-family:inherit;cursor:pointer;}
   input,select{font-family:inherit;}
 
-  ::selection{background:var(--gilt); color:var(--turf-deeper);}
+  /* Indigo is a saturated accent, not a pale highlight color, so selected
+     text needs light text on it, not dark — same reasoning as .btn below. */
+  ::selection{background:var(--gilt); color:var(--chalk);}
 
   /* ---------- layout shell ---------- */
-  .app{max-width:1180px;margin:0 auto;padding:0 20px 80px;}
+  /* Extra bottom padding clears the fixed .bottom-nav (see its own rule
+     further down) so the last bit of content on any tab never sits behind
+     it — 90px covers the bar's own height plus a little breathing room. */
+  /* Bottom padding must clear the fixed .bottom-nav's ACTUAL rendered height,
+     not just its content — the nav's own bottom padding grows by
+     env(safe-area-inset-bottom) on notched/gesture-nav devices (see
+     .bottom-nav below), so a flat 90px here undershoots on exactly those
+     devices once that inset is large. Adding the same env() term keeps this
+     in lockstep with the nav's real height on any device — without it, the
+     lowest card(s) in a long XI/bench list can sit partly behind the nav,
+     which visually looks fine (the nav has an opaque background) but
+     silently eats the tap/drag that was meant for the card underneath. */
+  .app{max-width:1180px;margin:0 auto;padding:0 20px calc(90px + env(safe-area-inset-bottom, 0px));}
 
   /* ---------- sticky top bar (brand + nav + auth + countdown) ---------- */
   .topbar{
     position:sticky;
     top:0;
     z-index:900;
-    background:linear-gradient(180deg, var(--turf) 0%, var(--turf-dark) 100%);
-    border-bottom:3px solid var(--gilt);
+    /* The style guide keeps indigo as a sparing accent against charcoal
+       rather than a wall-to-wall fill (see .hero's restrained radial tint in
+       wicket-style-guide.html) — same idea here: a soft indigo glow over
+       slate/charcoal rather than a solid indigo band. */
+    background:
+      radial-gradient(circle at 20% 0%, rgba(91,110,232,.16), transparent 60%),
+      linear-gradient(180deg, var(--turf-dark) 0%, var(--turf-deeper) 100%);
+    border-bottom:1px solid var(--line);
   }
   .topbar-main{
     max-width:1180px; margin:0 auto;
@@ -65,62 +100,34 @@
   .config-error-banner{max-width:1180px; margin:0 auto; padding:0 20px;}
   .config-error-banner:empty{display:none;}
 
-  /* Nav is always an off-canvas drawer (opened by the hamburger) rather than
-     an inline row — keeps the banner itself down to just the heading and the
-     two icons at every screen width. */
-  .topbar-icons{display:flex; align-items:center; gap:10px; margin-left:auto; flex-shrink:0;}
-  .icon-btn-circle{
-    display:flex; align-items:center; justify-content:center;
-    background:none; border:1px solid var(--gilt); border-radius:50%;
-    width:34px; height:34px; padding:0; cursor:pointer; flex-shrink:0; color:var(--gilt-bright);
+  /* ---------- bottom nav (style guide's navbar-demo) ----------
+     Primary navigation, fixed to the viewport bottom — replaces the old
+     hamburger + off-canvas drawer entirely. Most items reuse .tab-btn (same
+     class the old drawer buttons had) so js/init.js's existing click-wiring
+     and switchTab()'s .active toggling both keep working unchanged; .nav-item
+     layers the icon/label layout and bottom-nav-specific look on top of that
+     — styled off .nav-item alone (not .nav-item.tab-btn) since Profile is a
+     .nav-item without being a .tab-btn (it opens the account overlay
+     directly, not a tab-panel — see js/init.js) and still needs to look
+     identical to its neighbours either way. */
+  .bottom-nav{
+    position:fixed; left:0; right:0; bottom:0; z-index:900;
+    display:flex; justify-content:space-around;
+    background:var(--turf-deeper); border-top:1px solid var(--line);
+    padding:6px max(6px, env(safe-area-inset-left)) max(6px, env(safe-area-inset-bottom));
   }
-  .icon-btn-circle:hover{background:rgba(230,197,120,.14);}
-  .icon-btn-circle svg{width:17px; height:17px; fill:currentColor;}
-  .icon-btn-circle.is-signed-in{border-color:var(--gilt-bright); box-shadow:0 0 0 2px rgba(230,197,120,.25);}
-
-  .hamburger-btn{
-    background:none; border:1px solid var(--gilt); border-radius:5px;
-    width:36px; height:32px; padding:0; cursor:pointer; flex-shrink:0;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
-  }
-  .hamburger-btn span{width:16px; height:2px; background:var(--gilt-bright); display:block;}
-
-  .tab-btn{
-    background:none;
-    border:none;
-    color:var(--parchment-dim);
-    padding:14px 22px;
-    font-size:13.5px;
-    font-weight:600;
-    letter-spacing:.03em;
-    white-space:nowrap;
-    text-align:left;
-    border-bottom:none; border-left:3px solid transparent;
+  .nav-item{
+    background:none; border:none; color:var(--parchment-dim);
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:8px 10px; min-width:60px; flex:1; max-width:120px;
+    font-size:9.5px; font-family:var(--font-mono); letter-spacing:.03em; text-transform:uppercase;
     cursor:pointer;
   }
-  .tab-btn.active{color:var(--gilt-bright); border-left-color:var(--gilt);}
-  .tab-btn:hover{color:var(--chalk);}
-
-  .tabnav{
-    position:fixed; top:0; right:0; height:100vh; width:250px; max-width:78vw;
-    background:var(--turf-dark); border-left:2px solid var(--gilt);
-    display:flex; flex-direction:column; align-items:stretch; gap:0; overflow-y:auto; overflow-x:hidden;
-    padding:56px 0 20px;
-    transform:translateX(100%);
-    transition:transform .22s ease;
-    z-index:1100;
-  }
-  .tabnav.open{transform:translateX(0);}
-  .drawer-close-btn{
-    display:block; position:absolute; top:8px; left:10px;
-    background:none; border:none; color:var(--chalk); font-size:26px; line-height:1;
-    cursor:pointer; padding:8px;
-  }
-  .tabnav-backdrop{
-    display:block; position:fixed; inset:0; background:rgba(0,0,0,.5);
-    z-index:1050; opacity:0; pointer-events:none; transition:opacity .2s ease;
-  }
-  .tabnav-backdrop.open{opacity:1; pointer-events:auto;}
+  .nav-item svg{width:20px; height:20px; stroke:var(--parchment-dim);}
+  .nav-item.active{color:var(--gilt-bright);}
+  .nav-item.active svg{stroke:var(--gilt-bright);}
+  .nav-item:hover{color:var(--chalk);}
+  .nav-item:hover svg{stroke:var(--chalk);}
 
   @media (max-width:760px){
     .topbar-brand{font-size:16px;}
@@ -135,14 +142,16 @@
   }
 
   @media (max-width:600px){
-    .app{padding:0 14px 60px;}
+    /* Bottom padding stays at (at least) the same clearance as the base rule
+       here, not less — this is exactly the viewport the fixed .bottom-nav is
+       built for (and where env(safe-area-inset-bottom) actually kicks in on
+       notched/gesture-nav phones), so content needs at least as much
+       clearance as desktop, never a narrower margin. */
+    .app{padding:0 14px calc(90px + env(safe-area-inset-bottom, 0px));}
     section.tab-panel{padding-top:18px;}
     .panel-title{font-size:21px;}
     .panel-sub{font-size:13px;}
     .card{padding:15px;}
-    .action-bar-main{flex-direction:column; align-items:stretch; padding:12px;}
-    .action-bar-buttons{margin-left:0; width:100%;}
-    .action-bar-buttons .btn{flex:1; min-width:0;}
     .swap-status-row{gap:10px;}
     .status-chip{flex:1; min-width:130px; padding:10px 12px;}
     .status-chip .value{font-size:18px;}
@@ -155,26 +164,35 @@
     .picker-points{width:100%; justify-content:flex-start; gap:12px;}
     .save-bar{flex-direction:column; align-items:stretch;}
     .save-bar .btn{width:100%;}
-    .wildcard-row .btn, .action-bar-secondary .btn{width:100%;}
+    .wildcard-row .btn{width:100%;}
+    /* 6 nav items (Home/Squad/Leagues/Rules/Admin/Profile) at the desktop
+       sizing (min-width:60px each) can outgrow a narrow phone's width before
+       flex-shrink ever gets a chance to act — min-width always wins over
+       that. Tightened down to the guide's 44px touch-target floor here so
+       six items comfortably fit even a 320px-wide screen. */
+    .nav-item{min-width:44px; padding:6px 4px; font-size:8.5px;}
+    .nav-item svg{width:18px; height:18px;}
   }
   .btn{
     background:var(--gilt);
-    color:var(--turf-deeper);
+    /* Indigo is a saturated mid-tone (unlike the old gold), so it needs light
+       button text, not dark — matches the style guide's .btn-primary. */
+    color:var(--chalk);
     border:none;
-    padding:9px 16px;
-    border-radius:4px;
-    font-weight:700;
-    font-size:13.5px;
+    padding:12px 18px;
+    border-radius:10px;
+    font-weight:600;
+    font-size:14px;
     line-height:1.5;
-    letter-spacing:.02em;
+    letter-spacing:.01em;
     transition:filter .15s ease, transform .1s ease;
   }
-  .btn:hover{filter:brightness(1.08);}
+  .btn:hover{filter:brightness(1.12);}
   .btn:active{transform:translateY(1px);}
-  .btn.secondary{background:var(--turf-dark); border:1px solid var(--gilt); color:var(--chalk);}
+  .btn.secondary{background:transparent; border:1px solid var(--parchment-dim); color:var(--chalk);}
   .btn.danger{background:var(--oxblood); color:var(--chalk);}
   .btn:disabled{opacity:.4; cursor:not-allowed;}
-  .btn.small{padding:6px 11px; font-size:12px;}
+  .btn.small{padding:8px 13px; font-size:12px; border-radius:8px;}
 
 
   /* countdown strip */
@@ -192,16 +210,39 @@
     display:flex; gap:6px;
   }
   .countdown-clock .seg{
-    background:var(--turf-deeper);
-    border:1px solid var(--gilt);
-    border-radius:3px;
+    background:var(--slate-raised);
+    border:1px solid var(--line);
+    border-radius:6px;
     padding:5px 8px;
     text-align:center;
     min-width:44px;
   }
-  .countdown-clock .seg .n{font-size:17px; font-weight:700; color:var(--chalk);}
+  .countdown-clock .seg .n{font-size:17px; font-weight:700; color:var(--chalk); font-variant-numeric:tabular-nums;}
   .countdown-clock .seg .u{font-size:8px; color:var(--gilt-bright); letter-spacing:.1em;}
   .countdown-meta{font-size:12.5px; color:var(--parchment);}
+
+  /* ---------- Home tab (style guide's signature "scoreboard" component) ----------
+     See js/home.js's renderHome() — this is the hero card at the top of Home,
+     showing your squad's series total. Matches wicket-style-guide.html's
+     .scoreboard almost exactly, just riffed on with the app's existing
+     variable names rather than the guide's raw hex. */
+  .scoreboard{
+    background:var(--turf-dark); border:1px solid var(--line); border-radius:16px;
+    padding:20px; position:relative; overflow:hidden; margin-bottom:20px;
+    cursor:pointer;
+  }
+  .scoreboard:active{opacity:.85;}
+  .scoreboard::before{
+    content:''; position:absolute; top:0; left:0; right:0; height:2px;
+    background:linear-gradient(90deg, var(--gilt), var(--rust), var(--plum));
+  }
+  .sb-row{display:flex; justify-content:space-between; align-items:center;}
+  .sb-team{font-family:var(--font-display); font-weight:600; font-size:17px; color:var(--chalk);}
+  .sb-score{font-family:var(--font-mono); font-size:26px; font-weight:500; color:var(--chalk); font-variant-numeric:tabular-nums;}
+  .sb-sep{height:1px; background:var(--line); margin:12px 0;}
+  .sb-meta{display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; font-family:var(--font-mono); font-size:11px; color:var(--parchment-dim); margin-top:12px;}
+  .sb-meta .cap{color:var(--rust);}
+  .home-greeting{font-family:var(--font-display); font-weight:600; font-size:22px; color:var(--chalk); margin:0 0 4px;}
 
   /* ---------- content sections ---------- */
   section.tab-panel{display:none; padding-top:28px; animation:fadein .25s ease;}
@@ -219,11 +260,11 @@
     margin:0 0 4px;
   }
   p.panel-sub{color:var(--parchment-dim); font-size:14px; margin:0 0 22px; max-width:70ch;}
-  /* .panel-sub defaults to light-on-dark for the page background — several
-     admin/My Leagues/My XI cards reuse it inside a light .card, where it's
-     nearly invisible. Higher-specificity descendant selector fixes every
-     current and future case in one place instead of hand-tagging each. */
-  .card .panel-sub{color:#6B5F45;}
+  /* .panel-sub used to need a separate dark-text variant for use inside a
+     light .card — now that .card is dark too (see :root), the same light-on-
+     dark color already works everywhere, so this just tracks the base rule
+     rather than diverging from it. */
+  .card .panel-sub{color:var(--parchment-dim);}
 
   /* Small "?" trigger that opens a lightbox with whatever explanatory prose
      would otherwise sit permanently visible above a screen's actual UI —
@@ -239,12 +280,26 @@
   }
   .help-icon:hover{opacity:1;}
 
+  /* Same idea as .help-icon, but for a specific dynamic problem/notice rather
+     than static explanatory text — e.g. My XI's transfer-limit and can't-
+     commit warnings (js/myxi.js). Tinted coral/danger and always fully
+     opaque (unlike .help-icon's dimmed-until-hover) since these only render
+     at all when something actually needs attention. */
+  .warn-icon{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:18px; height:18px; border-radius:50%; border:1.5px solid var(--oxblood-bright);
+    background:rgba(209,126,110,.15); color:var(--oxblood-bright);
+    font-family:var(--font-mono); font-size:11px; font-weight:700; line-height:1;
+    padding:0; margin-left:6px; cursor:pointer; vertical-align:middle;
+  }
+  .warn-icon:hover{background:rgba(209,126,110,.3);}
+
   .card{
     background:var(--parchment-panel);
     color:var(--ink);
-    border-radius:8px;
+    border-radius:14px;
     padding:20px;
-    border:1px solid var(--parchment-dim);
+    border:1px solid var(--line);
   }
   .card + .card{margin-top:16px;}
   /* .card + .card above is meant for cards STACKED vertically in normal flow.
@@ -254,26 +309,25 @@
   .rules-grid > .card + .card{margin-top:0;}
 
   .notice{
-    background:rgba(201,151,59,.12);
+    background:rgba(91,110,232,.12);
     border:1px solid var(--gilt);
     color:var(--parchment);
     padding:12px 14px;
-    border-radius:6px;
+    border-radius:10px;
     font-size:13.5px;
     margin-bottom:18px;
   }
-  .notice.warn{background:rgba(122,31,43,.25); border-color:var(--oxblood-bright);}
+  .notice.warn{background:rgba(209,126,110,.15); border-color:var(--oxblood-bright);}
   .notice strong{color:var(--gilt-bright);}
-  .notice.warn strong{color:#ffb3b3;}
-  /* .notice defaults to light text on a dark tint, matching the page's dark
-     background. Nested inside a light .card (e.g. Admin > Series Setup >
-     Players) that combination is nearly unreadable — light-parchment text on
-     a background that's almost the same light-parchment color — and just
-     reads as an empty box. Same fix as .muted-on-light/.link-btn.on-light
-     elsewhere: swap to dark text for the light-card context. */
-  .card .notice{color:#6B5F45;}
-  .card .notice.warn{color:var(--oxblood);}
-  .card .notice strong{color:#8a6a1f;}
+  .notice.warn strong{color:var(--oxblood-bright);}
+  /* .notice used to need a dark-text variant for use inside a light .card
+     (e.g. Admin > Series Setup > Players) — now that .card is dark too, the
+     base light-on-dark colors already work there, so these just track the
+     base rules instead of diverging into their own (now-unreadable) dark
+     shades. Same story for .muted-on-light/.link-btn.on-light etc. below. */
+  .card .notice{color:var(--parchment);}
+  .card .notice.warn{color:var(--parchment);}
+  .card .notice strong{color:var(--gilt-bright);}
   .card .notice.warn strong{color:var(--oxblood-bright);}
   /* Stack of notices with even spacing between them and a consistent gap from
      whatever sits above — used so a variable number of warnings (My XI's
@@ -289,22 +343,27 @@
   .scoring-table{width:100%; border-collapse:collapse; font-size:13.5px;}
   .scoring-table th{
     text-align:left; font-family:var(--font-mono); font-size:11px; letter-spacing:.08em;
-    text-transform:uppercase; color:var(--turf); border-bottom:2px solid var(--turf); padding:6px 4px;
+    text-transform:uppercase; color:var(--parchment-dim); border-bottom:1px solid var(--line); padding:6px 4px; font-weight:400;
   }
-  .scoring-table td{padding:7px 4px; border-bottom:1px solid var(--parchment-dim);}
-  .scoring-table td:last-child{text-align:right; font-family:var(--font-mono); font-weight:700; color:var(--oxblood);}
+  .scoring-table td{padding:7px 4px; border-bottom:1px solid var(--line);}
+  .scoring-table td:last-child{text-align:right; font-family:var(--font-mono); font-variant-numeric:tabular-nums; color:var(--ink);}
+  /* Positive/negative point values get the same treatment as the style
+     guide's own score-table demo (.val.pos / .val.neg) — see the two rows
+     tagged with these classes in the Scoring card markup below. */
+  .scoring-table td.val.pos{color:var(--gilt);}
+  .scoring-table td.val.neg{color:var(--oxblood);}
 
   ol.rules-list{padding-left:20px; font-size:14px;}
   ol.rules-list li{margin-bottom:10px;}
 
   .player-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
-    background:var(--parchment-panel); color:var(--ink);
-    border:1px solid var(--parchment-dim); border-radius:6px;
+    background:var(--slate-raised); color:var(--ink);
+    border:1px solid var(--line); border-radius:12px;
     padding:10px 12px; margin-bottom:6px;
   }
   /* .added is admin's "just-added player" highlight (see Series Setup); .leader
-     is the leaderboard's unrelated "1st place" highlight — same gold-border
+     is the leaderboard's unrelated "1st place" highlight — same accent-border
      look, but kept as a separate class so admin's mobile .added rule below
      (which stacks that row into a column) can never reach the leaderboard row. */
   .player-row.added, .player-row.leader{border-color:var(--gilt); box-shadow:inset 0 0 0 1px var(--gilt);}
@@ -312,7 +371,7 @@
   .player-name{font-weight:700; font-size:14.5px;}
   .role-pill{
     font-family:var(--font-mono); font-size:10px; letter-spacing:.06em;
-    background:var(--turf); color:var(--chalk); padding:2px 7px; border-radius:10px;
+    background:var(--turf); color:var(--chalk); padding:3px 9px; border-radius:20px;
     white-space:nowrap; display:inline-block;
   }
 
@@ -326,7 +385,12 @@
 
   /* Inline edit-in-place row for an existing player */
   .player-edit-fields{display:flex; gap:6px; flex-wrap:wrap; flex:1; min-width:0;}
-  .player-edit-fields input[type=text]{padding:7px 8px; border:1px solid var(--parchment-dim); border-radius:4px; font-size:13px; width:160px; max-width:100%;}
+  /* No explicit background/text color used to be needed here — the row sat on
+     a light parchment card, so the browser's default white input blended
+     right in. Now the row is a dark slate-raised card, so that same default
+     white input would look like a broken cutout; give it the same recessed
+     dark treatment as every other form input in the app. */
+  .player-edit-fields input[type=text]{padding:7px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px; width:160px; max-width:100%; background:var(--turf-deeper); color:var(--chalk);}
   .player-edit-fields select{width:auto; padding:7px 8px;}
   .player-row-actions{display:flex; gap:6px; flex-shrink:0;}
   @media (max-width:520px){
@@ -336,32 +400,46 @@
     .player-edit-fields select{width:100%;}
     .player-row-actions{width:100%;}
     .player-row-actions button{flex:1;}
+    /* ...except the small square icon buttons (edit/save/cancel/delete) —
+       stretching a 30px icon button to fill the row width would leave it a
+       wide, mostly-empty bar with a tiny glyph in the middle. They're compact
+       enough to just sit at their natural size even on narrow screens. */
+    .player-row-actions .row-icon-btn{flex:0 0 auto;}
   }
 
-  .honours-star{color:var(--gilt); font-size:15px;}
+  /* Captain marker — rust is the style guide's dedicated "captain badges,
+     premium highlights" color (see .sb-meta .cap in wicket-style-guide.html),
+     not the general indigo accent. */
+  .honours-star{color:var(--rust); font-size:15px;}
 
   /* ---------- swaps ---------- */
   .swap-status-row{display:flex; gap:18px; flex-wrap:wrap; margin-bottom:20px;}
   .status-chip{
-    background:var(--turf-dark); border:1px solid var(--line); border-radius:6px;
+    background:var(--turf-dark); border:1px solid var(--line); border-radius:12px;
     padding:12px 16px; min-width:150px;
   }
   .status-chip .label{font-family:var(--font-mono); font-size:10.5px; color:var(--parchment-dim); letter-spacing:.08em; text-transform:uppercase;}
   .status-chip .value{font-family:var(--font-display); font-size:22px; color:var(--gilt-bright); margin-top:2px;}
 
+  /* Used to be a light chalk field on a light parchment card (dark text on
+     light bg); now everything's dark, so this flips to the same recessed
+     dark-field treatment as every other input/select in the app rather than
+     staying light-on-light (which would be unreadable). */
   select.pick{
-    width:100%; padding:8px 9px; border-radius:5px; border:1px solid var(--parchment-dim);
-    background:var(--chalk); color:var(--ink); font-size:13.5px; line-height:1.5;
+    width:100%; padding:9px 10px; border-radius:10px; border:1px solid var(--line);
+    background:var(--turf-deeper); color:var(--chalk); font-size:13.5px; line-height:1.5;
   }
   .field-label{font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--turf); margin-bottom:5px; display:block;}
 
   /* ---------- match centre ---------- */
   .fixture-row{
     display:grid; grid-template-columns:36px 1fr 1fr 1fr auto; gap:10px; align-items:center;
-    padding:8px 0; border-bottom:1px solid var(--parchment-dim); font-size:13.5px;
+    padding:8px 0; border-bottom:1px solid var(--line); font-size:13.5px;
   }
-  .fixture-row input{padding:7px 8px; border:1px solid var(--parchment-dim); border-radius:4px; font-size:13px; min-width:0;}
-  .fixture-num{font-family:var(--font-mono); font-weight:700; color:var(--oxblood);}
+  /* Same story as .player-edit-fields input above — explicit dark styling
+     added since the row's card is dark now, not light. */
+  .fixture-row input{padding:7px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px; min-width:0; background:var(--turf-deeper); color:var(--chalk);}
+  .fixture-num{font-family:var(--font-mono); font-weight:700; color:var(--rust);}
   @media (max-width:640px){
     .fixture-row{grid-template-columns:1fr 1fr; grid-template-areas:"num num" "venue venue" "date deadline" "label label"; padding:12px 0;}
     .fixture-row .fixture-num{grid-area:num;}
@@ -374,16 +452,18 @@
   table.stat-entry{width:100%; border-collapse:collapse; font-size:12.5px; margin-top:14px;}
   table.stat-entry th{
     font-family:var(--font-mono); font-size:9.5px; text-transform:uppercase; letter-spacing:.05em;
-    color:var(--turf); border-bottom:2px solid var(--turf); padding:6px 4px; text-align:center;
+    color:var(--turf); border-bottom:1px solid var(--line); padding:6px 4px; text-align:center; font-weight:600;
   }
   table.stat-entry th:first-child{text-align:left;}
-  table.stat-entry td{padding:5px 4px; border-bottom:1px solid var(--parchment-dim); text-align:center;}
+  table.stat-entry td{padding:5px 4px; border-bottom:1px solid var(--line); text-align:center;}
   table.stat-entry td:first-child{text-align:left; font-weight:600;}
-  table.stat-entry input[type=number]{width:48px; padding:4px; border:1px solid var(--parchment-dim); border-radius:3px; text-align:center;}
-  table.stat-entry input[type=checkbox]{width:16px; height:16px;}
+  /* Same story as .player-edit-fields input above — explicit dark styling
+     added since these tables now sit on a dark card, not a light one. */
+  table.stat-entry input[type=number]{width:48px; padding:4px; border:1px solid var(--line); border-radius:5px; text-align:center; background:var(--turf-deeper); color:var(--chalk);}
+  table.stat-entry input[type=checkbox]{width:16px; height:16px; accent-color:var(--gilt);}
   /* Greyed out once an innings' 10-wicket (bowling) or 10-dismissal
      (fielding) cap is reached — see applyCapLockouts(). */
-  table.stat-entry input:disabled{background:var(--parchment-dim); opacity:.5; cursor:not-allowed;}
+  table.stat-entry input:disabled{background:var(--slate-raised); color:var(--parchment-dim); opacity:.6; cursor:not-allowed;}
   .table-scroll{overflow-x:auto;}
 
   /* Per-player points/stat breakdown table — openTeamBreakdownOverlay() in
@@ -411,7 +491,7 @@
      starting wherever that row's badges happen to end. */
   .row-badge-slot{display:inline-block; width:30px;}
 
-  .teamnews-row{display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--parchment-dim); font-size:13.5px;}
+  .teamnews-row{display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line); font-size:13.5px;}
   /* Name pinned left, role pill + checkbox grouped and pinned right (rather
      than the pill sitting glued to the end of the name) — see renderPlayingXiTable(). */
   .teamnews-row-right{display:flex; align-items:center; gap:12px;}
@@ -419,27 +499,40 @@
   /* ---------- league tabs + standings (My Leagues tab) ---------- */
   .league-tabs{margin-bottom:0;}
   .standing-row{cursor:pointer;}
+  /* Matches the style guide's own leaderboard demo exactly — .lb-rank is
+     plain fog, not an alarm color; rust (captain/premium) is reserved for
+     actually marking out 1st place below, rather than tinting every rank
+     number the same way. */
   .standing-rank{
-    font-family:var(--font-mono); font-weight:700; color:var(--oxblood);
+    font-family:var(--font-mono); font-weight:700; color:var(--parchment-dim);
     min-width:20px; display:inline-block; text-align:center;
   }
-  .standing-row.leader .standing-rank{color:var(--gilt-bright); background:var(--oxblood); border-radius:50%;}
-  .standing-points{font-family:var(--font-mono); font-weight:700; color:var(--oxblood); white-space:nowrap;}
-  /* .standing-rank's default oxblood-on-cream (leaderboard rows, a light
-     .card) has plenty of contrast either way. Reused inside the dark
-     .overlay-box (Player rankings, Team of the Test, team breakdown), that
-     same dark red on dark green is a low-contrast combination for anyone,
-     and specifically the kind red/green colorblindness collapses — swap to
-     the same high-contrast gilt-bright used for every other number on a
-     dark background there instead. */
-  .overlay-box .standing-rank{color:var(--gilt-bright);}
+  .standing-row.leader .standing-rank{color:var(--chalk); background:var(--rust); border-radius:50%;}
+  .standing-points{font-family:var(--font-mono); font-weight:700; color:var(--chalk); white-space:nowrap;}
+
+  /* ---------- Home tab summary cards (Player rankings / Team of the Test) ----------
+     Condensed previews that open the real thing (leagues.js's
+     openPlayerRankingsOverlay/openTeamOfTestOverlay) as a lightbox — same
+     .player-row/.standing-row rows the My Leagues tab already uses for its
+     own "tap a row to go see the full thing" pattern, just headed by a
+     title + "view all" cue instead of sitting under a leaderboard tab. */
+  .home-summary-card{cursor:pointer;}
+  .home-summary-card:active{opacity:.85;}
+  .home-summary-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:10px;}
+  .home-summary-title{font-family:var(--font-display); font-size:16px; color:var(--chalk);}
+  .home-summary-cta{font-size:11px; color:var(--parchment-dim); white-space:nowrap;}
+  /* Standings used to need a brighter override for the dark .overlay-box
+     context (Player rankings, Team of the Test, team breakdown) because the
+     base rank color was a dark red that read poorly there. Fog (the base
+     color now) already has plenty of contrast on any dark surface, so
+     there's nothing left to override. */
 
   .empty-state{
     text-align:center; padding:50px 20px; color:var(--parchment-dim); font-size:14px;
   }
   .empty-state .big{font-family:var(--font-display); font-size:20px; color:var(--gilt-bright); margin-bottom:8px;}
-  .card .empty-state{color:#6B5F45;}
-  .card .empty-state .big{color:var(--oxblood);}
+  .card .empty-state{color:var(--parchment-dim);}
+  .card .empty-state .big{color:var(--gilt-bright);}
 
   footer.app-footer{
     text-align:center; padding:30px 20px 10px; color:var(--parchment-dim); font-size:12px; font-family:var(--font-mono);
@@ -450,10 +543,11 @@
 
   .flex-between{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;}
   .muted{color:var(--parchment-dim);}
-  .card .muted{color:#6B5F45;}
-  /* Use on light .card/.parchment-panel backgrounds — plain .muted (parchment-dim on
-     parchment-panel) fails WCAG contrast (1.26:1); this variant passes at 5.46:1. */
-  .muted-on-light{color:#6B5F45;}
+  .card .muted{color:var(--parchment-dim);}
+  /* Used to be the dark-text variant for light .card/.parchment-panel
+     backgrounds (which failed contrast using the plain light .muted color) —
+     now .card is dark too, so it can just match .muted directly. */
+  .muted-on-light{color:var(--parchment-dim);}
 
   /* Explicit placeholder colors so browser defaults can't fall below AA on our dark inputs */
   .overlay-box input::placeholder{color:var(--parchment-dim); opacity:1;}
@@ -492,50 +586,57 @@
      since it'd fight the "scroll instead of wrap" behavior above on tab bars
      with more or longer labels (My Leagues, Team of the Test, ...). */
   .admin-subnav.even-tabs .subtab-btn{flex:1 1 0; justify-content:center;}
-  /* When this same tab bar sits on a light .card instead of the dark page
-     background, the default colors above fail contrast (1.26:1) — use this
-     variant instead, which passes AA (5.46:1 / 8.87:1). */
-  .light-subnav{border-bottom-color:var(--parchment-dim);}
-  .light-subnav .subtab-btn{color:#6B5F45;}
-  .light-subnav .subtab-btn.active{color:var(--oxblood); border-bottom-color:var(--oxblood);}
-  .light-subnav .subtab-btn:hover{color:var(--ink);}
+  /* Used to be a separate dark-text variant for tab bars sitting on a light
+     .card — now that .card is dark too, it can just match the base
+     .subtab-btn colors directly instead of diverging from them. */
+  .light-subnav{border-bottom-color:var(--line);}
+  .light-subnav .subtab-btn{color:var(--parchment-dim);}
+  .light-subnav .subtab-btn.active{color:var(--gilt-bright); border-bottom-color:var(--gilt);}
+  .light-subnav .subtab-btn:hover{color:var(--chalk);}
   .admin-subpanel.active{display:block;}
   .innings-tabrow{display:flex; align-items:center; gap:6px;}
+  /* Same story as .light-subnav above — this and .tab-add-btn right below it
+     used to be recolored separately for light-card vs dark-page context;
+     both are dark now, so both just use the same treatment. */
   .innings-add-btn{
-    background:none; border:1px dashed #6B5F45; color:#6B5F45; border-radius:5px;
+    background:none; border:1px dashed var(--gilt); color:var(--gilt-bright); border-radius:6px;
     width:26px; height:26px; line-height:1; font-size:15px; font-weight:700;
     cursor:pointer; align-self:center;
   }
-  .innings-add-btn:hover{color:var(--oxblood); border-color:var(--oxblood);}
-  /* Same idea as .innings-add-btn but recolored for the dark page background
-     (the league tabs sit directly on it, not inside a light .card). */
+  .innings-add-btn:hover{color:var(--chalk); border-color:var(--chalk);}
   .tab-add-btn{
-    background:none; border:1px dashed var(--gilt); color:var(--gilt-bright); border-radius:5px;
+    background:none; border:1px dashed var(--gilt); color:var(--gilt-bright); border-radius:6px;
     width:26px; height:26px; line-height:1; font-size:15px; font-weight:700;
     cursor:pointer; align-self:center;
   }
   .tab-add-btn:hover{color:var(--chalk); border-color:var(--chalk);}
   .save-bar{display:flex; gap:10px; margin-top:18px; flex-wrap:wrap;}
 
-  .auth-error{color:#f5a3a3; font-size:12.5px; margin-top:8px; width:100%;}
+  .auth-error{color:var(--oxblood-bright); font-size:12.5px; margin-top:8px; width:100%;}
   .auth-hint{color:var(--parchment-dim); font-size:11.5px; width:100%; margin-top:6px;}
 
   /* ---------- overlay / modal system (replaces alert/confirm/prompt) ---------- */
   .overlay-backdrop{
-    position:fixed; inset:0; background:rgba(6,20,15,.72);
+    position:fixed; inset:0; background:rgba(18,20,26,.72);
     display:flex; align-items:center; justify-content:center;
     z-index:1000; padding:20px; backdrop-filter:blur(2px);
   }
   .overlay-box{
-    background:linear-gradient(180deg, var(--turf) 0%, var(--turf-dark) 100%);
-    border:2px solid var(--gilt);
-    border-radius:8px;
+    background:var(--turf-dark);
+    border:1px solid var(--line);
+    border-radius:16px;
     max-width:420px; width:100%;
     max-height:100%; overflow-y:auto;
     padding:26px 28px;
     box-shadow:0 20px 60px rgba(0,0,0,.5);
     position:relative;
     animation:overlayIn .2s ease;
+  }
+  .overlay-box::before{
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:2px;
+    border-radius:16px 16px 0 0;
+    background:linear-gradient(90deg, var(--gilt), var(--rust), var(--plum));
   }
   /* Base page is locked (see openOverlay()/closeOverlay()) so a touch-drag
      over the modal scrolls the overlay box above, not the page underneath. */
@@ -555,7 +656,7 @@
   .overlay-box input[type=email], .overlay-box input[type=password], .overlay-box input[type=text],
   .overlay-box input[type=number], .overlay-box input[type=date], .overlay-box input[type=datetime-local]{
     width:100%; background:var(--turf-deeper); border:1px solid var(--line); color:var(--chalk);
-    padding:9px 10px; border-radius:4px; font-size:14px;
+    padding:9px 10px; border-radius:10px; font-size:14px;
   }
   .overlay-box input[type=date]::-webkit-calendar-picker-indicator,
   .overlay-box input[type=datetime-local]::-webkit-calendar-picker-indicator{filter:invert(1);}
@@ -565,10 +666,15 @@
   .squad-editor{display:grid; grid-template-columns:1.6fr 1fr; gap:18px; margin-top:6px;}
   @media (max-width:820px){.squad-editor{grid-template-columns:1fr;}}
   .squad-zone{
-    background:var(--turf-dark); border:1px solid var(--line); border-radius:8px; padding:14px;
+    background:var(--turf-dark); border:1px solid var(--line); border-radius:14px; padding:14px;
     transition:outline-color .15s ease;
   }
   .squad-zone.drop-hover{outline:2px dashed var(--gilt); outline-offset:-2px;}
+  /* Floating clone that follows the pointer/finger during a drag (see the
+     drag handler wired up in renderMyXI, js/myxi.js) — pointer-events:none so
+     document.elementFromPoint sees the real card/zone underneath it rather
+     than the ghost itself. */
+  .drag-ghost{position:fixed; top:0; left:0; z-index:2000; pointer-events:none; box-shadow:0 10px 24px rgba(0,0,0,.4); border-radius:12px; opacity:.92;}
   .zone-title{
     font-family:var(--font-mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase;
     color:var(--gilt-bright); margin-bottom:10px;
@@ -577,65 +683,134 @@
 
   .squad-card{
     display:flex; align-items:center; gap:8px;
-    background:var(--parchment-panel); border:1px solid var(--parchment-dim); border-radius:6px;
+    /* slate-raised, not parchment-panel/slate — this card is nested one level
+       deeper, inside a squad-zone that's already slate, so it needs the next
+       tier up to still read as a distinct raised element rather than
+       blending into its own container. */
+    background:var(--slate-raised); border:1px solid var(--line); border-radius:12px;
     padding:8px 9px; cursor:grab;
+    /* The whole card is the drag surface (js/myxi.js, renderMyXI); a plain
+       tap (no movement) opens that player's detail overlay instead — the
+       card has no buttons of its own left to carve out from that gesture.
+       Without touch-action:none, touch browsers intercept a touchmove here
+       as a page-scroll gesture before our JS ever sees it, so a finger-drag
+       would just scroll the page instead of moving the card. */
+    touch-action:none; -webkit-user-select:none; user-select:none;
   }
   .squad-card:active{cursor:grabbing;}
   .squad-card.dragging{opacity:.35;}
-  .squad-card.move-selected{outline:2px solid var(--gilt); outline-offset:-2px;}
+  .squad-card.drop-target{outline:2px solid var(--oxblood); outline-offset:-2px;}
   .squad-card.empty{
     justify-content:center; background:transparent; border:1px dashed var(--line); color:var(--parchment-dim);
-    cursor:pointer; padding:13px;
+    cursor:pointer; padding:13px; touch-action:auto; user-select:auto;
     transition:background .15s ease, border-color .15s ease;
     font-family:var(--font-mono); font-size:11.5px; font-weight:700; letter-spacing:.04em; color:var(--gilt-bright);
   }
-  .squad-card.empty:hover{background:rgba(230,197,120,.1); border-color:var(--gilt-bright); color:var(--chalk);}
+  .squad-card.empty:hover{background:rgba(91,110,232,.1); border-color:var(--gilt-bright); color:var(--chalk);}
   .squad-card.empty:focus-visible{outline:2px solid var(--gilt-bright); outline-offset:2px;}
-  .squad-card-drag-handle{
-    background:none; border:none; color:#9a8f77; font-size:14px; flex-shrink:0; line-height:1;
-    padding:8px; margin:-2px 0; cursor:pointer;
-  }
-  .squad-card-drag-handle:hover{color:var(--oxblood);}
-  .squad-card-info{flex:1; min-width:0;}
+  /* Just name + read-only status tags now — playing role, captain/VC and
+     replace all moved into the player detail overlay (openPlayerDetailOverlay,
+     js/overlays.js), opened by tapping the card, so there's nothing left to
+     lay out beyond a single info block. Every card (XI or bench) has the
+     same content, so consistent height falls out for free rather than
+     needing a grid to force it. Name and the nat-pill share one row (rather
+     than the pill sitting on its own line below) specifically so every
+     element on the card — name, badges, role icon, pill — lines up on the
+     same vertical center instead of the pill drifting to its own baseline. */
+  .squad-card-info{flex:1; min-width:0; display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px;}
   .squad-card-name{
-    font-weight:700; font-size:13px; color:var(--ink);
+    font-weight:700; font-size:14.5px; color:var(--ink);
     display:flex; align-items:center; gap:5px; flex-wrap:wrap;
   }
   .squad-card-name .honours-star{font-size:12px;}
-  .squad-card-tags{font-family:var(--font-mono); font-size:10px; color:#6B5F45; margin-top:1px;}
-  .squad-card-controls{display:flex; gap:4px; flex-shrink:0;}
-  .squad-card-controls button{
-    width:24px; height:24px; border-radius:4px; border:1px solid var(--parchment-dim); background:var(--chalk);
-    color:var(--turf); font-family:var(--font-mono); font-size:10px; font-weight:700; cursor:pointer; padding:0;
+  .squad-card-tags{display:flex; align-items:center; margin-left:auto;}
+  /* This player's raw season points so far (seriesPlayerTotals, js/data.js)
+     — same mono/bold/gilt-bright treatment as .rank-total-points elsewhere,
+     right-aligned as its own column so it lines up down the whole XI/bench
+     list rather than trailing whatever width the name+tags happen to be. */
+  .squad-card-points{
+    font-family:var(--font-mono); font-weight:700; font-size:14px; color:var(--gilt-bright);
+    flex-shrink:0; white-space:nowrap; text-align:right; padding-left:8px;
   }
-  .squad-card-controls button:hover{filter:brightness(0.97);}
-  .squad-card-controls button.active-cap{background:var(--gilt); border-color:var(--gilt); color:var(--turf-deeper);}
-  .squad-card-controls button.active-vc{background:var(--gilt-bright); border-color:var(--gilt-bright); color:var(--turf-deeper);}
-  /* Playing-role selector — same footprint/finish as the C/V buttons beside it,
-     just a <select> since it's a 3-way choice rather than a toggle. */
-  .role-select{
-    width:auto; height:24px; border-radius:4px; border:1px solid var(--parchment-dim); background:var(--chalk);
-    color:var(--turf); font-family:var(--font-mono); font-size:9.5px; font-weight:700; cursor:pointer; padding:0 2px;
+  /* Read-only icon standing in for the assigned playing role — same glyph
+     the interactive toggle in the overlay uses (ROLE_ICON_PATH, js/state.js),
+     just not clickable here. */
+  .role-icon-badge{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:18px; height:18px; border-radius:5px; background:var(--turf-deeper); color:var(--gilt-bright);
+    flex-shrink:0;
+  }
+  .role-icon-badge svg{width:12px; height:12px; stroke:currentColor;}
+  /* Player detail overlay's button rows (openPlayerDetailOverlay, js/overlays.js)
+     — playing role (Bat/Wicket/Bowl icons, ROLE_ICON_PATH in js/state.js) and
+     the actions row (captain/VC/replace/remove) share one evenly-spaced,
+     identically-sized button style rather than mismatched text/icon buttons,
+     so the two rows read as one consistent block instead of two different
+     UI languages stacked on top of each other. */
+  .pd-btn-row{display:flex; gap:6px; flex-wrap:wrap;}
+  .pd-btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:38px; height:38px; border-radius:8px; border:1px solid var(--line);
+    background:var(--turf-deeper); color:var(--chalk); cursor:pointer; padding:0;
+    /* Sized/weighted for the C / VC text labels specifically (the widest
+       content any of these buttons hold) — small enough that "VC" doesn't
+       crowd the button, bold+mono to match every other compact label
+       elsewhere in the app (role-pill, squad-card-controls, etc). */
+    font-family:var(--font-mono); font-size:12.5px; font-weight:700; letter-spacing:.02em;
+  }
+  .pd-btn:hover{border-color:var(--gilt-bright);}
+  .pd-btn svg{width:16px; height:16px; stroke:currentColor;}
+  .pd-btn.active{background:var(--gilt); border-color:var(--gilt); color:var(--chalk);}
+  /* Captain/vice-captain reuse the style guide's rust/plum accents (same
+     reasoning as .honours-star/.nat-pill) rather than the general indigo
+     .active above — a different kind of "selected" from picking a role. */
+  .pd-btn.cap-active{background:var(--rust); border-color:var(--rust); color:var(--chalk);}
+  .pd-btn.vc-active{background:var(--plum); border-color:var(--plum); color:var(--chalk);}
+  .pd-btn.danger{color:var(--oxblood); border-color:var(--oxblood);}
+  .pd-btn.danger:hover{background:rgba(209,126,110,.12); color:var(--oxblood-bright); border-color:var(--oxblood-bright);}
+  /* Team/nation tag — same solid fill + white text as the overlay's selected
+     role button (.pd-btn.active above), rather than the general-purpose
+     .role-pill used for dates/base-roles/series-vs-series elsewhere, so
+     "which team" reads as its own distinct, consistent tag everywhere a
+     player's nation shows: squad cards, the player picker, and the
+     leaderboard's per-player rows. */
+  .nat-pill{
+    display:inline-flex; align-items:center;
+    font-family:var(--font-mono); font-size:10px; letter-spacing:.06em;
+    background:var(--gilt); color:var(--chalk);
+    padding:3px 9px; border-radius:20px; white-space:nowrap;
   }
 
-  .action-bar-main{
-    display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-top:18px;
-    background:var(--turf-dark); border:1px solid var(--line); border-radius:8px; padding:14px 16px;
-  }
-  .action-bar-main .status-chip{background:var(--turf-deeper);}
-  .action-bar-buttons{display:flex; gap:10px; flex-wrap:wrap; margin-left:auto;}
-  .action-bar-secondary{margin-top:8px; text-align:right;}
   .wildcard-row{margin-bottom:14px;}
   .link-btn{
     background:none; border:none; color:var(--parchment-dim); font-size:12px; text-decoration:underline;
     cursor:pointer; padding:4px;
   }
   .link-btn:hover{color:var(--chalk);}
-  /* .link-btn defaults to light-on-dark (parchment/chalk), which fails
-     contrast on a light .card — same issue .muted-on-light exists to fix
-     for plain text. Use this variant for link-btns on light backgrounds. */
-  .link-btn.on-light{color:#6B5F45;}
-  .link-btn.on-light:hover{color:var(--ink);}
+  /* Used to be a separate dark-text variant for light .card backgrounds —
+     now that .card is dark too, it can just match the base .link-btn colors. */
+  .link-btn.on-light{color:var(--parchment-dim);}
+  .link-btn.on-light:hover{color:var(--chalk);}
+
+  /* Small icon-only action buttons for repeated per-row actions (edit/save/
+     cancel/delete on player and fixture rows) — the style guide favors icons
+     over text labels wherever the action is recognisable (see its Icon
+     System section), and a row of "Edit"/"Remove" text on every single item
+     in a list is exactly the kind of repetition that's worth cutting. Square
+     rather than circular (like .help-icon/.warn-icon) since these usually
+     sit multiple-in-a-row rather than solo next to a heading. */
+  .row-icon-btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:30px; height:30px; border-radius:8px; flex-shrink:0;
+    background:none; border:1px solid var(--parchment-dim); color:var(--parchment-dim);
+    font-size:14px; line-height:1; cursor:pointer; padding:0;
+  }
+  .row-icon-btn:hover{background:rgba(91,110,232,.1); color:var(--chalk); border-color:var(--gilt-bright);}
+  .row-icon-btn:disabled{opacity:.4; cursor:not-allowed;}
+  .row-icon-btn.primary{color:var(--gilt-bright); border-color:var(--gilt-bright);}
+  .row-icon-btn.primary:hover{background:rgba(91,110,232,.18);}
+  .row-icon-btn.danger{color:var(--oxblood); border-color:var(--oxblood);}
+  .row-icon-btn.danger:hover{background:rgba(209,126,110,.12); color:var(--oxblood-bright); border-color:var(--oxblood-bright);}
 
   .picker-list{max-height:420px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin:14px 0;}
   .picker-group-title{
@@ -645,7 +820,7 @@
   .picker-group-title:first-child{margin-top:0;}
   .picker-row{
     display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
-    background:var(--turf-deeper); border:1px solid var(--line); border-radius:6px;
+    background:var(--turf-deeper); border:1px solid var(--line); border-radius:10px;
     padding:10px 12px; color:var(--chalk); font-size:13.5px; cursor:pointer; text-align:left; width:100%;
     font-family:var(--font-body);
   }
@@ -664,35 +839,23 @@
 <header class="topbar" id="topbar">
   <div class="topbar-main">
     <h1 class="topbar-brand">The Fantasy Ashes</h1>
-    <div class="topbar-icons">
-      <button class="icon-btn-circle" id="profileBtn" aria-label="Account" title="Account">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12.2c2.7 0 4.9-2.2 4.9-4.9S14.7 2.4 12 2.4 7.1 4.6 7.1 7.3s2.2 4.9 4.9 4.9zm0 2.5c-3.3 0-9.8 1.6-9.8 4.9v2.2h19.6v-2.2c0-3.3-6.5-4.9-9.8-4.9z"/></svg>
-      </button>
-      <button class="hamburger-btn" id="hamburgerBtn" aria-label="Open menu" aria-expanded="false">
-        <span></span><span></span><span></span>
-      </button>
-    </div>
   </div>
   <div class="config-error-banner" id="authRow"></div>
   <div class="countdown-strip" id="countdownStrip"></div>
 </header>
 
-<div class="tabnav-backdrop" id="tabnavBackdrop"></div>
-<nav class="tabnav" id="tabnav">
-  <button class="drawer-close-btn" id="drawerCloseBtn" aria-label="Close menu">&times;</button>
-  <button class="tab-btn active" data-tab="rules">Rules</button>
-  <button class="tab-btn" data-tab="myxi">My XI</button>
-  <button class="tab-btn" data-tab="leaderboard">My Leagues</button>
-  <button class="tab-btn" data-tab="admin">Admin</button>
-</nav>
-
 <div class="app">
 
 
+  <!-- HOME -->
+  <section class="tab-panel active" id="tab-home">
+    <div id="homeContent"></div>
+  </section>
+
   <!-- RULES -->
-  <section class="tab-panel active" id="tab-rules">
+  <section class="tab-panel" id="tab-rules">
     <h2 class="panel-title">How it works</h2>
-    <p class="panel-sub">One squad per series, tied to your account — pick a team in My XI, no league required. Leagues (create or join under My Leagues) are an optional way to compare your team against friends; join several on the same series and it's the same squad on every one of their leaderboards. Your job is to manage it well as team news and form change.</p>
+    <p class="panel-sub">One squad per series, tied to your account — pick a team in Squad, no league required. Leagues (create or join under My Leagues) are an optional way to compare your team against friends; join several on the same series and it's the same squad on every one of their leaderboards. Your job is to manage it well as team news and form change.</p>
 
     <div class="rules-grid">
       <div class="card">
@@ -702,16 +865,16 @@
           <li>At least <strong>5 players from each team</strong> — no lopsided raids on either pool.</li>
           <li>At least <strong>one wicketkeeper</strong> in your squad, and your starting XI must always include one.</li>
           <li>No budget cap — pick on judgement, not salary.</li>
-          <li>From your 14, name a <strong>starting XI</strong> — the other 3 sit on the bench. Free to change anytime in My XI.</li>
-          <li>Each player in your XI is also assigned a <strong>playing role</strong> — Batter, Bowler or Wicketkeeper — independent of their real-life role (so a keeper can be assigned as a Batter, an all-rounder as a Bowler, and so on). It doubles that discipline's bonus points: 50s/100s for a Batter, 4-/5-wicket hauls for a Bowler, catches/stumpings/run-outs for a Wicketkeeper. Set from the dropdown on each XI card in My XI, defaulting to their own base role (all-rounders default to Batter).</li>
+          <li>From your 14, name a <strong>starting XI</strong> — the other 3 sit on the bench. Free to change anytime in Squad.</li>
+          <li>Each player in your XI is also assigned a <strong>playing role</strong> — Batter, Bowler or Wicketkeeper — independent of their real-life role (so a keeper can be assigned as a Batter, an all-rounder as a Bowler, and so on). It doubles that discipline's bonus points: 50s/100s for a Batter, 4-/5-wicket hauls for a Bowler, catches/stumpings/run-outs for a Wicketkeeper. Set it from a player's card in Squad, defaulting to their own base role (all-rounders default to Batter).</li>
           <li>Choose a <strong>Captain (2&times; points)</strong> and <strong>Vice-Captain</strong> from your XI. The Vice-Captain carries no bonus of their own — it only kicks in (2&times;) if your Captain doesn't play that Test.</li>
         </ol>
       </div>
       <div class="card">
         <h3 style="font-family:var(--font-display); margin-top:0;">Between Tests</h3>
         <ol class="rules-list">
-          <li>Your <strong>starting XI</strong> (11 of your 14) can be changed freely in <strong>My XI</strong> at any time — it never counts as a transfer.</li>
-          <li><strong>Transfers</strong> — swapping a player out of your 14 for anyone else in the pool — are limited to <strong>2 per Test</strong>, measured against your last locked squad. There's <strong>no limit at all before your first Test locks</strong> — chop and change your initial squad as much as you like right up to that first deadline. Committing just declares your intended squad; it's never blocked by the transfer count, but going over 2 (once the limit applies) without your wildcard is against the rules, so keep an eye on the count shown in My XI before each deadline.</li>
+          <li>Your <strong>starting XI</strong> (11 of your 14) can be changed freely in <strong>Squad</strong> at any time — it never counts as a transfer.</li>
+          <li><strong>Transfers</strong> — swapping a player out of your 14 for anyone else in the pool — are limited to <strong>2 per Test</strong>, measured against your last locked squad. There's <strong>no limit at all before your first Test locks</strong> — chop and change your initial squad as much as you like right up to that first deadline. Committing just declares your intended squad; it's never blocked by the transfer count, but going over 2 (once the limit applies) without your wildcard is against the rules, so keep an eye on the count shown in Squad before each deadline.</li>
           <li>Once per series, arm your <strong>Wildcard</strong> to lift that 2-transfer limit. It's only actually spent if you commit while it's armed and your squad is still locked in that way when the deadline passes — arming and backing out costs nothing.</li>
           <li>Selection <strong>locks at 10:00am</strong> local time on the morning of Day 1 of each Test — see the countdown at the top of the page. Whatever you last committed becomes your new baseline for the next round of transfers.</li>
           <li>Captain / Vice-Captain can be reassigned anytime among your current XI, free of charge.</li>
@@ -724,22 +887,22 @@
       <div class="rules-grid">
         <table class="scoring-table">
           <tr><th colspan="2">Batting</th></tr>
-          <tr><td>Per run</td><td>+1</td></tr>
-          <tr><td>50 scored (2&times; if playing as Batter)</td><td>+8</td></tr>
-          <tr><td>100 scored (replaces 50 bonus; 2&times; if playing as Batter)</td><td>+16</td></tr>
-          <tr><td>Dismissed for a duck</td><td>&minus;2</td></tr>
+          <tr><td>Per run</td><td class="val pos">+1</td></tr>
+          <tr><td>50 scored (2&times; if playing as Batter)</td><td class="val pos">+8</td></tr>
+          <tr><td>100 scored (replaces 50 bonus; 2&times; if playing as Batter)</td><td class="val pos">+16</td></tr>
+          <tr><td>Dismissed for a duck</td><td class="val neg">&minus;2</td></tr>
         </table>
         <table class="scoring-table">
           <tr><th colspan="2">Bowling &amp; fielding</th></tr>
-          <tr><td>Per wicket</td><td>+20</td></tr>
-          <tr><td>4-wicket haul (2&times; if playing as Bowler)</td><td>+8</td></tr>
-          <tr><td>5-wicket haul (replaces 4-fer bonus; 2&times; if playing as Bowler)</td><td>+16</td></tr>
-          <tr><td>Per catch (2&times; if playing as Wicketkeeper)</td><td>+8</td></tr>
-          <tr><td>Per stumping (2&times; if playing as Wicketkeeper)</td><td>+12</td></tr>
-          <tr><td>Per run-out (2&times; if playing as Wicketkeeper)</td><td>+8</td></tr>
+          <tr><td>Per wicket</td><td class="val pos">+20</td></tr>
+          <tr><td>4-wicket haul (2&times; if playing as Bowler)</td><td class="val pos">+8</td></tr>
+          <tr><td>5-wicket haul (replaces 4-fer bonus; 2&times; if playing as Bowler)</td><td class="val pos">+16</td></tr>
+          <tr><td>Per catch (2&times; if playing as Wicketkeeper)</td><td class="val pos">+8</td></tr>
+          <tr><td>Per stumping (2&times; if playing as Wicketkeeper)</td><td class="val pos">+12</td></tr>
+          <tr><td>Per run-out (2&times; if playing as Wicketkeeper)</td><td class="val pos">+8</td></tr>
         </table>
       </div>
-      <p class="muted-on-light" style="font-size:12.5px; margin-top:10px;">Each XI player's assigned <strong>playing role</strong> (Batter/Bowler/Wicketkeeper, set in My XI) doubles that discipline's bonus points as marked above — independent of their real-life role. Separately, <strong>Captain</strong> multiplies their total match points by 2&times;. <strong>Vice-Captain</strong> gets no bonus unless the Captain doesn't play that Test — then the armband passes to them for 2&times; instead.</p>
+      <p class="muted-on-light" style="font-size:12.5px; margin-top:10px;">Each XI player's assigned <strong>playing role</strong> (Batter/Bowler/Wicketkeeper, set in Squad) doubles that discipline's bonus points as marked above — independent of their real-life role. Separately, <strong>Captain</strong> multiplies their total match points by 2&times;. <strong>Vice-Captain</strong> gets no bonus unless the Captain doesn't play that Test — then the armband passes to them for 2&times; instead.</p>
     </div>
   </section>
 
@@ -768,6 +931,41 @@
 
 <footer class="app-footer">Fan-made, not affiliated with ECB, Cricket Australia or the ICC &middot; data lives in your own Supabase project</footer>
 
+<!-- Bottom nav (style guide's navbar-demo pattern) — the app's primary,
+     persistent navigation, replacing the old hamburger + off-canvas drawer.
+     Profile isn't a .tab-btn (there's no tab-profile panel — it opens the
+     account overlay directly) and is wired separately in js/init.js because
+     of that. Admin is a real .tab-btn like
+     the rest, but only for admins — shown/hidden by updateAdminTabVisibility()
+     in js/auth.js, same as it always was before it briefly lived inside the
+     account overlay instead. -->
+<nav class="bottom-nav" id="bottomNav">
+  <button class="tab-btn nav-item active" data-tab="home" aria-label="Home">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
+    <span>Home</span>
+  </button>
+  <button class="tab-btn nav-item" data-tab="myxi" aria-label="Squad">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19 15 9"/><rect x="14" y="4" width="6" height="6" rx="1" transform="rotate(45 17 7)"/></svg>
+    <span>Squad</span>
+  </button>
+  <button class="tab-btn nav-item" data-tab="leaderboard" aria-label="My Leagues">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15c-3 0-5-2-5-5V4h10v6c0 3-2 5-5 5z"/><path d="M12 15v3M9 21h6M5 5H3v2a3 3 0 0 0 3 3M19 5h2v2a3 3 0 0 1-3 3"/></svg>
+    <span>Leagues</span>
+  </button>
+  <button class="tab-btn nav-item" data-tab="rules" aria-label="Rules">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/></svg>
+    <span>Rules</span>
+  </button>
+  <button class="tab-btn nav-item" data-tab="admin" id="adminNavBtn" aria-label="Admin" style="display:none;">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6l7-3z"/></svg>
+    <span>Admin</span>
+  </button>
+  <button class="nav-item" id="profileNavBtn" aria-label="Profile">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+    <span>Profile</span>
+  </button>
+</nav>
+
 <!-- App JS — split by feature/domain instead of one giant inline script (see js/init.js's
      header for why load order matters: init.js must stay last). -->
 <script src="js/config.js"></script>
@@ -781,6 +979,7 @@
 <script src="js/myxi.js"></script>
 <script src="js/admin-match.js"></script>
 <script src="js/leagues.js"></script>
+<script src="js/home.js"></script>
 <script src="js/init.js"></script>
 </body>
 </html>

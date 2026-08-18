@@ -90,7 +90,7 @@ function showLoginOverlay(dismissible=true){
   const backdrop = openOverlay(`
     <span class="overlay-lock-icon">&#127978;</span>
     <div class="overlay-title">Sign in to The Ashes Fantasy XI</div>
-    <div class="overlay-message">Pick a team for any series, no league required — one squad per series, per account. Leagues (create or join under My Leagues) are an optional way to compare against friends. You can browse Rules without an account; My XI and My Leagues need a login. Signing up needs your first and last name too, so other players can see who manages which team on the leaderboard.</div>
+    <div class="overlay-message">Pick a team for any series, no league required — one squad per series, per account. Leagues (create or join under My Leagues) are an optional way to compare against friends. You can browse Rules without an account; Squad and My Leagues need a login. Signing up needs your first and last name too, so other players can see who manages which team on the leaderboard.</div>
     <div class="field-group"><label for="ovFirstName">First name</label><input type="text" id="ovFirstName" placeholder="Jane"></div>
     <div class="field-group"><label for="ovLastName">Last name</label><input type="text" id="ovLastName" placeholder="Doe"></div>
     <div class="field-group"><label for="ovEmail">Email</label><input type="email" id="ovEmail" placeholder="you@example.com"></div>
@@ -188,7 +188,7 @@ function openPlayerPicker(excludeIds, onPick, countBasisIds){
           const pts = totalsFor(p.id);
           return `
           <button type="button" class="picker-row" data-pid="${p.id}" ${selectable?'':`disabled title="Would leave ${teamNameForCode(poolNats.find(n=>n!==p.nat))} short of the 5-player minimum"`}>
-            <span>${p.name} <span class="role-pill">${p.nat}</span></span>
+            <span>${p.name} <span class="nat-pill">${p.nat}</span></span>
             <span class="picker-points">
               <span title="Batting points this series">Bat ${pts.bat}</span>
               <span title="Bowling points this series">Bowl ${pts.bowl}</span>
@@ -203,5 +203,107 @@ function openPlayerPicker(excludeIds, onPick, countBasisIds){
     if(btn.disabled) return;
     btn.addEventListener('click', ()=>{ closeOverlay(); onPick(btn.dataset.pid); });
   });
+}
+
+/* Player detail lightbox — reached by tapping a squad card in My XI (a plain
+   tap; dragging still repositions/swaps zones — see the pointer handler in
+   js/myxi.js). This is where playing role, captain/VC and replace all live
+   now instead of as separate buttons crammed onto the card, plus this
+   player's series-to-date stats (seriesPlayerTotals, js/data.js) — the card
+   itself just shows read-only status icons for whatever's chosen here. */
+function openPlayerDetailOverlay(pid, zone){
+  // dismissible:false drops the usual corner × — Cancel/Confirm at the
+  // bottom of the overlay body are the explicit way out now, so a second,
+  // redundant close control up top isn't needed. Clicking the backdrop
+  // outside the box still closes it either way.
+  const backdrop = openOverlay(`
+    <div class="overlay-title" id="pdTitle"></div>
+    <div id="pdBody"></div>
+  `, {dismissible: false});
+  backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
+  renderPlayerDetailBody(pid, zone);
+}
+/* Separate from openPlayerDetailOverlay so role/captain/VC toggles below can
+   redraw just this overlay's own content after each change (renderMyXI()
+   keeps the actual My XI screen behind it in sync at the same time) instead
+   of closing and reopening the whole overlay, which would replay its open
+   animation on every tap. */
+function renderPlayerDetailBody(pid, zone){
+  const titleEl = document.getElementById('pdTitle');
+  if(!titleEl) return; // overlay's already been closed (e.g. by the Replace button below)
+  const p = getPlayer(pid);
+  const totals = seriesPlayerTotals[pid] || {runs:0, wickets:0, catches:0, stumpings:0, runouts:0, total:0};
+  const assignedRole = assignedPlayingRole(pid);
+  const isCap = pid===draft.captain, isVc = pid===draft.viceCaptain;
+  titleEl.textContent = p.name;
+  document.getElementById('pdBody').innerHTML = `
+    <div class="overlay-message" style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
+      <span class="nat-pill">${p.nat}</span>
+      <span style="color:var(--parchment-dim); font-size:12px;">Base role: ${ROLE_LABEL[p.role]}</span>
+    </div>
+    <table class="breakdown-table" style="margin-bottom:20px;">
+      <tr><th>Runs</th><th>Wkts</th><th>Ct</th><th>St</th><th>RO</th><th>Pts</th></tr>
+      <tr>
+        <td>${totals.runs}</td><td>${totals.wickets}</td><td>${totals.catches}</td>
+        <td>${totals.stumpings}</td><td>${totals.runouts}</td><td class="pts">${totals.total}</td>
+      </tr>
+    </table>
+    <div class="field-group">
+      <label>Playing role</label>
+      <div class="pd-btn-row" style="margin-top:6px;">
+        ${ROLE_GROUP_ORDER.filter(r=>r!=='AR').map(r=>`
+          <button type="button" class="pd-btn${assignedRole===r?' active':''}" data-role="${r}" title="Playing role: ${ROLE_LABEL[r]}" aria-label="Playing role: ${ROLE_LABEL[r]}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ROLE_ICON_PATH[r]}</svg>
+          </button>
+        `).join('')}
+        ${zone==='xi' ? `
+          <div class="pd-btn-row" style="margin-left:auto;">
+            <button type="button" class="pd-btn${isCap?' cap-active':''}" id="pdCapBtn" title="${isCap?'Remove as captain':'Make captain'}" aria-label="${isCap?'Remove as captain':'Make captain'}">C</button>
+            <button type="button" class="pd-btn${isVc?' vc-active':''}" id="pdVcBtn" title="${isVc?'Remove as vice-captain':'Make vice-captain'}" aria-label="${isVc?'Remove as vice-captain':'Make vice-captain'}">VC</button>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+    <button type="button" class="btn danger" id="pdReplaceBtn" style="width:100%; margin-top:18px;">Replace</button>
+    <div class="overlay-actions" style="margin-top:14px;">
+      <button type="button" class="btn secondary" id="pdCancelBtn" style="flex:1;">Cancel</button>
+      <button type="button" class="btn" id="pdConfirmBtn" style="flex:1;">Confirm</button>
+    </div>
+  `;
+  document.querySelectorAll('#pdBody .pd-btn[data-role]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      draft.playingRoles[pid] = btn.dataset.role;
+      renderMyXI();
+      renderPlayerDetailBody(pid, zone);
+    });
+  });
+  const capBtn = document.getElementById('pdCapBtn');
+  if(capBtn) capBtn.addEventListener('click', ()=>{
+    draft.captain = isCap ? null : pid;
+    if(draft.viceCaptain===draft.captain) draft.viceCaptain = null;
+    renderMyXI();
+    renderPlayerDetailBody(pid, zone);
+  });
+  const vcBtn = document.getElementById('pdVcBtn');
+  if(vcBtn) vcBtn.addEventListener('click', ()=>{
+    draft.viceCaptain = isVc ? null : pid;
+    if(draft.captain===draft.viceCaptain) draft.captain = null;
+    renderMyXI();
+    renderPlayerDetailBody(pid, zone);
+  });
+  const replaceBtn = document.getElementById('pdReplaceBtn');
+  if(replaceBtn) replaceBtn.addEventListener('click', ()=>{
+    closeOverlay();
+    replaceSquadPlayer(pid);
+  });
+  // Role/captain/VC above all apply the moment you tap them (same as every
+  // other toggle in this app) rather than staging changes for these two to
+  // commit or discard — so Cancel and Confirm both just close the overlay.
+  // They're here anyway as an explicit, unambiguous "I'm done with this
+  // player" action, rather than only the corner × / tapping outside.
+  const cancelBtn = document.getElementById('pdCancelBtn');
+  if(cancelBtn) cancelBtn.addEventListener('click', closeOverlay);
+  const confirmBtn = document.getElementById('pdConfirmBtn');
+  if(confirmBtn) confirmBtn.addEventListener('click', closeOverlay);
 }
 

@@ -107,201 +107,201 @@ function openLeagueAddOverlay(){
     const hasTeam = mySquads.some(s=>s.seriesId===league.series_id);
     showAlert(hasTeam
       ? `Joined ${league.name}.`
-      : `Joined ${league.name} — you don't have a team on this series yet. Pick one in My XI to appear on the leaderboard.`, 'Joined');
+      : `Joined ${league.name} — you don't have a team on this series yet. Pick one in Squad to appear on the leaderboard.`, 'Joined');
   });
 }
 
 
 /* ================= LEADERBOARD ================= */
+/* Fetches everything first and writes c.innerHTML exactly once at the end —
+   see the equivalent comment on renderSeriesSetup() in admin-series.js for
+   why: the old version wrote a "Loading leaderboard…" placeholder into the
+   DOM immediately and only replaced it with the real (often much taller)
+   standings after several awaits, which collapsed the page out from under
+   anyone scrolled down mid-list and left mobile scroll position clamped at
+   the top once it re-expanded. Switching league tabs, or any action here
+   that reloads the board, went through that same gap. */
 async function renderLeaderboard(){
   const c = document.getElementById('leaderboardContent');
   if(!supabaseClient){ c.innerHTML = `<div class="empty-state">Configure Supabase first.</div>`; return; }
   if(!session){ c.innerHTML = `<div class="empty-state"><div class="big">Log in to see My Leagues</div></div>`; return; }
 
-  // Everything below only ever touches #leaderboardBody, not the whole panel —
-  // wireLeagueTabs() below attaches listeners to the tab strip once, and
-  // reassigning c.innerHTML afterward (e.g. via +=) would silently detach them.
+  const league = myLeagues.find(l=>l.id===currentLeagueId);
+  let bodyHtml;
+  let postWire = ()=>{};
+
+  if(!league){
+    bodyHtml = myLeagues.length===0
+      ? `<div class="empty-state"><div class="big">No leagues yet</div>Tap the + above to create one or join with a code.</div>`
+      : `<div class="empty-state">Pick a league above to see its standings.</div>`;
+  } else {
+    const canManage = isAdmin || league.createdBy === session.user.id;
+    const seriesName = (seriesList.find(s=>s.id===league.seriesId)||{}).name || 'series';
+    const cardHeadHtml = `
+      <div class="flex-between" style="margin-bottom:10px;">
+        <h3 style="margin:0; font-family:var(--font-display);">${league.name}</h3>
+        <span class="role-pill">${seriesName}</span>
+      </div>`;
+    const actionBarHtml = `
+      <div class="save-bar" style="margin-top:16px; justify-content:flex-end;">
+        <button class="btn secondary small" id="copyLeagueLinkBtn">Copy invite link</button>
+        ${canManage ? `<button class="btn secondary small" id="regenLeagueCodeBtn">New code</button><button class="btn small danger" id="deleteLeagueBtn">Delete league</button>` : ''}
+      </div>`;
+    const wireActionBar = ()=>{
+      document.getElementById('copyLeagueLinkBtn').addEventListener('click', async ()=>{
+        const link = `${location.origin}${location.pathname}?join=${encodeURIComponent(league.joinCode||'')}`;
+        try{
+          await navigator.clipboard.writeText(link);
+          showAlert(`Copied an invite link — anyone who opens it (and logs in or signs up) is prompted to join with code "${league.joinCode}".`, 'Copied');
+        }catch(e){
+          showAlert(`Invite link: ${link}`, 'Invite link');
+        }
+      });
+      const regenBtn = document.getElementById('regenLeagueCodeBtn');
+      if(regenBtn) regenBtn.addEventListener('click', async ()=>{
+        const {error} = await supabaseClient.from('leagues').update({join_code: genJoinCode()}).eq('id', league.id);
+        if(error){ showAlert(error.message); return; }
+        await loadMyLeagues();
+        renderLeaderboard();
+      });
+      const delBtn = document.getElementById('deleteLeagueBtn');
+      if(delBtn) delBtn.addEventListener('click', async ()=>{
+        if(!(await showConfirm("Delete this league? Members' teams aren't affected — they're tied to the series, not this league — but this removes their membership and this league's leaderboard. This cannot be undone.", 'Delete league'))) return;
+        if(!(await showPasswordConfirm('Enter your account password to finish deleting this league.', 'Confirm deletion'))) return;
+        const {error} = await supabaseClient.from('leagues').delete().eq('id', league.id);
+        if(error){ showAlert(error.message); return; }
+        currentLeagueId = null;
+        await loadMyLeagues();
+        renderLeaderboard();
+      });
+    };
+
+    // Fetched locally rather than reading the global PLAYERS/fixtures — those
+    // are scoped to whatever series My XI currently has open, which can be a
+    // completely different series from this league's.
+    const leagueFixtures = await fetchFixtures(league.seriesId);
+    const leaguePlayers = await fetchPlayers(league.seriesId);
+    const leaguePlayerMap = Object.fromEntries(leaguePlayers.map(p=>[p.id,p]));
+    const leaguePlayerName = id => (leaguePlayerMap[id] && leaguePlayerMap[id].name) || '(removed player)';
+
+    const matchDataByTest = {};
+    for(const f of leagueFixtures){
+      matchDataByTest[f.test] = await getMatchDataForTest(league.seriesId, f.test);
+    }
+
+    // Squads no longer belong to a single league (the same squad can back
+    // multiple leagues on one series), so the leaderboard has to fetch this
+    // league's actual membership first, then only the matching squads.
+    const {data: memberRows, error: memberErr} = await supabaseClient.from('league_members').select('user_id').eq('league_id', league.id);
+    const memberIds = memberErr ? [] : (memberRows||[]).map(m=>m.user_id);
+
+    let squadRows = [];
+    let loadErr = memberErr || null;
+    if(!loadErr && memberIds.length>0){
+      const {data, error} = await supabaseClient.from('squads').select('*').eq('series_id', league.seriesId).in('user_id', memberIds);
+      if(error) loadErr = error; else squadRows = data || [];
+    }
+
+    if(loadErr){
+      bodyHtml = `<div class="empty-state">Could not load leaderboard: ${loadErr.message}</div>`;
+    } else if(squadRows.length===0){
+      bodyHtml = `<div class="card">${cardHeadHtml}<div class="empty-state"><div class="big">No teams yet</div>Build a squad to appear on the board.</div>${actionBarHtml}</div>`;
+      postWire = wireActionBar;
+    } else {
+      const rows = buildStandingRows(squadRows, matchDataByTest);
+      bodyHtml = `
+        <div class="card">
+          ${cardHeadHtml}
+          ${rows.map((r,i)=>`
+            <div class="player-row standing-row${i===0?' leader':''}" data-idx="${i}">
+              <div class="player-name-wrap">
+                <span class="standing-rank">${i+1}</span>
+                <span class="player-name">${r.name}</span>
+                ${r.managerName ? `<span class="muted-on-light" style="width:100%; font-size:11px; padding-left:26px;">${r.managerName}</span>` : ''}
+              </div>
+              <span class="standing-points">${r.total} pts</span>
+            </div>
+          `).join('')}
+          ${actionBarHtml}
+        </div>
+      `;
+      // Tapping a team now opens its player-by-player breakdown in a lightbox
+      // (see openTeamBreakdownOverlay) instead of expanding an inline Test-by-
+      // test row — the Test-by-test detail isn't gone, it's just inside that
+      // same lightbox now, below the player breakdown.
+      postWire = ()=>{
+        document.querySelectorAll('#leaderboardBody .standing-row').forEach((row,i)=>{
+          row.addEventListener('click', ()=> openTeamBreakdownOverlay(rows[i], leaguePlayerMap, leaguePlayerName));
+        });
+        wireActionBar();
+      };
+    }
+  }
+
   c.innerHTML = `
     <h2 class="panel-title">My Leagues <button type="button" class="help-icon" id="myLeaguesHelpBtn" title="What's this?" aria-label="Help">?</button></h2>
     ${leagueTabsHtml()}
-    <div id="leaderboardBody"><div class="empty-state">Loading leaderboard&hellip;</div></div>
+    <div id="leaderboardBody">${bodyHtml}</div>
   `;
   document.getElementById('myLeaguesHelpBtn').addEventListener('click', ()=> showAlert("Standings for whichever league you're viewing — tap a tab to switch, or add one with the +.", 'My Leagues'));
   wireLeagueTabs(c);
-  const body = document.getElementById('leaderboardBody');
+  postWire();
+}
 
-  const league = myLeagues.find(l=>l.id===currentLeagueId);
-  if(!league){
-    body.innerHTML = myLeagues.length===0
-      ? `<div class="empty-state"><div class="big">No leagues yet</div>Tap the + above to create one or join with a code.</div>`
-      : `<div class="empty-state">Pick a league above to see its standings.</div>`;
-    return;
-  }
-
-  const canManage = isAdmin || league.createdBy === session.user.id;
-  const seriesName = (seriesList.find(s=>s.id===league.seriesId)||{}).name || 'series';
-  const cardHeadHtml = `
-    <div class="flex-between" style="margin-bottom:10px;">
-      <h3 style="margin:0; font-family:var(--font-display);">${league.name}</h3>
-      <span class="role-pill">${seriesName}</span>
-    </div>`;
-  const actionBarHtml = `
-    <div class="save-bar" style="margin-top:16px; justify-content:flex-end;">
-      <button class="btn secondary small" id="viewRankingsBtn">Player rankings</button>
-      <button class="btn secondary small" id="teamOfTestBtn">Team of the Test</button>
-      <button class="btn secondary small" id="copyLeagueLinkBtn">Copy invite link</button>
-      ${canManage ? `<button class="btn secondary small" id="regenLeagueCodeBtn">New code</button><button class="btn small danger" id="deleteLeagueBtn">Delete league</button>` : ''}
-    </div>`;
-  const wireActionBar = ()=>{
-    // leaguePlayers/leagueFixtures/matchDataByTest are already loaded below
-    // (for the standings themselves) by the time this is wired, so both
-    // reuse them rather than re-fetching everything again just to open an
-    // overlay.
-    document.getElementById('viewRankingsBtn').addEventListener('click', ()=>{
-      openPlayerRankingsOverlay(leaguePlayers, leagueSeriesPlayerTotals);
-    });
-    document.getElementById('teamOfTestBtn').addEventListener('click', ()=>{
-      openTeamOfTestOverlay(leaguePlayers, leagueFixtures, matchDataByTest);
-    });
-    document.getElementById('copyLeagueLinkBtn').addEventListener('click', async ()=>{
-      const link = `${location.origin}${location.pathname}?join=${encodeURIComponent(league.joinCode||'')}`;
-      try{
-        await navigator.clipboard.writeText(link);
-        showAlert(`Copied an invite link — anyone who opens it (and logs in or signs up) is prompted to join with code "${league.joinCode}".`, 'Copied');
-      }catch(e){
-        showAlert(`Invite link: ${link}`, 'Invite link');
-      }
-    });
-    const regenBtn = document.getElementById('regenLeagueCodeBtn');
-    if(regenBtn) regenBtn.addEventListener('click', async ()=>{
-      const {error} = await supabaseClient.from('leagues').update({join_code: genJoinCode()}).eq('id', league.id);
-      if(error){ showAlert(error.message); return; }
-      await loadMyLeagues();
-      renderLeaderboard();
-    });
-    const delBtn = document.getElementById('deleteLeagueBtn');
-    if(delBtn) delBtn.addEventListener('click', async ()=>{
-      if(!(await showConfirm("Delete this league? Members' teams aren't affected — they're tied to the series, not this league — but this removes their membership and this league's leaderboard. This cannot be undone.", 'Delete league'))) return;
-      if(!(await showPasswordConfirm('Enter your account password to finish deleting this league.', 'Confirm deletion'))) return;
-      const {error} = await supabaseClient.from('leagues').delete().eq('id', league.id);
-      if(error){ showAlert(error.message); return; }
-      currentLeagueId = null;
-      await loadMyLeagues();
-      renderLeaderboard();
-    });
-  };
-
-  // Fetched locally rather than reading the global PLAYERS/fixtures — those
-  // are scoped to whatever series My XI currently has open, which can be a
-  // completely different series from this league's. Fetched up front (not
-  // just when there are teams to show) since Player rankings needs it
-  // regardless of whether anyone's built a squad yet.
-  const leagueFixtures = await fetchFixtures(league.seriesId);
-  const leaguePlayers = await fetchPlayers(league.seriesId);
-  const leaguePlayerMap = Object.fromEntries(leaguePlayers.map(p=>[p.id,p]));
-  const leaguePlayerName = id => (leaguePlayerMap[id] && leaguePlayerMap[id].name) || '(removed player)';
-
-  const matchDataByTest = {};
-  for(const f of leagueFixtures){
-    matchDataByTest[f.test] = await getMatchDataForTest(league.seriesId, f.test);
-  }
-  // Raw (undoubled, no captain/VC/role multiplier) points per player across
-  // the whole series so far — same idea as My XI's seriesPlayerTotals, just
-  // computed for this league's series rather than whichever one My XI has
-  // open, since My Leagues can be showing a different one entirely.
-  const leagueSeriesPlayerTotals = {};
-  Object.values(matchDataByTest).forEach(({stats})=>{
-    Object.keys(stats||{}).forEach(pid=>{
-      const b = statPointsBreakdown(stats[pid]);
-      const cur = leagueSeriesPlayerTotals[pid] || {bat:0, bowl:0, field:0, total:0};
-      leagueSeriesPlayerTotals[pid] = {bat:cur.bat+b.bat, bowl:cur.bowl+b.bowl, field:cur.field+b.field, total:cur.total+b.bat+b.bowl+b.field};
-    });
-  });
-
-  // Squads no longer belong to a single league (the same squad can back
-  // multiple leagues on one series), so the leaderboard has to fetch this
-  // league's actual membership first, then only the matching squads.
-  const {data: memberRows, error: memberErr} = await supabaseClient.from('league_members').select('user_id').eq('league_id', league.id);
-  if(memberErr){ body.innerHTML = `<div class="empty-state">Could not load leaderboard: ${memberErr.message}</div>`; return; }
-  const memberIds = (memberRows||[]).map(m=>m.user_id);
-
-  let squadRows = [];
-  if(memberIds.length>0){
-    const {data, error} = await supabaseClient.from('squads').select('*').eq('series_id', league.seriesId).in('user_id', memberIds);
-    if(error){ body.innerHTML = `<div class="empty-state">Could not load leaderboard: ${error.message}</div>`; return; }
-    squadRows = data || [];
-  }
-  if(squadRows.length===0){
-    body.innerHTML = `<div class="card">${cardHeadHtml}<div class="empty-state"><div class="big">No teams yet</div>Build a squad to appear on the board.</div>${actionBarHtml}</div>`;
-    wireActionBar();
-    return;
-  }
-
-  const rows = squadRows.map(rowRaw=>{
-    const squad = rowToSquad(rowRaw);
-    let total = 0;
-    const byTest = {};
-    Object.keys(squad.lockedXiByTest||{}).forEach(t=>{
-      const lockedEntry = squad.lockedXiByTest[t];
-      const {stats, playingXi} = matchDataByTest[t] || {stats:{}, playingXi:[]};
-      const pts = computeTestScore(lockedEntry, stats, playingXi);
-      const {effectiveXi, captainDidNotPlay} = resolveEffectiveXi(lockedEntry, playingXi);
-      const subs = effectiveXi.filter(e=>e.subFor).map(e=>({out:e.subFor, in:e.pid}));
-      // Per-player detail for exactly this Test's locked XI/bench (not summed
-      // across the series) — what openTeamBreakdownOverlay's per-Test tabs
-      // actually render. subOutOf/subInFor mark that player's own auto-sub
-      // (if any) that Test, in whichever direction it went.
-      const subOutMap = Object.fromEntries(subs.map(s=>[s.out, s.in]));
-      const subInMap = Object.fromEntries(subs.filter(s=>s.in).map(s=>[s.in, s.out]));
-      const playerRow = pid => {
-        const s = stats ? stats[pid] : null;
-        return {
-          pid,
-          isCaptain: pid===lockedEntry.captain,
-          isViceCaptain: pid===lockedEntry.viceCaptain,
-          subOutOf: subOutMap[pid] || null, // didn't play — replaced by this pid
-          subInFor: subInMap[pid] || null,  // came on, replacing this pid
-          points: Math.round(playerPointsForTest(lockedEntry, stats, pid, captainDidNotPlay)*10)/10,
-          runs: statMetricTotal(s,'runs'), wickets: statMetricTotal(s,'wickets'),
-          catches: statMetricTotal(s,'catches'), stumpings: statMetricTotal(s,'stumpings'), runouts: statMetricTotal(s,'runouts'),
-        };
+/* Per-squad points/breakdown across every Test that's locked so far — the
+   exact shape openTeamBreakdownOverlay renders. Takes an already-converted
+   squad (rowToSquad's shape, which mySquad already is), not a raw DB row, so
+   Home's own scoreboard card can build one for mySquad directly (see
+   js/home.js) without a second squads fetch — buildStandingRows below is
+   just this run over a whole league's worth of raw rows. */
+function buildSquadBreakdownRow(squad, matchDataByTest){
+  let total = 0;
+  const byTest = {};
+  Object.keys(squad.lockedXiByTest||{}).forEach(t=>{
+    const lockedEntry = squad.lockedXiByTest[t];
+    const {stats, playingXi} = matchDataByTest[t] || {stats:{}, playingXi:[]};
+    const pts = computeTestScore(lockedEntry, stats, playingXi);
+    const {effectiveXi, captainDidNotPlay} = resolveEffectiveXi(lockedEntry, playingXi);
+    const subs = effectiveXi.filter(e=>e.subFor).map(e=>({out:e.subFor, in:e.pid}));
+    // Per-player detail for exactly this Test's locked XI/bench (not summed
+    // across the series) — what openTeamBreakdownOverlay's per-Test tabs
+    // actually render. subOutOf/subInFor mark that player's own auto-sub
+    // (if any) that Test, in whichever direction it went.
+    const subOutMap = Object.fromEntries(subs.map(s=>[s.out, s.in]));
+    const subInMap = Object.fromEntries(subs.filter(s=>s.in).map(s=>[s.in, s.out]));
+    const playerRow = pid => {
+      const s = stats ? stats[pid] : null;
+      return {
+        pid,
+        isCaptain: pid===lockedEntry.captain,
+        isViceCaptain: pid===lockedEntry.viceCaptain,
+        subOutOf: subOutMap[pid] || null, // didn't play — replaced by this pid
+        subInFor: subInMap[pid] || null,  // came on, replacing this pid
+        points: Math.round(playerPointsForTest(lockedEntry, stats, pid, captainDidNotPlay)*10)/10,
+        runs: statMetricTotal(s,'runs'), wickets: statMetricTotal(s,'wickets'),
+        catches: statMetricTotal(s,'catches'), stumpings: statMetricTotal(s,'stumpings'), runouts: statMetricTotal(s,'runouts'),
       };
-      byTest[t] = {
-        pts, captainDidNotPlay,
-        xiRows: (lockedEntry.xi||[]).map(playerRow),
-        benchRows: (lockedEntry.bench||[]).map(playerRow),
-      };
-      total += pts;
-    });
-    return {name: squad.teamName, managerName: squad.managerName, total: Math.round(total*10)/10, byTest};
+    };
+    byTest[t] = {
+      pts, captainDidNotPlay,
+      xiRows: (lockedEntry.xi||[]).map(playerRow),
+      benchRows: (lockedEntry.bench||[]).map(playerRow),
+    };
+    total += pts;
   });
+  return {userId: squad.userId, name: squad.teamName, managerName: squad.managerName, total: Math.round(total*10)/10, byTest};
+}
+
+/* Every squad in a league, sorted highest points first. Pure function of
+   already-fetched data, so it can run after every await has resolved rather
+   than being interleaved with them. userId rides along on each row
+   (renderLeaderboard itself never needed it, but Home's
+   computeMyLeagueStanding() — js/home.js — uses it to pick "my" row out of
+   the sorted list to report a rank). */
+function buildStandingRows(squadRows, matchDataByTest){
+  const rows = squadRows.map(rowRaw=> buildSquadBreakdownRow(rowToSquad(rowRaw), matchDataByTest));
   rows.sort((a,b)=> b.total - a.total);
-
-  body.innerHTML = `
-    <div class="card">
-      ${cardHeadHtml}
-      ${rows.map((r,i)=>`
-        <div class="player-row standing-row${i===0?' leader':''}" data-idx="${i}">
-          <div class="player-name-wrap">
-            <span class="standing-rank">${i+1}</span>
-            <span class="player-name">${r.name}</span>
-            ${r.managerName ? `<span class="muted-on-light" style="width:100%; font-size:11px; padding-left:26px;">${r.managerName}</span>` : ''}
-          </div>
-          <span class="standing-points">${r.total} pts</span>
-        </div>
-      `).join('')}
-      ${actionBarHtml}
-    </div>
-  `;
-
-  // Tapping a team now opens its player-by-player breakdown in a lightbox
-  // (see openTeamBreakdownOverlay) instead of expanding an inline Test-by-
-  // test row — the Test-by-test detail isn't gone, it's just inside that
-  // same lightbox now, below the player breakdown.
-  body.querySelectorAll('.standing-row').forEach((row,i)=>{
-    row.addEventListener('click', ()=> openTeamBreakdownOverlay(rows[i], leaguePlayerMap, leaguePlayerName));
-  });
-  wireActionBar();
+  return rows;
 }
 
 /* This team's locked XI and bench, one tab per Test — tapping a row in the
@@ -397,7 +397,7 @@ function openPlayerRankingsOverlay(players, totals){
     const t = totalFor(p.id);
     return `
       <div class="picker-row" style="cursor:default; flex-wrap:wrap;">
-        <span><span class="standing-rank">${i+1}</span> ${p.name} <span class="role-pill">${p.nat}</span></span>
+        <span><span class="standing-rank">${i+1}</span> ${p.name} <span class="nat-pill">${p.nat}</span></span>
         <span class="rank-total-points" title="Total points this series">${t.total} pts</span>
         <span class="picker-points" style="width:100%;">
           <span title="Batting points this series">Bat ${t.bat}</span>
@@ -476,7 +476,7 @@ function openTeamOfTestOverlay(leaguePlayers, leagueFixtures, matchDataByTest){
           ${groups.map(g=>`
             <tr><td colspan="7" class="breakdown-group">${ROLE_LABEL[g.role]}</td></tr>
             ${g.rows.map(row=>`
-              <tr><td>${row.name} <span class="role-pill">${row.nat}</span></td><td class="pts">${row.points}</td><td>${row.runs}</td><td>${row.wickets}</td><td>${row.catches}</td><td>${row.stumpings}</td><td>${row.runouts}</td></tr>
+              <tr><td>${row.name} <span class="nat-pill">${row.nat}</span></td><td class="pts">${row.points}</td><td>${row.runs}</td><td>${row.wickets}</td><td>${row.catches}</td><td>${row.stumpings}</td><td>${row.runouts}</td></tr>
             `).join('')}
           `).join('')}
         </table>

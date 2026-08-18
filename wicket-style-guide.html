@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wicket — Style Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --charcoal: #12141A;
+    --slate: #1E2129;
+    --slate-raised: #262A34;
+    --indigo: #5B6EE8;
+    --indigo-dim: #3D4A9E;
+    --rust: #C0684A;
+    --plum: #8A5A7A;
+    --coral: #D17E6E;
+    --fog: #9BA1AC;
+    --bone: #F4F3EF;
+    --hairline: #2C303B;
+
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --space-7: 48px;
+    --space-8: 64px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--charcoal);
+    color: var(--bone);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 80px;
+  }
+
+  ::selection { background: var(--indigo); color: var(--bone); }
+
+  a { color: var(--indigo); }
+
+  img, svg { display: block; }
+
+  .wrap {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 0 var(--space-4);
+  }
+
+  /* ---------- Sticky scorecard nav ---------- */
+  .tabbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(18, 20, 26, 0.92);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--hairline);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabbar::-webkit-scrollbar { display: none; }
+  .tabbar-inner {
+    display: flex;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    max-width: 480px;
+    margin: 0 auto;
+    width: max-content;
+    min-width: 100%;
+  }
+  .tab {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--fog);
+    text-decoration: none;
+    white-space: nowrap;
+    padding: var(--space-2) var(--space-3);
+    border-radius: 20px;
+    border: 1px solid var(--hairline);
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .tab:hover { color: var(--bone); border-color: var(--fog); }
+
+  /* ---------- Hero: live scoreboard signature ---------- */
+  .hero {
+    padding: var(--space-7) 0 var(--space-6);
+    background:
+      radial-gradient(circle at 15% 0%, rgba(91,110,232,0.14), transparent 55%),
+      repeating-linear-gradient(180deg, transparent 0 39px, rgba(255,255,255,0.025) 39px 40px);
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--indigo);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--coral);
+    box-shadow: 0 0 0 0 rgba(209,126,110,0.6);
+    animation: pulse 1.8s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(209,126,110,0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(209,126,110,0); }
+    100% { box-shadow: 0 0 0 0 rgba(209,126,110,0); }
+  }
+  h1.hero-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 38px;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    margin-bottom: var(--space-3);
+  }
+  .hero-sub {
+    color: var(--fog);
+    font-size: 15px;
+    max-width: 34ch;
+    margin-bottom: var(--space-6);
+  }
+
+  /* mini scoreboard mock — the signature element */
+  .scoreboard {
+    background: var(--slate);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    padding: var(--space-5);
+    position: relative;
+    overflow: hidden;
+  }
+  .scoreboard::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--indigo), var(--rust), var(--plum));
+  }
+  .sb-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sb-team {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 17px;
+  }
+  .sb-score {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .sb-sep { height: 1px; background: var(--hairline); margin: var(--space-3) 0; }
+  .sb-meta {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fog);
+    margin-top: var(--space-3);
+  }
+  .sb-meta .cap { color: var(--rust); }
+
+  /* ---------- Section chrome ---------- */
+  section { padding: var(--space-7) 0; border-top: 1px solid var(--hairline); }
+  .sec-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--indigo);
+    margin-bottom: var(--space-2);
+  }
+  h2.sec-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 26px;
+    margin-bottom: var(--space-2);
+  }
+  .sec-desc {
+    color: var(--fog);
+    font-size: 14px;
+    max-width: 42ch;
+    margin-bottom: var(--space-6);
+  }
+
+  /* ---------- Color swatches ---------- */
+  .swatch-grid { display: flex; flex-direction: column; gap: var(--space-3); }
+  .swatch {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    background: var(--slate);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: var(--space-3);
+  }
+  .swatch-chip {
+    width: 48px; height: 48px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .swatch-info { flex: 1; }
+  .swatch-name { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+  .swatch-use { color: var(--fog); font-size: 12.5px; }
+  .swatch-hex {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--fog);
+    text-align: right;
+  }
+
+  /* ---------- Type scale ---------- */
+  .type-row {
+    border-bottom: 1px solid var(--hairline);
+    padding: var(--space-4) 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-3);
+  }
+  .type-row:last-child { border-bottom: none; }
+  .type-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fog);
+    white-space: nowrap;
+    text-align: right;
+  }
+  .t-display { font-family: var(--font-display); font-weight: 700; }
+  .t-h1 { font-size: 32px; }
+  .t-h2 { font-size: 24px; }
+  .t-h3 { font-size: 19px; font-weight: 600; }
+  .t-body { font-family: var(--font-body); font-size: 15px; }
+  .t-caption { font-family: var(--font-body); font-size: 12.5px; color: var(--fog); }
+  .t-stat { font-family: var(--font-mono); font-size: 20px; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Icon grid ---------- */
+  .icon-note {
+    display: flex;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+    padding: var(--space-3) var(--space-4);
+    background: var(--slate);
+    border-radius: 10px;
+    border: 1px solid var(--hairline);
+  }
+  .icon-note div { flex: 1; }
+  .icon-note .label { font-family: var(--font-mono); font-size: 10px; color: var(--fog); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;}
+  .icon-note .val { font-size: 13px; }
+
+  .icon-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-3);
+  }
+  .icon-cell {
+    background: var(--slate);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: var(--space-4) var(--space-2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    text-align: center;
+  }
+  .icon-cell svg { width: 24px; height: 24px; stroke: var(--indigo); }
+  .icon-cell .icon-label { font-size: 10.5px; color: var(--fog); font-family: var(--font-mono); }
+
+  /* ---------- UI components ---------- */
+  .comp-block { margin-bottom: var(--space-6); }
+  .comp-block:last-child { margin-bottom: 0; }
+  .comp-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fog);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--space-3);
+  }
+  .comp-demo {
+    background: var(--slate);
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    padding: var(--space-5);
+  }
+
+  .btn {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 14px;
+    border: none;
+    border-radius: 10px;
+    padding: 13px 20px;
+    cursor: pointer;
+  }
+  .btn-primary { background: var(--indigo); color: var(--bone); }
+  .btn-secondary { background: transparent; color: var(--bone); border: 1px solid var(--fog); }
+  .btn-row { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+
+  .player-card {
+    background: var(--slate-raised);
+    border-radius: 14px;
+    padding: var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    border: 1px solid var(--hairline);
+  }
+  .player-avatar {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--indigo), var(--plum));
+    flex-shrink: 0;
+  }
+  .player-info { flex: 1; }
+  .player-name { font-weight: 600; font-size: 14px; }
+  .player-role { font-size: 12px; color: var(--fog); }
+  .player-pts { text-align: right; }
+  .player-pts .num { font-family: var(--font-mono); font-size: 18px; font-variant-numeric: tabular-nums; }
+  .player-pts .lbl { font-size: 10px; color: var(--fog); font-family: var(--font-mono); text-transform: uppercase; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: var(--rust);
+    color: var(--bone);
+    margin-left: var(--space-2);
+  }
+
+  .chip-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+  .chip {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--hairline);
+    color: var(--fog);
+  }
+  .chip.on { background: var(--indigo-dim); border-color: var(--indigo); color: var(--bone); }
+  .chip.live { background: rgba(209,126,110,0.12); border-color: var(--coral); color: var(--coral); }
+  .chip.plum { background: rgba(138,90,122,0.15); border-color: var(--plum); color: var(--plum); }
+
+  .input-demo {
+    background: var(--charcoal);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 13px 14px;
+    font-size: 14px;
+    color: var(--fog);
+  }
+
+  .navbar-demo {
+    display: flex;
+    justify-content: space-around;
+    background: var(--charcoal);
+    border-radius: 16px;
+    padding: var(--space-3);
+    border: 1px solid var(--hairline);
+  }
+  .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .nav-item svg { width: 20px; height: 20px; stroke: var(--fog); }
+  .nav-item.active svg { stroke: var(--indigo); }
+  .nav-item span { font-size: 9px; font-family: var(--font-mono); color: var(--fog); }
+  .nav-item.active span { color: var(--indigo); }
+
+  /* ---------- Spacing scale ---------- */
+  .space-row { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-3); }
+  .space-bar { background: var(--indigo); height: 10px; border-radius: 2px; }
+  .space-label { font-family: var(--font-mono); font-size: 11px; color: var(--fog); width: 90px; flex-shrink: 0; }
+
+  /* ---------- Tone table ---------- */
+  .tone-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .tone-row:first-child { padding-top: 0; }
+  .tone-row:last-child { border-bottom: none; }
+  .tone-head {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--space-5);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+  .tone-head .no { color: var(--coral); }
+  .tone-head .yes { color: var(--indigo); }
+  .tone-cell { font-size: 13px; padding: var(--space-3); border-radius: 10px; }
+  .tone-cell.no { background: rgba(209,126,110,0.08); color: var(--fog); }
+  .tone-cell.yes { background: rgba(91,110,232,0.08); color: var(--bone); }
+
+  /* ---------- Motion notes ---------- */
+  .motion-item { display: flex; gap: var(--space-4); padding: var(--space-4) 0; border-bottom: 1px solid var(--hairline); align-items: flex-start; }
+  .motion-item:last-child { border-bottom: none; }
+  .motion-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--indigo);
+    width: 88px;
+    flex-shrink: 0;
+    padding-top: 2px;
+    text-transform: uppercase;
+  }
+  .motion-desc { font-size: 13.5px; color: var(--bone); }
+  .motion-desc .ms { color: var(--fog); font-family: var(--font-mono); font-size: 12px; }
+
+  footer {
+    text-align: center;
+    padding: var(--space-7) 0;
+    color: var(--fog);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  @media (max-width: 380px) {
+    h1.hero-title { font-size: 32px; }
+    .icon-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  /* ---------- Deadline banner ---------- */
+  .deadline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(90deg, rgba(91,110,232,0.12), rgba(138,90,122,0.12));
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: var(--space-3) var(--space-4);
+  }
+  .deadline-label { font-size: 12px; color: var(--fog); }
+  .deadline-clock {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+    color: var(--bone);
+    letter-spacing: 0.02em;
+  }
+
+  /* ---------- Transfer counter ---------- */
+  .transfer-meter { display: flex; align-items: center; justify-content: space-between; }
+  .transfer-dots { display: flex; gap: 6px; }
+  .t-dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--fog); }
+  .t-dot.used { background: var(--rust); border-color: var(--rust); }
+  .transfer-text { font-size: 13px; color: var(--fog); }
+  .transfer-text b { color: var(--bone); }
+
+  /* ---------- Wildcard toggle ---------- */
+  .wildcard-row { display: flex; align-items: center; justify-content: space-between; }
+  .wildcard-copy .wc-title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+  .wildcard-copy .wc-sub { font-size: 12px; color: var(--fog); }
+  .switch { width: 44px; height: 26px; border-radius: 20px; background: var(--hairline); position: relative; flex-shrink: 0; }
+  .switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--fog); transition: 0.15s; }
+  .switch.on { background: var(--indigo-dim); }
+  .switch.on::after { left: 21px; background: var(--indigo); }
+
+  /* ---------- Role selector ---------- */
+  .role-select { display: flex; gap: 6px; }
+  .role-opt {
+    flex: 1;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    padding: 9px 6px;
+    border-radius: 8px;
+    border: 1px solid var(--hairline);
+    color: var(--fog);
+  }
+  .role-opt.active { background: var(--indigo); color: var(--bone); border-color: var(--indigo); }
+
+  /* ---------- XI / Bench list ---------- */
+  .xi-group-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--fog);
+    margin: var(--space-4) 0 var(--space-2);
+  }
+  .xi-group-label:first-child { margin-top: 0; }
+  .xi-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .xi-row:last-of-type { border-bottom: none; }
+  .xi-row.bench { opacity: 0.55; }
+  .xi-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--indigo); flex-shrink: 0; }
+  .xi-row.bench .xi-dot { background: var(--fog); }
+  .xi-name { flex: 1; font-size: 13.5px; }
+  .xi-role { font-family: var(--font-mono); font-size: 10px; color: var(--fog); }
+
+  /* ---------- Squad quota ---------- */
+  .quota-block { margin-bottom: var(--space-4); }
+  .quota-block:last-child { margin-bottom: 0; }
+  .quota-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+  .quota-top .q-label { color: var(--fog); }
+  .quota-top .q-count { font-family: var(--font-mono); color: var(--bone); }
+  .quota-bar { height: 6px; border-radius: 4px; background: var(--hairline); overflow: hidden; display: flex; }
+  .quota-fill { height: 100%; background: var(--indigo); }
+  .quota-fill.rust { background: var(--rust); }
+
+  /* ---------- Leaderboard ---------- */
+  .lb-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-rank { font-family: var(--font-mono); font-size: 13px; color: var(--fog); width: 20px; }
+  .lb-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--slate-raised);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 11px; color: var(--fog);
+    flex-shrink: 0; border: 1px solid var(--hairline);
+  }
+  .lb-row.me .lb-avatar { background: var(--indigo-dim); color: var(--bone); border-color: var(--indigo); }
+  .lb-name { flex: 1; font-size: 13.5px; }
+  .lb-row.me .lb-name { font-weight: 600; }
+  .lb-delta { font-family: var(--font-mono); font-size: 11px; }
+  .lb-delta.up { color: var(--indigo); }
+  .lb-delta.down { color: var(--coral); }
+  .lb-pts { font-family: var(--font-mono); font-size: 14px; width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Scoring table ---------- */
+  .score-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .score-table th {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--fog);
+    text-align: left;
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--hairline);
+    font-weight: 400;
+  }
+  .score-table td {
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .score-table tr:last-child td { border-bottom: none; }
+  .score-table td.val { font-family: var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
+  .score-table td.val.pos { color: var(--indigo); }
+  .score-table td.val.neg { color: var(--coral); }
+
+  /* ---------- Top nav / drawer ---------- */
+  .topnav-demo {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--charcoal); border: 1px solid var(--hairline); border-radius: 12px;
+    padding: var(--space-3) var(--space-4);
+  }
+  .topnav-demo .brand { font-family: var(--font-display); font-weight: 600; font-size: 14px; }
+  .hamburger { display: flex; flex-direction: column; gap: 4px; width: 20px; }
+  .hamburger span { height: 1.75px; background: var(--bone); border-radius: 2px; }
+  .drawer-demo {
+    margin-top: var(--space-3);
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .drawer-item {
+    padding: var(--space-3) var(--space-2);
+    font-size: 13.5px;
+    border-bottom: 1px solid var(--hairline);
+    color: var(--fog);
+  }
+  .drawer-item.active { color: var(--indigo); font-weight: 600; }
+  .drawer-item:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+
+<nav class="tabbar">
+  <div class="tabbar-inner">
+    <a class="tab" href="#brand">Brand</a>
+    <a class="tab" href="#type">Type</a>
+    <a class="tab" href="#icons">Icons</a>
+    <a class="tab" href="#components">Components</a>
+    <a class="tab" href="#spacing">Spacing</a>
+    <a class="tab" href="#voice">Voice</a>
+    <a class="tab" href="#motion">Motion</a>
+    <a class="tab" href="#patterns">Patterns</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="eyebrow"><span class="live-dot"></span> Style Guide · v1.0</div>
+    <h1 class="hero-title">Wicket<br>Design System</h1>
+    <p class="hero-sub">A mobile-first identity for a fantasy cricket app — built to be scanned at a glance, not read line by line.</p>
+
+    <div class="scoreboard">
+      <div class="sb-row">
+        <div class="sb-team">Your XI</div>
+        <div class="sb-score">1,284</div>
+      </div>
+      <div class="sb-sep"></div>
+      <div class="sb-row">
+        <div class="sb-team">Rank 342</div>
+        <div class="sb-score" style="color:var(--fog); font-size:16px;">▲ 118</div>
+      </div>
+      <div class="sb-meta">
+        <span><span class="cap">C</span> V. Kohli · 176 pts</span>
+        <span>Overs 41.2</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- BRAND -->
+  <section id="brand">
+    <div class="sec-label">01 — Brand Essentials</div>
+    <h2 class="sec-title">Colour</h2>
+    <p class="sec-desc">Confident and data-forward rather than loud. Indigo carries the brand; rust and plum add warmth without borrowing the green-and-yellow cliché of cricket apps.</p>
+
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="swatch-chip" style="background:var(--indigo)"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Ice Indigo</div>
+          <div class="swatch-use">Primary — CTAs, links, positive stats</div>
+        </div>
+        <div class="swatch-hex">#5B6EE8</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:var(--rust)"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Warm Rust</div>
+          <div class="swatch-use">Captain badges, premium highlights</div>
+        </div>
+        <div class="swatch-hex">#C0684A</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:var(--plum)"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Muted Plum</div>
+          <div class="swatch-use">Tertiary — chart variety, used sparingly</div>
+        </div>
+        <div class="swatch-hex">#8A5A7A</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:var(--coral)"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Dusty Coral</div>
+          <div class="swatch-use">Alerts, live indicators, negative deltas</div>
+        </div>
+        <div class="swatch-hex">#D17E6E</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:var(--slate)"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Midnight Slate</div>
+          <div class="swatch-use">Card & surface background</div>
+        </div>
+        <div class="swatch-hex">#1E2129</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:var(--charcoal)"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Deep Charcoal</div>
+          <div class="swatch-use">Base background, dark-mode-first</div>
+        </div>
+        <div class="swatch-hex">#12141A</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:var(--fog)"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Fog Grey</div>
+          <div class="swatch-use">Secondary text, borders, dividers</div>
+        </div>
+        <div class="swatch-hex">#9BA1AC</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:var(--bone)"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Bone White</div>
+          <div class="swatch-use">Primary text on dark surfaces</div>
+        </div>
+        <div class="swatch-hex">#F4F3EF</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TYPE -->
+  <section id="type">
+    <div class="sec-label">02 — Typography</div>
+    <h2 class="sec-title">Type Scale</h2>
+    <p class="sec-desc">Space Grotesk for display — geometric, technical, built for headlines. Inter for body copy. IBM Plex Mono for anything that behaves like a stat: scores, hex codes, timestamps.</p>
+
+    <div class="type-row">
+      <div class="t-display t-h1">Match Centre</div>
+      <div class="type-meta">Display / 32 / 700</div>
+    </div>
+    <div class="type-row">
+      <div class="t-display t-h2">Your Team</div>
+      <div class="type-meta">Display / 24 / 700</div>
+    </div>
+    <div class="type-row">
+      <div class="t-h3">Playing XI</div>
+      <div class="type-meta">Body / 19 / 600</div>
+    </div>
+    <div class="type-row">
+      <div class="t-body">Pick your captain before the toss to lock in double points.</div>
+      <div class="type-meta">Body / 15 / 400</div>
+    </div>
+    <div class="type-row">
+      <div class="t-stat">1,284</div>
+      <div class="type-meta">Mono / 20 / tabular</div>
+    </div>
+    <div class="type-row">
+      <div class="t-caption">Points update after each ball</div>
+      <div class="type-meta">Caption / 12.5 / 400</div>
+    </div>
+  </section>
+
+  <!-- ICONS -->
+  <section id="icons">
+    <div class="sec-label">03 — Iconography</div>
+    <h2 class="sec-title">Icon System</h2>
+    <p class="sec-desc">The app leans on icons over labels wherever the action is recognisable. One consistent stroke style throughout — no mixed fills.</p>
+
+    <div class="icon-note">
+      <div>
+        <div class="label">Stroke</div>
+        <div class="val">1.75px, round caps</div>
+      </div>
+      <div>
+        <div class="label">Grid</div>
+        <div class="val">16 / 20 / 24 / 32</div>
+      </div>
+      <div>
+        <div class="label">Style</div>
+        <div class="val">Outline only</div>
+      </div>
+    </div>
+
+    <div class="icon-grid">
+      <div class="icon-cell">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19 L15 9"/><rect x="14" y="4" width="6" height="6" rx="1" transform="rotate(45 17 7)"/></svg>
+        <div class="icon-label">Bat</div>
+      </div>
+      <div class="icon-cell">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M8 8c2 2 6 2 8 0M8 16c2-2 6-2 8 0"/></svg>
+        <div class="icon-label">Ball</div>
+      </div>
+      <div class="icon-cell">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="4" x2="8" y2="18"/><line x1="12" y1="4" x2="12" y2="18"/><line x1="16" y1="4" x2="16" y2="18"/><line x1="6" y1="4" x2="18" y2="4"/></svg>
+        <div class="icon-label">Wicket</div>
+      </div>
+      <div class="icon-cell">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15c-3 0-5-2-5-5V4h10v6c0 3-2 5-5 5z"/><path d="M12 15v3M9 21h6M5 5H3v2a3 3 0 0 0 3 3M19 5h2v2a3 3 0 0 1-3 3"/></svg>
+        <div class="icon-label">Trophy</div>
+      </div>
+      <div class="icon-cell">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16l-4-4 4-4M3 12h11"/><path d="M17 8l4 4-4 4M21 12H10"/></svg>
+        <div class="icon-label">Transfer</div>
+      </div>
+      <div class="icon-cell">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.5 6.5L21 9l-5 4.5L17.5 21 12 17l-5.5 4L8 13.5 3 9l6.5-.5z"/></svg>
+        <div class="icon-label">Captain</div>
+      </div>
+      <div class="icon-cell">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="12" rx="1"/><rect x="17" y="3" width="4" height="16" rx="1"/></svg>
+        <div class="icon-label">Stats</div>
+      </div>
+      <div class="icon-cell">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>
+        <div class="icon-label">Live</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPONENTS -->
+  <section id="components">
+    <div class="sec-label">04 — UI Components</div>
+    <h2 class="sec-title">Core Elements</h2>
+    <p class="sec-desc">Every component is built for a thumb, not a cursor — minimum 44px touch target, generous corner radius, high contrast against the dark surface.</p>
+
+    <div class="comp-block">
+      <div class="comp-label">Buttons</div>
+      <div class="comp-demo">
+        <div class="btn-row">
+          <button class="btn btn-primary">Set Captain</button>
+          <button class="btn btn-secondary">Preview XI</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-label">Player card</div>
+      <div class="comp-demo">
+        <div class="player-card">
+          <div class="player-avatar"></div>
+          <div class="player-info">
+            <div class="player-name">V. Kohli <span class="badge">C</span></div>
+            <div class="player-role">Batter · RCB</div>
+          </div>
+          <div class="player-pts">
+            <div class="num">176</div>
+            <div class="lbl">pts</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-label">Status chips</div>
+      <div class="comp-demo">
+        <div class="chip-row">
+          <span class="chip on">Selected</span>
+          <span class="chip live">● Live</span>
+          <span class="chip plum">Vice-captain</span>
+          <span class="chip">Bench</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-label">Input field</div>
+      <div class="comp-demo">
+        <div class="input-demo">Search players…</div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-label">Bottom navigation</div>
+      <div class="comp-demo">
+        <div class="navbar-demo">
+          <div class="nav-item active">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
+            <span>Home</span>
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="12" rx="1"/><rect x="17" y="3" width="4" height="16" rx="1"/></svg>
+            <span>Stats</span>
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15c-3 0-5-2-5-5V4h10v6c0 3-2 5-5 5z"/><path d="M12 15v3M9 21h6"/></svg>
+            <span>Contests</span>
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+            <span>Profile</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SPACING -->
+  <section id="spacing">
+    <div class="sec-label">05 — Layout & Spacing</div>
+    <h2 class="sec-title">8px Grid</h2>
+    <p class="sec-desc">All spacing derives from an 8px base unit. Touch targets never fall below 44×44px.</p>
+
+    <div class="space-row"><div class="space-label">4 · micro</div><div class="space-bar" style="width:4px"></div></div>
+    <div class="space-row"><div class="space-label">8 · tight</div><div class="space-bar" style="width:8px"></div></div>
+    <div class="space-row"><div class="space-label">12 · compact</div><div class="space-bar" style="width:12px"></div></div>
+    <div class="space-row"><div class="space-label">16 · default</div><div class="space-bar" style="width:16px"></div></div>
+    <div class="space-row"><div class="space-label">24 · comfortable</div><div class="space-bar" style="width:24px"></div></div>
+    <div class="space-row"><div class="space-label">32 · section</div><div class="space-bar" style="width:32px"></div></div>
+    <div class="space-row"><div class="space-label">48 · block</div><div class="space-bar" style="width:48px"></div></div>
+  </section>
+
+  <!-- VOICE -->
+  <section id="voice">
+    <div class="sec-label">06 — Tone of Voice</div>
+    <h2 class="sec-title">Say It Short</h2>
+    <p class="sec-desc">Active voice, plain verbs, no filler. The app narrates the match — it doesn't apologise or hedge.</p>
+
+    <div class="tone-head"><div class="no">Avoid</div><div class="yes">Use instead</div></div>
+
+    <div class="tone-row">
+      <div class="tone-cell no">"Oops! Something went wrong while saving your team."</div>
+      <div class="tone-cell yes">"Team not saved. Check your connection and retry."</div>
+    </div>
+    <div class="tone-row">
+      <div class="tone-cell no">"You have successfully submitted your entry!"</div>
+      <div class="tone-cell yes">"Entry locked."</div>
+    </div>
+    <div class="tone-row">
+      <div class="tone-cell no">"No contests are currently available."</div>
+      <div class="tone-cell yes">"No live contests. Check back at toss."</div>
+    </div>
+    <div class="tone-row">
+      <div class="tone-cell no">"Please select a captain to continue."</div>
+      <div class="tone-cell yes">"Pick a captain to lock your XI."</div>
+    </div>
+  </section>
+
+  <!-- MOTION -->
+  <section id="motion">
+    <div class="sec-label">07 — Motion</div>
+    <h2 class="sec-title">Feedback, Not Decoration</h2>
+    <p class="sec-desc">Motion exists to confirm live state — it never runs just to look alive.</p>
+
+    <div class="motion-item">
+      <div class="motion-tag">Score tick</div>
+      <div class="motion-desc">Points count up digit-by-digit on update. <span class="ms">400ms ease-out</span></div>
+    </div>
+    <div class="motion-item">
+      <div class="motion-tag">Live dot</div>
+      <div class="motion-desc">Soft pulse only while a match is in play. <span class="ms">1.8s loop</span></div>
+    </div>
+    <div class="motion-item">
+      <div class="motion-tag">Transfer</div>
+      <div class="motion-desc">Outgoing player slides left and fades; incoming slides in from right. <span class="ms">250ms</span></div>
+    </div>
+    <div class="motion-item">
+      <div class="motion-tag">Card tap</div>
+      <div class="motion-desc">Scale to 0.97 on press, spring back on release. <span class="ms">120ms</span></div>
+    </div>
+    <div class="motion-item">
+      <div class="motion-tag">Reduced motion</div>
+      <div class="motion-desc">All of the above collapse to instant state changes when the OS setting is on.</div>
+    </div>
+  </section>
+
+  <!-- PATTERNS -->
+  <section id="patterns">
+    <div class="sec-label">08 — Fantasy-Specific Patterns</div>
+    <h2 class="sec-title">Squad & Series Mechanics</h2>
+    <p class="sec-desc">The components a format like this actually runs on: locked deadlines, capped transfers, a wildcard, role-doubling, and league standings.</p>
+
+    <div class="comp-block">
+      <div class="comp-label">Deadline banner</div>
+      <div class="comp-demo">
+        <div class="deadline">
+          <div class="deadline-label">Squad locks for Day 1</div>
+          <div class="deadline-clock">18:42:07</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-label">Transfer meter</div>
+      <div class="comp-demo">
+        <div class="transfer-meter">
+          <div class="transfer-text"><b>1</b> of 2 transfers used</div>
+          <div class="transfer-dots">
+            <span class="t-dot used"></span>
+            <span class="t-dot"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-label">Wildcard toggle</div>
+      <div class="comp-demo">
+        <div class="wildcard-row">
+          <div class="wildcard-copy">
+            <div class="wc-title">Wildcard</div>
+            <div class="wc-sub">Lifts the 2-transfer limit for this Test</div>
+          </div>
+          <div class="switch on"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-label">Playing-role selector</div>
+      <div class="comp-demo">
+        <div class="role-select">
+          <div class="role-opt active">Batter</div>
+          <div class="role-opt">Bowler</div>
+          <div class="role-opt">Keeper</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-label">Starting XI / bench</div>
+      <div class="comp-demo">
+        <div class="xi-group-label">Starting XI · 11</div>
+        <div class="xi-row"><span class="xi-dot"></span><span class="xi-name">V. Kohli <span class="badge">C</span></span><span class="xi-role">Batter</span></div>
+        <div class="xi-row"><span class="xi-dot"></span><span class="xi-name">J. Bazball</span><span class="xi-role">Bowler</span></div>
+        <div class="xi-group-label">Bench · 3</div>
+        <div class="xi-row bench"><span class="xi-dot"></span><span class="xi-name">S. Reserve</span><span class="xi-role">Keeper</span></div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-label">Squad composition quota</div>
+      <div class="comp-demo">
+        <div class="quota-block">
+          <div class="quota-top"><span class="q-label">England · min 5</span><span class="q-count">7 / 14</span></div>
+          <div class="quota-bar"><div class="quota-fill" style="width:100%"></div></div>
+        </div>
+        <div class="quota-block">
+          <div class="quota-top"><span class="q-label">Australia · min 5</span><span class="q-count">7 / 14</span></div>
+          <div class="quota-bar"><div class="quota-fill rust" style="width:100%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-label">League leaderboard</div>
+      <div class="comp-demo">
+        <div class="lb-row">
+          <span class="lb-rank">1</span>
+          <span class="lb-avatar">RJ</span>
+          <span class="lb-name">rahul_j</span>
+          <span class="lb-delta up">▲</span>
+          <span class="lb-pts">1,412</span>
+        </div>
+        <div class="lb-row me">
+          <span class="lb-rank">2</span>
+          <span class="lb-avatar">YO</span>
+          <span class="lb-name">you</span>
+          <span class="lb-delta up">▲</span>
+          <span class="lb-pts">1,284</span>
+        </div>
+        <div class="lb-row">
+          <span class="lb-rank">3</span>
+          <span class="lb-avatar">TS</span>
+          <span class="lb-name">tail_sweep</span>
+          <span class="lb-delta down">▼</span>
+          <span class="lb-pts">1,201</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-label">Scoring reference table</div>
+      <div class="comp-demo">
+        <table class="score-table">
+          <tr><th>Batting</th><th style="text-align:right">Pts</th></tr>
+          <tr><td>Per run</td><td class="val pos">+1</td></tr>
+          <tr><td>50 scored</td><td class="val pos">+8</td></tr>
+          <tr><td>100 scored</td><td class="val pos">+16</td></tr>
+          <tr><td>Dismissed for a duck</td><td class="val neg">−2</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-label">Top nav & drawer</div>
+      <div class="comp-demo">
+        <div class="topnav-demo">
+          <div class="brand">Wicket</div>
+          <div class="hamburger"><span></span><span></span><span></span></div>
+        </div>
+        <div class="drawer-demo">
+          <div class="drawer-item">Rules</div>
+          <div class="drawer-item active">My XI</div>
+          <div class="drawer-item">My Leagues</div>
+          <div class="drawer-item">Admin</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>Wicket Design System · Built for mobile, first and only</footer>
+
+</div>
+
+</body>
+</html>

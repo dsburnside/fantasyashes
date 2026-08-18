@@ -277,8 +277,8 @@ function buildInningsPanel(entry, idx, isActive){
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
         <p class="muted-on-light" style="font-size:12px; margin:0;">${battingTeam.name} batting · ${bowlingTeam.name} bowling &amp; fielding.</p>
         <span style="display:flex; gap:8px;">
-          <button type="button" class="btn secondary small" data-editinnings="${idx}" ${session?'':'disabled'}>Change batting team</button>
-          <button type="button" class="btn danger small" data-delinnings="${idx}" ${session?'':'disabled'}>Remove innings</button>
+          <button type="button" class="row-icon-btn primary" data-editinnings="${idx}" ${session?'':'disabled'} title="Change batting team" aria-label="Change batting team">&#8646;</button>
+          <button type="button" class="row-icon-btn danger" data-delinnings="${idx}" ${session?'':'disabled'} title="Remove innings" aria-label="Remove innings">&times;</button>
         </span>
       </div>
       <div class="admin-subnav light-subnav" style="margin:6px 0 10px;">

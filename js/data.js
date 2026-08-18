@@ -103,12 +103,17 @@ async function getMatchDataForTest(seriesId, testNum){
   return {stats: (data && data.stats) || {}, playingXi: (data && data.playing_xi) || [], innings: (data && data.innings) || []};
 }
 
-// pid -> {bat, bowl, field, total} raw points scored across every Test
-// entered so far this series (plain rate, no captain/VC/playing-role
-// multiplier — it's a ranking of the player's own output, not any one
-// manager's fantasy score). Starts at all-zero for everyone at the start of
-// a series since there's simply nothing in match_stats yet. Drives the
-// player picker's per-role sort order and its bat/bowl/field points display.
+// pid -> {bat, bowl, field, total, runs, wickets, catches, stumpings,
+// runouts} scored across every Test entered so far this series. bat/bowl/
+// field/total are points (plain rate, no captain/VC/playing-role multiplier
+// — it's a ranking of the player's own output, not any one manager's
+// fantasy score); runs/wickets/catches/stumpings/runouts are the raw
+// counting stats behind those points, same idea as leagues.js's per-Test
+// breakdown rows but summed across the whole series — what My XI's player
+// detail overlay (js/overlays.js) shows. Starts at all-zero for everyone at
+// the start of a series since there's simply nothing in match_stats yet.
+// Drives the player picker's per-role sort order and its bat/bowl/field
+// points display.
 let seriesPlayerTotals = {};
 async function loadSeriesPlayerTotals(seriesId){
   seriesPlayerTotals = {};
@@ -117,13 +122,19 @@ async function loadSeriesPlayerTotals(seriesId){
   const perTest = await Promise.all(fx.map(f=>getMatchDataForTest(seriesId, f.test)));
   perTest.forEach(({stats})=>{
     Object.keys(stats||{}).forEach(pid=>{
-      const b = statPointsBreakdown(stats[pid]);
-      const cur = seriesPlayerTotals[pid] || {bat:0, bowl:0, field:0, total:0};
+      const s = stats[pid];
+      const b = statPointsBreakdown(s);
+      const cur = seriesPlayerTotals[pid] || {bat:0, bowl:0, field:0, total:0, runs:0, wickets:0, catches:0, stumpings:0, runouts:0};
       seriesPlayerTotals[pid] = {
         bat: cur.bat + b.bat,
         bowl: cur.bowl + b.bowl,
         field: cur.field + b.field,
         total: cur.total + b.bat + b.bowl + b.field,
+        runs: cur.runs + statMetricTotal(s,'runs'),
+        wickets: cur.wickets + statMetricTotal(s,'wickets'),
+        catches: cur.catches + statMetricTotal(s,'catches'),
+        stumpings: cur.stumpings + statMetricTotal(s,'stumpings'),
+        runouts: cur.runouts + statMetricTotal(s,'runouts'),
       };
     });
   });
@@ -139,6 +150,7 @@ async function switchToSeries(seriesId){
   draft = null;
   await Promise.all([loadPlayers(seriesId), loadFixtures(seriesId), loadSeriesPlayerTotals(seriesId)]);
   renderMyXI();
+  renderHome(); // Home's snapshot/summary cards are also scoped to currentSeriesId — see its own series tab strip
   renderCountdown();
 }
 /* Switches which league the My Leagues tab shows standings for. Unlike

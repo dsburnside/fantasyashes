@@ -11,7 +11,7 @@ function startCountdown(){ renderCountdown(); setInterval(renderCountdown, 1000)
 function renderCountdown(){
   const box = document.getElementById('countdownStrip');
   if(!currentLeagueId){
-    box.innerHTML = `<span class="countdown-meta">Join a league in My XI to see its Test countdown.</span>`;
+    box.innerHTML = `<span class="countdown-meta">Join a league in My Leagues to see its Test countdown.</span>`;
     return;
   }
   const nd = nextDeadline();
