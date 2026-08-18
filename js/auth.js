@@ -21,7 +21,7 @@ function openAccountOverlay(){
     <div class="overlay-title">Your account</div>
     <div class="overlay-message">
       Signed in as <strong>${myFirstName} ${myLastName}</strong> (${session.user.email})${isAdmin ? ' &middot; <span style="color:var(--gilt-bright);">admin</span>' : ''}<br>
-      ${mySquad ? `Team: ${mySquad.teamName}` : 'No squad yet — build one in Squad.'}
+      ${mySquad ? `Team: ${mySquad.teamName}` : 'No squad yet — build one in My Squads.'}
     </div>
     <div class="field-group"><label for="acctNewPassword">New password</label><input type="password" id="acctNewPassword" placeholder="6+ characters"></div>
     <div class="field-group"><label for="acctNewPassword2">Confirm new password</label><input type="password" id="acctNewPassword2" placeholder="Repeat password"></div>

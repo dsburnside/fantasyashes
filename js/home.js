@@ -68,9 +68,9 @@ async function computeMyLeagueStanding(league, matchDataByTest){
 
 /* Tab strip for switching which series Home is showing a snapshot of — same
    tab-per-squad pattern (and the same switchToSeries() this drives) as
-   Squad's own seriesSwitcherHtml (myxi.js), just without that one's "start a
-   new team" (+) option, since Home isn't where a build begins. Only worth
-   showing once there's actually more than one series to pick between. */
+   My Squads' own seriesSwitcherHtml (myxi.js), just without that one's
+   "start a new team" (+) option, since Home isn't where a build begins. Only
+   worth showing once there's actually more than one series to pick between. */
 function homeSeriesTabsHtml(){
   if(mySquads.length < 2) return '';
   return `

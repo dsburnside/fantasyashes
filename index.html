@@ -165,7 +165,7 @@
     .save-bar{flex-direction:column; align-items:stretch;}
     .save-bar .btn{width:100%;}
     .wildcard-row .btn{width:100%;}
-    /* 6 nav items (Home/Squad/Leagues/Rules/Admin/Profile) at the desktop
+    /* 6 nav items (Home/My Squads/Leagues/Rules/Admin/Profile) at the desktop
        sizing (min-width:60px each) can outgrow a narrow phone's width before
        flex-shrink ever gets a chance to act — min-width always wins over
        that. Tightened down to the guide's 44px touch-target floor here so
@@ -509,6 +509,17 @@
   }
   .standing-row.leader .standing-rank{color:var(--chalk); background:var(--rust); border-radius:50%;}
   .standing-points{font-family:var(--font-mono); font-weight:700; color:var(--chalk); white-space:nowrap;}
+  /* My Leagues' own standings rows (not the shorter Home-tab/rankings ones
+     that share .standing-row above) stack team name over a manager-name +
+     points line, rather than sitting points beside the name on one line —
+     .player-row's default is a single flex row, so this overrides it to a
+     column of two. A league team name has the full card width to itself on
+     its own line as a result, instead of splitting that width with a
+     nowrap points figure and getting squeezed/overflowing when it's long. */
+  .standing-row-full{flex-direction:column; align-items:stretch; gap:4px;}
+  .standing-row-full .standing-team-row{display:flex; align-items:center; gap:8px; min-width:0;}
+  .standing-row-full .standing-team-row .player-name{min-width:0; overflow-wrap:anywhere;}
+  .standing-row-full .standing-meta-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding-left:28px;}
 
   /* ---------- Home tab summary cards (Player rankings / Team of the Test) ----------
      Condensed previews that open the real thing (leagues.js's
@@ -690,12 +701,14 @@
     background:var(--slate-raised); border:1px solid var(--line); border-radius:12px;
     padding:8px 9px; cursor:grab;
     /* The whole card is the drag surface (js/myxi.js, renderMyXI); a plain
-       tap (no movement) opens that player's detail overlay instead — the
-       card has no buttons of its own left to carve out from that gesture.
-       Without touch-action:none, touch browsers intercept a touchmove here
-       as a page-scroll gesture before our JS ever sees it, so a finger-drag
-       would just scroll the page instead of moving the card. */
-    touch-action:none; -webkit-user-select:none; user-select:none;
+       tap (no movement) opens that player's detail overlay instead, and a
+       long press (held still past LONG_PRESS_MS there) picks it up to drag.
+       pan-y — not none — leaves vertical scrolling to the browser by
+       default: myxi.js never preventDefault()s a touch until its own
+       long-press timer has actually armed a drag, so an ordinary swipe to
+       scroll the list still works even though it starts on a card; only a
+       held-still press gets taken over. */
+    touch-action:pan-y; -webkit-user-select:none; user-select:none;
   }
   .squad-card:active{cursor:grabbing;}
   .squad-card.dragging{opacity:.35;}
@@ -855,7 +868,7 @@
   <!-- RULES -->
   <section class="tab-panel" id="tab-rules">
     <h2 class="panel-title">How it works</h2>
-    <p class="panel-sub">One squad per series, tied to your account — pick a team in Squad, no league required. Leagues (create or join under My Leagues) are an optional way to compare your team against friends; join several on the same series and it's the same squad on every one of their leaderboards. Your job is to manage it well as team news and form change.</p>
+    <p class="panel-sub">One squad per series, tied to your account — pick a team in My Squads, no league required. Leagues (create or join under My Leagues) are an optional way to compare your team against friends; join several on the same series and it's the same squad on every one of their leaderboards. Your job is to manage it well as team news and form change.</p>
 
     <div class="rules-grid">
       <div class="card">
@@ -865,16 +878,16 @@
           <li>At least <strong>5 players from each team</strong> — no lopsided raids on either pool.</li>
           <li>At least <strong>one wicketkeeper</strong> in your squad, and your starting XI must always include one.</li>
           <li>No budget cap — pick on judgement, not salary.</li>
-          <li>From your 14, name a <strong>starting XI</strong> — the other 3 sit on the bench. Free to change anytime in Squad.</li>
-          <li>Each player in your XI is also assigned a <strong>playing role</strong> — Batter, Bowler or Wicketkeeper — independent of their real-life role (so a keeper can be assigned as a Batter, an all-rounder as a Bowler, and so on). It doubles that discipline's bonus points: 50s/100s for a Batter, 4-/5-wicket hauls for a Bowler, catches/stumpings/run-outs for a Wicketkeeper. Set it from a player's card in Squad, defaulting to their own base role (all-rounders default to Batter).</li>
+          <li>From your 14, name a <strong>starting XI</strong> — the other 3 sit on the bench. Free to change anytime in My Squads.</li>
+          <li>Each player in your XI is also assigned a <strong>playing role</strong> — Batter, Bowler or Wicketkeeper — independent of their real-life role (so a keeper can be assigned as a Batter, an all-rounder as a Bowler, and so on). It doubles that discipline's bonus points: 50s/100s for a Batter, 4-/5-wicket hauls for a Bowler, catches/stumpings/run-outs for a Wicketkeeper. Set it from a player's card in My Squads, defaulting to their own base role (all-rounders default to Batter).</li>
           <li>Choose a <strong>Captain (2&times; points)</strong> and <strong>Vice-Captain</strong> from your XI. The Vice-Captain carries no bonus of their own — it only kicks in (2&times;) if your Captain doesn't play that Test.</li>
         </ol>
       </div>
       <div class="card">
         <h3 style="font-family:var(--font-display); margin-top:0;">Between Tests</h3>
         <ol class="rules-list">
-          <li>Your <strong>starting XI</strong> (11 of your 14) can be changed freely in <strong>Squad</strong> at any time — it never counts as a transfer.</li>
-          <li><strong>Transfers</strong> — swapping a player out of your 14 for anyone else in the pool — are limited to <strong>2 per Test</strong>, measured against your last locked squad. There's <strong>no limit at all before your first Test locks</strong> — chop and change your initial squad as much as you like right up to that first deadline. Committing just declares your intended squad; it's never blocked by the transfer count, but going over 2 (once the limit applies) without your wildcard is against the rules, so keep an eye on the count shown in Squad before each deadline.</li>
+          <li>Your <strong>starting XI</strong> (11 of your 14) can be changed freely in <strong>My Squads</strong> at any time — it never counts as a transfer.</li>
+          <li><strong>Transfers</strong> — swapping a player out of your 14 for anyone else in the pool — are limited to <strong>2 per Test</strong>, measured against your last locked squad. There's <strong>no limit at all before your first Test locks</strong> — chop and change your initial squad as much as you like right up to that first deadline. Committing just declares your intended squad; it's never blocked by the transfer count, but going over 2 (once the limit applies) without your wildcard is against the rules, so keep an eye on the count shown in My Squads before each deadline.</li>
           <li>Once per series, arm your <strong>Wildcard</strong> to lift that 2-transfer limit. It's only actually spent if you commit while it's armed and your squad is still locked in that way when the deadline passes — arming and backing out costs nothing.</li>
           <li>Selection <strong>locks at 10:00am</strong> local time on the morning of Day 1 of each Test — see the countdown at the top of the page. Whatever you last committed becomes your new baseline for the next round of transfers.</li>
           <li>Captain / Vice-Captain can be reassigned anytime among your current XI, free of charge.</li>
@@ -902,7 +915,7 @@
           <tr><td>Per run-out (2&times; if playing as Wicketkeeper)</td><td class="val pos">+8</td></tr>
         </table>
       </div>
-      <p class="muted-on-light" style="font-size:12.5px; margin-top:10px;">Each XI player's assigned <strong>playing role</strong> (Batter/Bowler/Wicketkeeper, set in Squad) doubles that discipline's bonus points as marked above — independent of their real-life role. Separately, <strong>Captain</strong> multiplies their total match points by 2&times;. <strong>Vice-Captain</strong> gets no bonus unless the Captain doesn't play that Test — then the armband passes to them for 2&times; instead.</p>
+      <p class="muted-on-light" style="font-size:12.5px; margin-top:10px;">Each XI player's assigned <strong>playing role</strong> (Batter/Bowler/Wicketkeeper, set in My Squads) doubles that discipline's bonus points as marked above — independent of their real-life role. Separately, <strong>Captain</strong> multiplies their total match points by 2&times;. <strong>Vice-Captain</strong> gets no bonus unless the Captain doesn't play that Test — then the armband passes to them for 2&times; instead.</p>
     </div>
   </section>
 
@@ -944,9 +957,9 @@
     <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
     <span>Home</span>
   </button>
-  <button class="tab-btn nav-item" data-tab="myxi" aria-label="Squad">
+  <button class="tab-btn nav-item" data-tab="myxi" aria-label="My Squads">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19 15 9"/><rect x="14" y="4" width="6" height="6" rx="1" transform="rotate(45 17 7)"/></svg>
-    <span>Squad</span>
+    <span>My Squads</span>
   </button>
   <button class="tab-btn nav-item" data-tab="leaderboard" aria-label="My Leagues">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15c-3 0-5-2-5-5V4h10v6c0 3-2 5-5 5z"/><path d="M12 15v3M9 21h6M5 5H3v2a3 3 0 0 0 3 3M19 5h2v2a3 3 0 0 1-3 3"/></svg>

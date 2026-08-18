@@ -185,7 +185,7 @@ async function renderSeriesSetup(){
         </div>
       `;
       wireSubview = (subwrap)=>{
-        document.getElementById('playersHelpBtn').addEventListener('click', ()=> showAlert('Add, edit or remove players from the pool that Squad and Match Setup draw from for this series. Changes are shared with every league on this series. Removing a player already picked in someone\'s squad won\'t delete their squad — it just shows as "(removed player)" there, so remove sparingly once the series is underway.', 'Players'));
+        document.getElementById('playersHelpBtn').addEventListener('click', ()=> showAlert('Add, edit or remove players from the pool that My Squads and Match Setup draw from for this series. Changes are shared with every league on this series. Removing a player already picked in someone\'s squad won\'t delete their squad — it just shows as "(removed player)" there, so remove sparingly once the series is underway.', 'Players'));
         subwrap.querySelectorAll('[data-poolteam]').forEach(btn=>{
           btn.addEventListener('click', ()=>{
             playersPoolTeam = btn.dataset.poolteam;

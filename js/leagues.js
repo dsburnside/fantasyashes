@@ -107,7 +107,7 @@ function openLeagueAddOverlay(){
     const hasTeam = mySquads.some(s=>s.seriesId===league.series_id);
     showAlert(hasTeam
       ? `Joined ${league.name}.`
-      : `Joined ${league.name} — you don't have a team on this series yet. Pick one in Squad to appear on the leaderboard.`, 'Joined');
+      : `Joined ${league.name} — you don't have a team on this series yet. Pick one in My Squads to appear on the leaderboard.`, 'Joined');
   });
 }
 
@@ -213,13 +213,15 @@ async function renderLeaderboard(){
         <div class="card">
           ${cardHeadHtml}
           ${rows.map((r,i)=>`
-            <div class="player-row standing-row${i===0?' leader':''}" data-idx="${i}">
-              <div class="player-name-wrap">
+            <div class="player-row standing-row standing-row-full${i===0?' leader':''}" data-idx="${i}">
+              <div class="standing-team-row">
                 <span class="standing-rank">${i+1}</span>
                 <span class="player-name">${r.name}</span>
-                ${r.managerName ? `<span class="muted-on-light" style="width:100%; font-size:11px; padding-left:26px;">${r.managerName}</span>` : ''}
               </div>
-              <span class="standing-points">${r.total} pts</span>
+              <div class="standing-meta-row">
+                <span class="muted-on-light" style="font-size:11px;">${r.managerName || ''}</span>
+                <span class="standing-points">${r.total} pts</span>
+              </div>
             </div>
           `).join('')}
           ${actionBarHtml}

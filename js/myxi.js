@@ -2,6 +2,32 @@
 /* ================= MY XI ================= */
 let draft = null; // local, unsaved editing state for My XI: {_squadId, squad14, xi11, captain, viceCaptain, playingRoles}
 
+/* Squad page's own "most recent Test" scoreboard card — kept separate from
+   draft/render state on purpose: renderMyXI() re-renders on every single
+   draft edit (a role toggle, a drag reorder, ...), but this only actually
+   changes once a Test locks, so it's fetched lazily and cached rather than
+   re-fetched on every one of those re-renders. Keyed on squadId + how many
+   Tests are locked (not just squadId) so a newly-locked Test on the *same*
+   squad still triggers a re-fetch next render. */
+let myxiRecentScore = null; // {test, pts} for mySquad's most recently locked Test, or null if none locked yet
+let myxiRecentScoreKey;
+async function loadMyxiRecentScore(){
+  const squad = mySquad;
+  const lockedTests = squad ? Object.keys(squad.lockedXiByTest||{}).map(Number) : [];
+  const key = squad ? `${squad.id}:${lockedTests.length}` : 'none';
+  if(myxiRecentScoreKey === key) return; // already have it (or already know there's nothing to have) for this squad
+  myxiRecentScoreKey = key;
+  if(lockedTests.length===0){
+    myxiRecentScore = null;
+  } else {
+    const test = Math.max(...lockedTests);
+    const {stats, playingXi} = await getMatchDataForTest(currentSeriesId, test);
+    if(myxiRecentScoreKey !== key) return; // squad/series moved on again while this was in flight
+    myxiRecentScore = {test, pts: Math.round(computeTestScore(squad.lockedXiByTest[test], stats, playingXi)*10)/10};
+  }
+  renderMyXI();
+}
+
 /* Local-only autosave for the in-progress draft — so a refresh, an accidental
    tab close, or a flaky connection while editing doesn't throw away work
    that was never committed. Scoped per user + series + squad (squadId is
@@ -181,6 +207,7 @@ function renderMyXI(){
   }
 
   const activeSeries = seriesList.find(s=>s.id===currentSeriesId) || {id: currentSeriesId, name: 'this series'};
+  loadMyxiRecentScore(); // fire-and-forget — see its own comment; re-renders itself once (if) it resolves with something new
   ensureDraft();
   // Every draft mutation below re-renders via renderMyXI(), so caching right
   // here after ensureDraft() catches every one of them in a single place
@@ -231,7 +258,7 @@ function renderMyXI(){
   const benchSlotsHtml = Array.from({length:3}, (_,i)=> draftBench[i] ? squadCardHtml(draftBench[i], 'bench', baselineSquad14) : emptySlotHtml('bench')).join('');
 
   c.innerHTML = `
-    <h2 class="panel-title">Squad <button type="button" class="help-icon" id="myXiHelpBtn" title="What's this?" aria-label="Help">?</button></h2>
+    <h2 class="panel-title">My Squads <button type="button" class="help-icon" id="myXiHelpBtn" title="What's this?" aria-label="Help">?</button></h2>
     ${draftDiffersFromCommitted ? `
       <div class="notice warn" style="margin-bottom:18px;">
         <strong>Unsaved changes</strong> — they won't count for scoring until you confirm.
@@ -250,6 +277,14 @@ function renderMyXI(){
         ${squad.wildcardActiveNow ? `<button type="button" class="btn danger small" id="resetSquadBtn">Reset Team</button>` : ''}
       ` : `<span style="font-family:var(--font-display); font-size:17px; color:var(--parchment-dim);">New team</span>`}
     </div>
+    ${myxiRecentScore ? `
+      <div class="scoreboard" style="margin-bottom:14px;">
+        <div class="sb-row">
+          <div class="sb-team">Test ${myxiRecentScore.test} score</div>
+          <div class="sb-score">${myxiRecentScore.pts}</div>
+        </div>
+      </div>
+    ` : ''}
     ${!isBuilding && hasLockedOnce ? `
       <div class="wildcard-row">
         ${squad.wildcardUsed
@@ -287,7 +322,7 @@ function renderMyXI(){
     </div>
   `;
 
-  document.getElementById('myXiHelpBtn').addEventListener('click', ()=> showAlert("Build your 14-man squad, arrange your starting XI (11 of the 14 — the rest sit on the bench), assign each XI player a playing role, and set a captain and vice-captain, then commit to declare your squad for the next Test. Moving between XI and bench (or reordering the bench) is always free. There's no transfer limit until your first Test locks — after that, swapping anyone in or out of your 14 counts as a transfer, capped at 2 per Test unless you arm your wildcard. Team names must be unique within the series.", 'Squad'));
+  document.getElementById('myXiHelpBtn').addEventListener('click', ()=> showAlert("Build your 14-man squad, arrange your starting XI (11 of the 14 — the rest sit on the bench), assign each XI player a playing role, and set a captain and vice-captain, then commit to declare your squad for the next Test. Moving between XI and bench (or reordering the bench) is always free. There's no transfer limit until your first Test locks — after that, swapping anyone in or out of your 14 counts as a transfer, capped at 2 per Test unless you arm your wildcard. Team names must be unique within the series.", 'My Squads'));
 
   const transferWarnBtn = document.getElementById('transferWarnBtn');
   if(transferWarnBtn) transferWarnBtn.addEventListener('click', e=>{
@@ -390,16 +425,25 @@ function renderMyXI(){
      pointerdown/move/up sequence on the card gives a real, cursor/finger-
      following drag on every device — replacing the old split between native
      HTML5 drag-and-drop (which never fires on touch at all) and a tap-to-swap
-     fallback for touch. A press that never moves past DRAG_THRESHOLD is
-     treated as a plain tap instead, which now opens that player's detail
-     overlay (openPlayerDetailOverlay, js/overlays.js) rather than arming a
-     tap-to-swap — repositioning within/between zones is drag-only now that
-     the card has no buttons of its own left to compete with a tap for
-     meaning. Nothing on the card needs excluding from the drag anymore
-     either (see squadCardHtml's comment), so this starts from anywhere on
-     it, no exceptions. */
-  const DRAG_THRESHOLD = 6; // px of movement before a press counts as a drag rather than a tap
-  let dragState = null; // {pid, zone, el, startX, startY, dragging, ghost, pointerId}
+     fallback for touch. Dragging is long-press-gated: a press only turns into
+     a drag once it's been held roughly still for LONG_PRESS_MS (see the timer
+     in pointerdown below and beginActualDrag() firing from it), not the
+     instant it moves. That's deliberate — with the whole card as the drag
+     surface (nothing left on it to carve a drag-handle out of, see
+     squadCardHtml's comment) and .squad-card's touch-action:pan-y (index.html)
+     leaving vertical swipes to the browser by default, an ordinary scroll
+     down the Starting XI/Bench list no longer gets hijacked into a drag
+     partway through — only a still, held-down press does. A press that
+     moves past DRAG_THRESHOLD before the timer fires is read as exactly that
+     kind of scroll attempt and abandoned outright (no tap, no drag); a
+     release before the timer fires without moving that far is a plain tap,
+     which opens that player's detail overlay (openPlayerDetailOverlay,
+     js/overlays.js) rather than arming a tap-to-swap — repositioning within/
+     between zones is drag-only now that there's nothing else on the card to
+     compete with a tap for meaning. */
+  const DRAG_THRESHOLD = 6; // px of movement, before the long-press timer fires, that abandons a press as a scroll attempt rather than a tap
+  const LONG_PRESS_MS = 350; // how long a still press has to hold before it's picked up as a drag rather than left to scroll
+  let dragState = null; // {pid, zone, el, startX, startY, dragging, ghost, pointerId, timer}
 
   function dropTargetAt(x, y, draggedPid){
     const el = document.elementFromPoint(x, y);
@@ -441,17 +485,37 @@ function renderMyXI(){
   c.querySelectorAll('.squad-card[data-pid]').forEach(card=>{
     card.addEventListener('pointerdown', e=>{
       if(e.button) return; // ignore right/middle click; touch/pen report button 0
-      e.preventDefault();
+      // No preventDefault()/setPointerCapture-as-a-scroll-blocker here — see
+      // the comment above the constants: the browser stays free to scroll
+      // this touch natively unless/until the long-press timer below actually
+      // arms a drag. Still calling setPointerCapture is safe on its own; it
+      // only routes future pointer events for this touch to this element,
+      // it doesn't affect touch-action/scrolling by itself.
       e.stopPropagation();
       card.setPointerCapture(e.pointerId);
-      dragState = {pid: card.dataset.pid, zone: card.dataset.zone, el: card, startX: e.clientX, startY: e.clientY, dragging: false, ghost: null, pointerId: e.pointerId};
+      dragState = {pid: card.dataset.pid, zone: card.dataset.zone, el: card, startX: e.clientX, startY: e.clientY, dragging: false, ghost: null, pointerId: e.pointerId, timer: null};
+      dragState.timer = setTimeout(()=>{
+        if(!dragState || dragState.el!==card || dragState.dragging) return; // released, moved away, or already armed since this fired
+        dragState.timer = null;
+        beginActualDrag();
+        positionGhost(dragState.startX, dragState.startY);
+      }, LONG_PRESS_MS);
     });
     card.addEventListener('pointermove', e=>{
       if(!dragState || dragState.el!==card) return;
       if(!dragState.dragging){
-        if(Math.hypot(e.clientX-dragState.startX, e.clientY-dragState.startY) < DRAG_THRESHOLD) return;
-        beginActualDrag();
+        // Still waiting on the long-press timer. Real movement this early
+        // reads as a scroll attempt, not a hold-to-drag — let it go (the
+        // browser's already free to scroll on its own, having never been
+        // preventDefault()'d) rather than racing it, and abandon the press
+        // entirely so release doesn't also fire a tap.
+        if(Math.hypot(e.clientX-dragState.startX, e.clientY-dragState.startY) >= DRAG_THRESHOLD){
+          clearTimeout(dragState.timer);
+          dragState = null;
+        }
+        return;
       }
+      e.preventDefault();
       positionGhost(e.clientX, e.clientY);
       clearDropHighlights();
       const target = dropTargetAt(e.clientX, e.clientY, dragState.pid);
@@ -459,6 +523,7 @@ function renderMyXI(){
     });
     const release = e=>{
       if(!dragState || dragState.el!==card) return;
+      if(dragState.timer) clearTimeout(dragState.timer);
       const {pid, zone, dragging} = dragState;
       if(dragging){
         const target = dropTargetAt(e.clientX, e.clientY, pid);
@@ -466,14 +531,21 @@ function renderMyXI(){
         dragState = null;
         if(target) moveOrSwap(pid, target.zone, target.pid);
       } else {
-        // plain tap — open this player's detail overlay (see the comment
-        // on the drag handler above)
+        // Released before the long-press armed a drag, without moving far
+        // enough to look like a scroll either — a plain tap, opening this
+        // player's detail overlay (see the comment on the drag handler above).
         dragState = null;
         openPlayerDetailOverlay(pid, zone);
       }
     };
     card.addEventListener('pointerup', release);
-    card.addEventListener('pointercancel', ()=>{ if(dragState && dragState.el===card){ endDragVisuals(); dragState = null; } });
+    card.addEventListener('pointercancel', ()=>{
+      if(dragState && dragState.el===card){
+        if(dragState.timer) clearTimeout(dragState.timer);
+        endDragVisuals();
+        dragState = null;
+      }
+    });
   });
 
   /* ---- rename team ---- */

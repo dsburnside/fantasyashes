@@ -90,7 +90,7 @@ function showLoginOverlay(dismissible=true){
   const backdrop = openOverlay(`
     <span class="overlay-lock-icon">&#127978;</span>
     <div class="overlay-title">Sign in to The Ashes Fantasy XI</div>
-    <div class="overlay-message">Pick a team for any series, no league required — one squad per series, per account. Leagues (create or join under My Leagues) are an optional way to compare against friends. You can browse Rules without an account; Squad and My Leagues need a login. Signing up needs your first and last name too, so other players can see who manages which team on the leaderboard.</div>
+    <div class="overlay-message">Pick a team for any series, no league required — one squad per series, per account. Leagues (create or join under My Leagues) are an optional way to compare against friends. You can browse Rules without an account; My Squads and My Leagues need a login. Signing up needs your first and last name too, so other players can see who manages which team on the leaderboard.</div>
     <div class="field-group"><label for="ovFirstName">First name</label><input type="text" id="ovFirstName" placeholder="Jane"></div>
     <div class="field-group"><label for="ovLastName">Last name</label><input type="text" id="ovLastName" placeholder="Doe"></div>
     <div class="field-group"><label for="ovEmail">Email</label><input type="email" id="ovEmail" placeholder="you@example.com"></div>

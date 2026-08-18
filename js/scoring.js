@@ -203,7 +203,7 @@ function countChanges(rosterA, rosterB){
 
 /* Validates a 14-man squad against the league rules: exactly 14, at least 5
    from each of the series' two teams, at least one wicketkeeper. Used by both
-   Squad Builder (initial pick) and My XI (ongoing transfers). Teams are
+   initial squad-building and ongoing transfers in My Squads. Teams are
    derived from the full available PLAYERS pool (not just the selection) so a
    team with zero players picked still gets flagged as short, rather than
    silently passing because it never appears among the chosen ids.

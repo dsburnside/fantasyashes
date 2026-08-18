@@ -111,7 +111,7 @@ function switchTab(tab){
   const activePanel = document.querySelector('.tab-panel.active');
   const leavingMyXi = activePanel && activePanel.id==='tab-myxi' && tab!=='myxi';
   if(leavingMyXi && hasUncommittedMyXiChanges()){
-    showConfirm("You've made changes in Squad that you haven't confirmed yet — they're saved and will still be here, but they won't count for scoring until you hit Confirm. Leave without confirming?", 'Uncommitted changes').then(ok=>{
+    showConfirm("You've made changes in My Squads that you haven't confirmed yet — they're saved and will still be here, but they won't count for scoring until you hit Confirm. Leave without confirming?", 'Uncommitted changes').then(ok=>{
       if(ok) applyTabSwitch(tab);
     });
     return;
