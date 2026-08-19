@@ -103,17 +103,21 @@ async function getMatchDataForTest(seriesId, testNum){
   return {stats: (data && data.stats) || {}, playingXi: (data && data.playing_xi) || [], innings: (data && data.innings) || []};
 }
 
-// pid -> {bat, bowl, field, total, runs, wickets, catches, stumpings,
-// runouts} scored across every Test entered so far this series. bat/bowl/
-// field/total are points (plain rate, no captain/VC/playing-role multiplier
-// — it's a ranking of the player's own output, not any one manager's
-// fantasy score); runs/wickets/catches/stumpings/runouts are the raw
+// pid -> {bat, bowl, field, total, runs, ballsFaced, wickets, trueOvers,
+// runsConceded, catches, stumpings, runouts} scored across every Test
+// entered so far this series. bat/bowl/field/total are points (plain rate,
+// no captain/VC/playing-role multiplier — it's a ranking of the player's own
+// output, not any one manager's fantasy score); the rest are the raw
 // counting stats behind those points, same idea as leagues.js's per-Test
 // breakdown rows but summed across the whole series — what My XI's player
-// detail overlay (js/overlays.js) shows. Starts at all-zero for everyone at
-// the start of a series since there's simply nothing in match_stats yet.
-// Drives the player picker's per-role sort order and its bat/bowl/field
-// points display.
+// detail overlay (js/overlays.js) shows. trueOvers/runsConceded are kept as
+// separate running totals rather than a single "economy" figure, since
+// economy has to be computed from the SUM of both (runsConceded/trueOvers),
+// not averaged Test-by-Test — same reasoning as economyDisplayFor()
+// (js/scoring.js), just accumulated across Tests here instead of within one.
+// Starts at all-zero for everyone at the start of a series since there's
+// simply nothing in match_stats yet. Drives the player picker's per-role
+// sort order and its bat/bowl/field points display.
 let seriesPlayerTotals = {};
 async function loadSeriesPlayerTotals(seriesId){
   seriesPlayerTotals = {};
@@ -124,14 +128,17 @@ async function loadSeriesPlayerTotals(seriesId){
     Object.keys(stats||{}).forEach(pid=>{
       const s = stats[pid];
       const b = statPointsBreakdown(s);
-      const cur = seriesPlayerTotals[pid] || {bat:0, bowl:0, field:0, total:0, runs:0, wickets:0, catches:0, stumpings:0, runouts:0};
+      const cur = seriesPlayerTotals[pid] || {bat:0, bowl:0, field:0, total:0, runs:0, ballsFaced:0, wickets:0, trueOvers:0, runsConceded:0, catches:0, stumpings:0, runouts:0};
       seriesPlayerTotals[pid] = {
         bat: cur.bat + b.bat,
         bowl: cur.bowl + b.bowl,
         field: cur.field + b.field,
         total: cur.total + b.bat + b.bowl + b.field,
         runs: cur.runs + statMetricTotal(s,'runs'),
+        ballsFaced: cur.ballsFaced + statMetricTotal(s,'ballsFaced'),
         wickets: cur.wickets + statMetricTotal(s,'wickets'),
+        trueOvers: cur.trueOvers + trueOversTotal(s),
+        runsConceded: cur.runsConceded + statMetricTotal(s,'runsConceded'),
         catches: cur.catches + statMetricTotal(s,'catches'),
         stumpings: cur.stumpings + statMetricTotal(s,'stumpings'),
         runouts: cur.runouts + statMetricTotal(s,'runouts'),

@@ -8,7 +8,7 @@ function renderAdminMatchScreen(){
     ${adminBackBtnHtml()}
     <h3 style="margin:12px 0 14px; font-family:var(--font-display);">Test ${adminMatchTest}${fixture ? ' — '+fixture.venue : ''} <button type="button" class="help-icon" id="matchSetupHelpBtn" title="What's this?" aria-label="Help">?</button></h3>
     ${adminSeriesTeams.length<2 ? '<div class="empty-state">This series needs both teams assigned first — set them under Teams.</div>' : adminHubGridHtml([
-      {goto:'xi', title:'Player Selection', sub: `${currentPlayingXiDraft.length} ticked`},
+      {goto:'xi', title:'Player Selection', sub: `${currentPlayingXiDraft.length} added`},
       {goto:'scoring', title:'Scoring', sub: currentInningsDraft.length ? `${currentInningsDraft.length} innings` : 'No innings yet'},
     ])}
     <div style="margin-top:22px; padding-top:14px; border-top:1px solid var(--parchment-dim);">
@@ -20,7 +20,7 @@ function renderAdminMatchScreen(){
   `;
   const wire = c=>{
     c.querySelector('#adminBackBtn').addEventListener('click', ()=>{ adminScreen='fixtures'; renderAdminHub(); });
-    c.querySelector('#matchSetupHelpBtn').addEventListener('click', ()=> showAlert("Player Selection is who actually took the field — tick them once the real teams are announced. Scoring is where each innings' runs/wickets/catches etc. get entered, and where a Test gets locked in for every league's scoring once it's done.", 'Match Setup'));
+    c.querySelector('#matchSetupHelpBtn').addEventListener('click', ()=> showAlert("Player Selection is who actually took the field — add them once the real teams are announced, in batting order. Scoring is where each innings' runs/wickets/catches etc. get entered (in that same order), and where a Test gets locked in for every league's scoring once it's done.", 'Match Setup'));
     const xiCard = c.querySelector('[data-goto="xi"]');
     if(xiCard) xiCard.addEventListener('click', ()=>{ adminScreen='xi'; renderAdminHub(); });
     const scoringCard = c.querySelector('[data-goto="scoring"]');
@@ -55,11 +55,23 @@ let playingXiPoolTeam = null; // which team's XI tab is showing in renderPlaying
 const STAT_COLUMN_GROUPS = {
   batting: [
     {key:'runs', label:'Runs', type:'number'},
+    // 50+ balls faced is its own bonus (see singleInningsPoints, js/scoring.js)
+    // independent of runs scored — a defensive 40 off 60 balls earns it same
+    // as a quickfire 40 off 30 doesn't.
+    {key:'ballsFaced', label:'Balls', type:'number'},
     {key:'duck', label:'Duck', type:'checkbox'},
     {key:'fifty', label:'50', type:'checkbox'},
     {key:'hundred', label:'100', type:'checkbox'},
   ],
   bowling: [
+    // Overs in normal cricket notation (e.g. 4.3 = 4 overs and 3 balls, not
+    // 4.3 overs) — trueOvers()/economyFor() (js/scoring.js) convert that into
+    // real fractional overs for the sub-3.5-economy bonus; a step of 0.1
+    // rather than 1 just makes the up/down spinner move by tenths, it
+    // doesn't enforce the notation itself (still free-text entry, same as
+    // everywhere else in this table).
+    {key:'overs', label:'Overs', type:'number', step:'0.1', title:'Cricket notation, e.g. 4.3 = 4 overs and 3 balls'},
+    {key:'runsConceded', label:'Runs', type:'number'},
     {key:'wickets', label:'Wkts', type:'number'},
     {key:'fourWkt', label:'4-fer', type:'checkbox'},
     {key:'fiveWkt', label:'5-fer', type:'checkbox'},
@@ -69,16 +81,6 @@ const STAT_COLUMN_GROUPS = {
     {key:'stumpings', label:'St', type:'number'},
     {key:'runouts', label:'RO', type:'number'},
   ],
-};
-// Player order within each stat table — role priority first (batting wants
-// its best batters at the top regardless of nominal role, etc.), then
-// alphabetical by name within a role. ROLE_GROUP_ORDER (state.js) already
-// matches the requested batting order (Batter > All-rounder > Wicketkeeper >
-// Bowler), so it's reused rather than redefined.
-const CATEGORY_ROLE_ORDER = {
-  batting: ROLE_GROUP_ORDER,
-  bowling: ['BOWL','AR','BAT','WK'],
-  fielding: ['WK','BAT','AR','BOWL'],
 };
 
 /* ---- Player Selection (under Match) ---- */
@@ -91,7 +93,7 @@ function renderAdminXiScreen(){
   `;
   const wire = c=>{
     c.querySelector('#adminBackBtn').addEventListener('click', ()=>{ adminScreen='match'; renderAdminHub(); });
-    c.querySelector('#playingXiHelpBtn').addEventListener('click', ()=> showAlert("Tick who actually took the field once the real teams are announced — this both drives automatic substitutions (anyone in a fantasy team's locked XI who isn't ticked is replaced by their first bench player, in squad order, who is — same idea as Fantasy Premier League's autosubs, with a captain's bonus passing to the vice-captain if the captain didn't play) and decides who you can log scoring against on the Scoring screen. Leave everyone unticked until the real teams are out.", 'Playing XI & automatic substitutions'));
+    c.querySelector('#playingXiHelpBtn').addEventListener('click', ()=> showAlert("Add who actually took the field once the real teams are announced, in batting order — this both drives automatic substitutions (anyone in a fantasy team's locked XI who isn't added here is replaced by their first bench player, in squad order, who is — same idea as Fantasy Premier League's autosubs, with a captain's bonus passing to the vice-captain if the captain didn't play) and decides who you can log scoring against on the Scoring screen, in the same order you add them here. Leave this empty until the real teams are out.", 'Playing XI & automatic substitutions'));
     renderPlayingXiTable(adminMatchTest);
   };
   return {html, wire};
@@ -100,31 +102,47 @@ function renderAdminXiScreen(){
 /* Two-column checklist (one per series team) of who actually took the field
    for a Test — this is what resolveEffectiveXi() reads to work out automatic
    substitutions. */
+/* Add-one-at-a-time rather than a tick-anyone checklist, on purpose: the
+   order players get added in IS the Playing XI's own order now (see
+   currentPlayingXiDraft below — add appends, nothing ever re-sorts it), and
+   buildStatTable reads that same order for every stat category — so adding
+   in actual batting order here is what makes Scoring afterward read in
+   batting order too, instead of needing to hunt each name down in a
+   role-sorted list while working off a real scorecard. */
 function renderPlayingXiTable(testNum){
   const wrap = document.getElementById('playingXiWrap');
   if(!wrap) return;
   if(!playingXiPoolTeam || !adminSeriesTeams.some(t=>t.short_code===playingXiPoolTeam)) playingXiPoolTeam = adminSeriesTeams[0].short_code;
-  const rowHtml = (p)=> `
-    <label class="teamnews-row" style="cursor:pointer;">
-      <span class="player-name">${p.name}</span>
-      <span class="teamnews-row-right">
-        <span class="role-pill">${ROLE_LABEL[p.role]}</span>
-        <input type="checkbox" data-pid="${p.id}" ${currentPlayingXiDraft.includes(p.id)?'checked':''}>
-      </span>
-    </label>`;
+  const addedRowHtml = (pid, idx)=>{
+    const p = adminPlayerMap[pid] || {name:'(removed player)', role:'BAT'};
+    return `
+      <div class="player-row" data-pid="${pid}">
+        <div class="player-name-wrap">
+          <span class="standing-rank">${idx+1}</span>
+          <span class="player-name">${p.name}</span>
+          <span class="role-pill">${ROLE_LABEL[p.role]}</span>
+        </div>
+        <div class="player-row-actions">
+          <button type="button" class="row-icon-btn danger" data-action="removeXi" data-pid="${pid}" ${session?'':'disabled'} title="Remove from Playing XI" aria-label="Remove from Playing XI">&times;</button>
+        </div>
+      </div>`;
+  };
   const playedCount = code=> adminPlayers.filter(p=>p.nat===code && currentPlayingXiDraft.includes(p.id)).length;
-  // Both teams' checklists render at once (each its own .admin-subpanel) so
+  // Both teams' lists render at once (each its own .admin-subpanel) so
   // switching the tab is a plain local class-toggle — same as every other
   // tab bar in the app — rather than re-rendering anything.
   wrap.innerHTML = `
     <div class="admin-subnav light-subnav even-tabs">
       ${adminSeriesTeams.map(t=>`<button class="subtab-btn${t.short_code===playingXiPoolTeam?' active':''}" data-xiteam="${t.short_code}">${t.short_code} (${playedCount(t.short_code)}/11)</button>`).join('')}
     </div>
-    ${adminSeriesTeams.map(t=>`
+    ${adminSeriesTeams.map(t=>{
+      const addedIds = currentPlayingXiDraft.filter(pid=> adminPlayerMap[pid] && adminPlayerMap[pid].nat===t.short_code);
+      return `
       <div class="admin-subpanel${t.short_code===playingXiPoolTeam?' active':''}" data-xipanel="${t.short_code}" style="margin-top:12px;">
-        ${adminPlayers.filter(p=>p.nat===t.short_code).map(rowHtml).join('')}
-      </div>
-    `).join('')}`;
+        ${addedIds.length ? addedIds.map(addedRowHtml).join('') : '<div class="empty-state" style="padding:14px;">No one added yet.</div>'}
+        <button type="button" class="btn secondary small" data-action="addXi" data-team="${t.short_code}" style="margin-top:10px;" ${session?'':'disabled'}>+ Add player</button>
+      </div>`;
+    }).join('')}`;
   wrap.querySelectorAll('[data-xiteam]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       playingXiPoolTeam = btn.dataset.xiteam;
@@ -132,12 +150,12 @@ function renderPlayingXiTable(testNum){
       wrap.querySelectorAll('[data-xipanel]').forEach(p=> p.classList.toggle('active', p.dataset.xipanel===btn.dataset.xiteam));
     });
   });
-  wrap.querySelectorAll('input[type=checkbox]').forEach(cb=>{
-    cb.addEventListener('change', ()=>{
-      const pid = cb.dataset.pid;
-      currentPlayingXiDraft = cb.checked
-        ? [...currentPlayingXiDraft.filter(id=>id!==pid), pid]
-        : currentPlayingXiDraft.filter(id=>id!==pid);
+  wrap.querySelectorAll('[data-action="addXi"]').forEach(btn=>{
+    btn.addEventListener('click', ()=> openXiAddOverlay(btn.dataset.team, testNum));
+  });
+  wrap.querySelectorAll('[data-action="removeXi"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      currentPlayingXiDraft = currentPlayingXiDraft.filter(id=>id!==btn.dataset.pid);
       // Scoring reads currentPlayingXiDraft fresh whenever it's next entered
       // (a separate screen now, not a hidden tab sharing this DOM) — no
       // #statsTableWrap to refresh in place from here.
@@ -150,6 +168,36 @@ function renderPlayingXiTable(testNum){
     if(error){ showAlert(error.message); return; }
     showAlert('Playing XI saved for Test '+testNum+'.');
   };
+}
+
+/* Lightbox behind Player Selection's "+ Add player" — whoever from that
+   team's pool isn't in the Playing XI yet, tap to append them to the end of
+   currentPlayingXiDraft (i.e. next in). */
+function openXiAddOverlay(teamCode, testNum){
+  const avail = adminPlayers.filter(p=>p.nat===teamCode && !currentPlayingXiDraft.includes(p.id))
+    .sort((a,b)=> a.name.localeCompare(b.name));
+  if(avail.length===0){ showAlert("Everyone in this team's pool is already in the Playing XI."); return; }
+  const backdrop = openOverlay(`
+    <div class="overlay-title">Add to Playing XI</div>
+    <div class="overlay-message">Add in batting order — Scoring reads them back in the same order you add them here.</div>
+    <div class="picker-list">
+      ${avail.map(p=>`
+        <button type="button" class="picker-row" data-pid="${p.id}">
+          <span>${p.name}</span>
+          <span class="role-pill">${ROLE_LABEL[p.role]}</span>
+        </button>
+      `).join('')}
+    </div>
+  `);
+  backdrop.querySelector('[data-overlay-close]').addEventListener('click', closeOverlay);
+  backdrop.addEventListener('click', e=>{ if(e.target===backdrop) closeOverlay(); });
+  backdrop.querySelectorAll('.picker-row').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      closeOverlay();
+      currentPlayingXiDraft = [...currentPlayingXiDraft, btn.dataset.pid];
+      renderPlayingXiTable(testNum);
+    });
+  });
 }
 
 /* ---- Scoring (under Match) ---- */
@@ -273,16 +321,19 @@ function applyCapLockouts(table, inn, category){
 
 function buildStatTable(nat, inn, category){
   const cols = STAT_COLUMN_GROUPS[category];
-  const roleOrder = CATEGORY_ROLE_ORDER[category];
+  // Same order they were added on Player Selection (batting order, if that's
+  // how they were added) — every category (batting/bowling/fielding) reads
+  // this same order, on purpose, so admin doesn't have to re-scan for a name
+  // switching between them mid-entry.
   const players = adminPlayers
     .filter(p=>p.nat===nat && currentPlayingXiDraft.includes(p.id))
-    .sort((a,b)=> roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role) || a.name.localeCompare(b.name));
+    .sort((a,b)=> currentPlayingXiDraft.indexOf(a.id) - currentPlayingXiDraft.indexOf(b.id));
   const capKeys = CAP_KEYS[category];
   const capped = capKeys && categoryTotal(players, inn, capKeys) >= 10;
   return `
     <div class="table-scroll">
     <table class="stat-entry" data-category="${category}">
-      <tr><th>Player</th>${cols.map(c=>`<th>${c.label}</th>`).join('')}</tr>
+      <tr><th>Player</th>${cols.map(c=>`<th${c.title?` title="${c.title}"`:''}>${c.label}</th>`).join('')}</tr>
       ${players.length ? players.map(p=>{
         const playerStats = currentStatsDraft[p.id] || {};
         const s = playerStats[inn] || {};
@@ -292,7 +343,7 @@ function buildStatTable(nat, inn, category){
           <td>${p.name}</td>
           ${cols.map(c=> c.type==='checkbox'
             ? `<td><input type="checkbox" data-k="${c.key}" ${s[c.key]?'checked':''} ${disabled?'disabled':''}></td>`
-            : `<td><input type="number" min="0" data-k="${c.key}" value="${s[c.key]||''}" ${disabled?'disabled':''}></td>`
+            : `<td><input type="number" min="0" ${c.step?`step="${c.step}"`:''} data-k="${c.key}" value="${s[c.key]||''}" ${c.title?`title="${c.title}"`:''} ${disabled?'disabled':''}></td>`
           ).join('')}
         </tr>`;
       }).join('') : `<tr><td colspan="${cols.length+1}" class="muted-on-light">No ${teamNameForCode(nat)} players ticked in the Playing XI.</td></tr>`}
@@ -401,7 +452,11 @@ function renderStatsTable(testNum){
         if(!currentStatsDraft[pid]) currentStatsDraft[pid] = {};
         if(!currentStatsDraft[pid][inn]) currentStatsDraft[pid][inn] = {};
         const k = inp.dataset.k;
-        currentStatsDraft[pid][inn][k] = inp.type==='checkbox' ? inp.checked : parseInt(inp.value)||0;
+        // parseFloat, not parseInt — every number field here is a whole
+        // count except overs, which is cricket notation (e.g. 4.3) and needs
+        // its fractional part kept intact for economyFor() (js/scoring.js)
+        // to read correctly.
+        currentStatsDraft[pid][inn][k] = inp.type==='checkbox' ? inp.checked : parseFloat(inp.value)||0;
 
         // Runs -> Duck/50/100 auto-tick (still just a checkbox afterward, so
         // e.g. a not-out on 0 can be manually unticked). 100 and 50 stay

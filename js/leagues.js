@@ -278,6 +278,7 @@ function buildSquadBreakdownRow(squad, matchDataByTest){
         points: Math.round(playerPointsForTest(lockedEntry, stats, pid, captainDidNotPlay)*10)/10,
         runs: statMetricTotal(s,'runs'), wickets: statMetricTotal(s,'wickets'),
         catches: statMetricTotal(s,'catches'), stumpings: statMetricTotal(s,'stumpings'), runouts: statMetricTotal(s,'runouts'),
+        ballsFaced: statMetricTotal(s,'ballsFaced'), economy: economyDisplayFor(s),
       };
     };
     byTest[t] = {
@@ -332,7 +333,8 @@ function squadBreakdownPanelsHtml(byTest, getP, playerName){
       : row.subInFor
         ? `<span class="sub-swap-icon" title="Came on for ${playerName(row.subInFor)}">&#8646;</span>`
         : '';
-    return `<tr><td><span class="row-badge-slot">${badges}</span>${p.name}${swap}</td><td class="pts">${row.points}</td><td>${row.runs}</td><td>${row.wickets}</td><td>${row.catches}</td><td>${row.stumpings}</td><td>${row.runouts}</td></tr>`;
+    const econ = row.economy===null ? '–' : row.economy.toFixed(2);
+    return `<tr><td><span class="row-badge-slot">${badges}</span>${p.name}${swap}</td><td class="pts">${row.points}</td><td>${row.runs}</td><td>${row.ballsFaced}</td><td>${row.wickets}</td><td>${econ}</td><td>${row.catches}</td><td>${row.stumpings}</td><td>${row.runouts}</td></tr>`;
   };
   const defaultTest = testKeys[testKeys.length-1]; // most recently locked, i.e. the current-looking team
   const html = `
@@ -345,10 +347,10 @@ function squadBreakdownPanelsHtml(byTest, getP, playerName){
       <div class="admin-subpanel${t===defaultTest?' active':''}" data-testpanel="${t}">
         <div class="table-scroll">
         <table class="breakdown-table">
-          <tr><th>Player</th><th>Pts</th><th>Runs</th><th>Wkts</th><th>Ct</th><th>St</th><th>RO</th></tr>
-          <tr><td colspan="7" class="breakdown-group">Starting XI</td></tr>
+          <tr><th>Player</th><th>Pts</th><th>Runs</th><th>Balls</th><th>Wkts</th><th>Econ</th><th>Ct</th><th>St</th><th>RO</th></tr>
+          <tr><td colspan="9" class="breakdown-group">Starting XI</td></tr>
           ${d.xiRows.map(rowHtml).join('')}
-          <tr><td colspan="7" class="breakdown-group">Bench</td></tr>
+          <tr><td colspan="9" class="breakdown-group">Bench</td></tr>
           ${d.benchRows.map(rowHtml).join('')}
         </table>
         </div>
@@ -480,11 +482,11 @@ function openTeamOfTestOverlay(leaguePlayers, leagueFixtures, matchDataByTest){
         ${xi.length<11 ? `<p style="font-size:11px; color:var(--parchment-dim); margin:0 0 10px;">Only ${xi.length} player${xi.length===1?'':'s'} with stats recorded so far — not the full best XI yet.</p>` : ''}
         <div class="table-scroll">
         <table class="breakdown-table">
-          <tr><th>Player</th><th>Pts</th><th>Runs</th><th>Wkts</th><th>Ct</th><th>St</th><th>RO</th></tr>
+          <tr><th>Player</th><th>Pts</th><th>Runs</th><th>Balls</th><th>Wkts</th><th>Econ</th><th>Ct</th><th>St</th><th>RO</th></tr>
           ${groups.map(g=>`
-            <tr><td colspan="7" class="breakdown-group">${ROLE_LABEL[g.role]}</td></tr>
+            <tr><td colspan="9" class="breakdown-group">${ROLE_LABEL[g.role]}</td></tr>
             ${g.rows.map(row=>`
-              <tr><td>${row.name} <span class="nat-pill">${row.nat}</span></td><td class="pts">${row.points}</td><td>${row.runs}</td><td>${row.wickets}</td><td>${row.catches}</td><td>${row.stumpings}</td><td>${row.runouts}</td></tr>
+              <tr><td>${row.name} <span class="nat-pill">${row.nat}</span></td><td class="pts">${row.points}</td><td>${row.runs}</td><td>${row.ballsFaced}</td><td>${row.wickets}</td><td>${row.economy===null?'–':row.economy.toFixed(2)}</td><td>${row.catches}</td><td>${row.stumpings}</td><td>${row.runouts}</td></tr>
             `).join('')}
           `).join('')}
         </table>

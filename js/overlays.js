@@ -338,7 +338,8 @@ function renderPlayerDetailBody(pid, zone){
   const titleEl = document.getElementById('pdTitle');
   if(!titleEl) return; // overlay's already been closed (e.g. by the Replace button below)
   const p = getPlayer(pid);
-  const totals = seriesPlayerTotals[pid] || {runs:0, wickets:0, catches:0, stumpings:0, runouts:0, total:0};
+  const totals = seriesPlayerTotals[pid] || {runs:0, ballsFaced:0, wickets:0, trueOvers:0, runsConceded:0, catches:0, stumpings:0, runouts:0, total:0};
+  const economy = totals.trueOvers ? (totals.runsConceded/totals.trueOvers).toFixed(2) : '–';
   const assignedRole = assignedPlayingRole(pid);
   const isCap = pid===draft.captain, isVc = pid===draft.viceCaptain;
   titleEl.textContent = p.name;
@@ -348,9 +349,9 @@ function renderPlayerDetailBody(pid, zone){
       <span style="color:var(--parchment-dim); font-size:12px;">Base role: ${ROLE_LABEL[p.role]}</span>
     </div>
     <table class="breakdown-table" style="margin-bottom:20px;">
-      <tr><th>Runs</th><th>Wkts</th><th>Ct</th><th>St</th><th>RO</th><th>Pts</th></tr>
+      <tr><th>Runs</th><th>Balls</th><th>Wkts</th><th>Econ</th><th>Ct</th><th>St</th><th>RO</th><th>Pts</th></tr>
       <tr>
-        <td>${totals.runs}</td><td>${totals.wickets}</td><td>${totals.catches}</td>
+        <td>${totals.runs}</td><td>${totals.ballsFaced}</td><td>${totals.wickets}</td><td>${economy}</td><td>${totals.catches}</td>
         <td>${totals.stumpings}</td><td>${totals.runouts}</td><td class="pts">${totals.total}</td>
       </tr>
     </table>

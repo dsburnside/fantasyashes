@@ -1,12 +1,51 @@
 /* js/scoring.js — pure squad/scoring logic: point calculation, squad validation, squad<->DB row mapping. No DOM, no network. */
 /* ================= SCORING ================= */
+// Bowling overs are entered in cricket notation (e.g. 4.3 meaning 4 overs
+// and 3 balls, i.e. 4 overs 3 balls into the 5th — never .6, since a 6th
+// ball completes the over and becomes the next whole number instead), not a
+// decimal fraction of an over — this converts that into true (fractional)
+// overs (4.5 here) so economy math divides by the right amount.
+function trueOvers(overs){
+  if(!overs) return 0;
+  const whole = Math.floor(overs);
+  const balls = Math.round((overs - whole) * 10);
+  return whole + balls/6;
+}
+// Runs conceded per true over for one innings — null (not 0) if no overs are
+// recorded yet, so "bowled 0 overs" never accidentally reads as a sub-3.5
+// economy bonus.
+function economyFor(inn){
+  if(!inn) return null;
+  const ov = trueOvers(inn.overs);
+  if(!ov) return null;
+  return (inn.runsConceded||0) / ov;
+}
+// True overs across both innings of a Test, for a per-Test economy DISPLAY
+// (not the scoring bonus itself, which is checked per-innings inside
+// singleInningsPoints — a player who qualifies in one innings but not the
+// other still gets that innings' bonus regardless of their combined figure).
+// Sums the true-overs conversion of each innings rather than the raw
+// cricket-notation numbers themselves (4.3 + 4.4 isn't 8.7 true overs).
+function trueOversTotal(s){
+  if(!s) return 0;
+  if(s.inn1 || s.inn2) return trueOvers(s.inn1 && s.inn1.overs) + trueOvers(s.inn2 && s.inn2.overs);
+  return trueOvers(s.overs);
+}
+// Combined economy across a Test's innings, for display — null if no overs
+// recorded, same reasoning as economyFor().
+function economyDisplayFor(s){
+  const ov = trueOversTotal(s);
+  if(!ov) return null;
+  return statMetricTotal(s, 'runsConceded') / ov;
+}
 // `role` is the fantasy playing role assigned to this player in whichever
 // squad is being scored (see defaultPlayingRole) — omit it (or pass a value
 // that isn't BAT/BOWL/WK) to get the plain, undoubled rate, which is what the
 // player-picker's raw series-points ranking uses. Doubling only ever applies
-// to that role's own bonus: a Batter's 50/100 bonus, a Bowler's 4-/5-fer
-// bonus, or a Wicketkeeper's catch/stumping/run-out points — everything else
-// (runs, wickets, duck) is unaffected regardless of assigned role.
+// to that role's own bonus: a Batter's 50/100/balls-faced bonus, a Bowler's
+// 4-/5-fer/economy bonus, or a Wicketkeeper's catch/stumping/run-out points
+// — everything else (runs, wickets, duck) is unaffected regardless of
+// assigned role.
 function singleInningsPoints(inn, role){
   if(!inn) return 0;
   let pts = 0;
@@ -16,10 +55,13 @@ function singleInningsPoints(inn, role){
   const wkMult = role==='WK' ? 2 : 1;
   if(inn.hundred) pts += 16*batMult;
   else if(inn.fifty) pts += 8*batMult;
-  if(inn.duck) pts -= 2;
+  if((inn.ballsFaced||0) > 50) pts += 20*batMult;
+  if(inn.duck) pts -= 20;
   pts += (inn.wickets||0) * 20;
   if(inn.fiveWkt) pts += 16*bowlMult;
   else if(inn.fourWkt) pts += 8*bowlMult;
+  const econ = economyFor(inn);
+  if(econ !== null && econ < 3.5) pts += 20*bowlMult;
   pts += (inn.catches||0) * 8*wkMult;
   pts += (inn.stumpings||0) * 12*wkMult;
   pts += (inn.runouts||0) * 8*wkMult;
@@ -45,10 +87,13 @@ function inningsPointsBreakdown(inn){
   let bat = (inn.runs||0) * 1;
   if(inn.hundred) bat += 16;
   else if(inn.fifty) bat += 8;
-  if(inn.duck) bat -= 2;
+  if((inn.ballsFaced||0) > 50) bat += 20;
+  if(inn.duck) bat -= 20;
   let bowl = (inn.wickets||0) * 20;
   if(inn.fiveWkt) bowl += 16;
   else if(inn.fourWkt) bowl += 8;
+  const econ = economyFor(inn);
+  if(econ !== null && econ < 3.5) bowl += 20;
   const field = (inn.catches||0)*8 + (inn.stumpings||0)*12 + (inn.runouts||0)*8;
   return {bat, bowl, field};
 }
@@ -149,6 +194,7 @@ function computeTeamOfTest(players, stats){
       points: Math.round(pts*10)/10,
       runs: statMetricTotal(s,'runs'), wickets: statMetricTotal(s,'wickets'),
       catches: statMetricTotal(s,'catches'), stumpings: statMetricTotal(s,'stumpings'), runouts: statMetricTotal(s,'runouts'),
+      ballsFaced: statMetricTotal(s,'ballsFaced'), economy: economyDisplayFor(s),
     };
   });
 }
