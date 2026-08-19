@@ -315,7 +315,15 @@ function applyCapLockouts(table, inn, category){
   rows.forEach(r=>{
     const contributes = statSum(r.dataset.pid, inn, keys) > 0;
     const lock = capped && !contributes;
-    r.querySelectorAll('input').forEach(inp=>{ inp.disabled = lock || !session; });
+    r.querySelectorAll('input').forEach(inp=>{
+      // Only actually lock a column the cap is about (see CAP_KEYS) or a
+      // checkbox that's meaningless without it (a 4-/5-fer can't be true on
+      // 0 wickets) — NOT an unrelated number field like overs/runs
+      // conceded, which every bowler who bowled has regardless of whether
+      // they were credited a wicket.
+      const capLockable = inp.type==='checkbox' || keys.includes(inp.dataset.k);
+      inp.disabled = !session || (lock && capLockable);
+    });
   });
 }
 
@@ -337,14 +345,20 @@ function buildStatTable(nat, inn, category){
       ${players.length ? players.map(p=>{
         const playerStats = currentStatsDraft[p.id] || {};
         const s = playerStats[inn] || {};
-        const lockedOut = capped && capKeys.every(k=>!s[k]);
-        const disabled = !session || lockedOut;
+        const rowLockedOut = capped && capKeys.every(k=>!s[k]);
         return `<tr data-pid="${p.id}" data-inn="${inn}">
           <td>${p.name}</td>
-          ${cols.map(c=> c.type==='checkbox'
-            ? `<td><input type="checkbox" data-k="${c.key}" ${s[c.key]?'checked':''} ${disabled?'disabled':''}></td>`
-            : `<td><input type="number" min="0" ${c.step?`step="${c.step}"`:''} data-k="${c.key}" value="${s[c.key]||''}" ${c.title?`title="${c.title}"`:''} ${disabled?'disabled':''}></td>`
-          ).join('')}
+          ${cols.map(c=>{
+            // Same reasoning as applyCapLockouts() below: the cap only ever
+            // locks the column(s) it's actually about, plus checkboxes that
+            // are meaningless without them — not an unrelated number field
+            // like overs/runs conceded.
+            const capLockable = c.type==='checkbox' || capKeys.includes(c.key);
+            const disabled = !session || (rowLockedOut && capLockable);
+            return c.type==='checkbox'
+              ? `<td><input type="checkbox" data-k="${c.key}" ${s[c.key]?'checked':''} ${disabled?'disabled':''}></td>`
+              : `<td><input type="number" min="0" ${c.step?`step="${c.step}"`:''} data-k="${c.key}" value="${s[c.key]||''}" ${c.title?`title="${c.title}"`:''} ${disabled?'disabled':''}></td>`;
+          }).join('')}
         </tr>`;
       }).join('') : `<tr><td colspan="${cols.length+1}" class="muted-on-light">No ${teamNameForCode(nat)} players ticked in the Playing XI.</td></tr>`}
     </table>
