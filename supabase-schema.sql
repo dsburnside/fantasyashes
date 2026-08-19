@@ -342,6 +342,20 @@ alter table public.fixtures alter column series_id set not null;
 alter table public.fixtures drop constraint if exists fixtures_pkey cascade;
 alter table public.fixtures add primary key (series_id, test);
 
+-- Set by lock_test()/auto_lock_overdue_tests() (see below) the moment a Test
+-- actually gets locked, whichever path did it — null means "not locked yet".
+-- This, not anything on squads (locking is stamped per-squad, and a squad
+-- created after the fact would never retroactively show it), is the single
+-- source of truth auto_lock_overdue_tests() checks so it locks an overdue
+-- Test exactly once rather than every time its cron job ticks over it.
+-- reset_test() deliberately leaves this alone rather than clearing it back
+-- to null — otherwise, resetting a Test whose deadline has already passed
+-- would just get auto-locked straight back (with whatever incomplete data
+-- happened to be there) on the very next cron tick, defeating the point of
+-- resetting it to go fix something. An admin re-locks it manually instead,
+-- once it's actually ready.
+alter table public.fixtures add column if not exists locked_at timestamptz;
+
 alter table public.fixtures enable row level security;
 
 drop policy if exists "fixtures_select_all" on public.fixtures;
@@ -578,21 +592,32 @@ create policy "squads_delete_own" on public.squads
 -- baseline, and finalizes the wildcard: it's only marked used if it was armed AND
 -- actually spent on a commit since the last lock (wildcard_committed_pending).
 -- Scoped directly by series_id now that squads belong to a series rather than
--- a single league. Runs as SECURITY DEFINER so it can update rows the caller
--- doesn't own. Restricted to admins via an explicit check inside the function
--- (a plain GRANT can't express per-row admin status, only role membership).
+-- a single league.
+--
+-- Split into two layers so the exact same snapshot logic can be reached two
+-- ways — an admin clicking the button in Match Setup, or the pg_cron job
+-- below noticing a deadline's passed — without either bypassing the other's
+-- guard:
+--   lock_test_core()  — the actual squads UPDATE, no auth check at all.
+--                        Deliberately NOT granted to authenticated/public —
+--                        only reachable from another SECURITY DEFINER
+--                        function owned by the same role (the two lock_test*
+--                        wrappers below), which is what keeps it from being
+--                        a way to skip the admin check by calling it directly
+--                        over the API.
+--   lock_test()       — the admin-facing wrapper the app actually calls;
+--                        all of the previous admin-only checking lives here,
+--                        unchanged, then it stamps fixtures.locked_at so
+--                        auto_lock_overdue_tests() (further below) knows
+--                        this one's already been done and leaves it alone.
 drop function if exists public.lock_test(int);
-create or replace function public.lock_test(p_series_id uuid, p_test int)
+create or replace function public.lock_test_core(p_series_id uuid, p_test int)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
-  if not exists (select 1 from public.profiles where user_id = auth.uid() and is_admin) then
-    raise exception 'Only admins can lock a Test';
-  end if;
-
   update public.squads
   set
     locked_xi_by_test = locked_xi_by_test || jsonb_build_object(
@@ -624,9 +649,71 @@ begin
     and series_id = p_series_id;
 end;
 $$;
+revoke all on function public.lock_test_core(uuid, int) from public, authenticated, anon;
+
+create or replace function public.lock_test(p_series_id uuid, p_test int)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from public.profiles where user_id = auth.uid() and is_admin) then
+    raise exception 'Only admins can lock a Test';
+  end if;
+
+  perform public.lock_test_core(p_series_id, p_test);
+
+  update public.fixtures set locked_at = now()
+    where series_id = p_series_id and test = p_test;
+end;
+$$;
 
 revoke all on function public.lock_test(uuid, int) from public;
 grant execute on function public.lock_test(uuid, int) to authenticated;
+
+-- ---------- auto_lock_overdue_tests(): the same lock, on a timer ----------
+-- Runs lock_test_core() (see above — same snapshot, no admin-check detour)
+-- for every fixture whose deadline has passed and hasn't been locked yet
+-- either way, then stamps fixtures.locked_at itself since it isn't going
+-- through the admin-facing lock_test() wrapper that normally does that.
+-- No auth.uid() check — there isn't a signed-in user in a pg_cron job's
+-- context to check against — so this is trusted purely by not being
+-- reachable except from that scheduled job (revoked from
+-- authenticated/anon/public below, same as lock_test_core).
+create or replace function public.auto_lock_overdue_tests()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  f record;
+begin
+  for f in
+    select series_id, test from public.fixtures
+    where deadline <= now() and locked_at is null
+  loop
+    perform public.lock_test_core(f.series_id, f.test);
+    update public.fixtures set locked_at = now()
+      where series_id = f.series_id and test = f.test;
+  end loop;
+end;
+$$;
+revoke all on function public.auto_lock_overdue_tests() from public, authenticated, anon;
+
+-- pg_cron ships with every Supabase project (Database → Extensions if this
+-- ever needs enabling by hand) — this just runs the function above once a
+-- minute. Unschedule-then-reschedule so re-running this file doesn't pile up
+-- duplicate jobs under the same name.
+create extension if not exists pg_cron with schema extensions;
+do $$
+begin
+  if exists (select 1 from cron.job where jobname = 'auto-lock-overdue-tests') then
+    perform cron.unschedule('auto-lock-overdue-tests');
+  end if;
+end $$;
+select cron.schedule('auto-lock-overdue-tests', '* * * * *', $$select public.auto_lock_overdue_tests();$$);
 
 -- ---------- reset_test(): the inverse of lock_test() ----------
 -- Puts a Test back to how it was before anyone touched it: every stat, the
@@ -643,6 +730,11 @@ grant execute on function public.lock_test(uuid, int) to authenticated;
 --   * a wildcard spent on THIS Test (see wildcard_used_test) is handed back
 --     in the state it was in just before the lock: unused, armed, and with
 --     its commit still pending, so locking again re-spends it.
+-- Deliberately does NOT clear fixtures.locked_at (see that column's own
+-- comment) — auto_lock_overdue_tests() would otherwise just re-lock this
+-- Test right back on its next run, before there's been any chance to fix
+-- whatever this reset was for. Re-locking after a reset is a manual, admin
+-- lock_test() call again once it's actually ready.
 -- Same admin-only SECURITY DEFINER shape as lock_test().
 create or replace function public.reset_test(p_series_id uuid, p_test int)
 returns void

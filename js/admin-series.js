@@ -324,6 +324,7 @@ function renderAdminFixturesScreen(){
           <div class="player-name-wrap">
             <span class="player-name">Test ${f.test} — ${f.venue}</span>
             <span class="role-pill">${f.date}</span>
+            ${f.lockedAt ? `<span class="nat-pill" title="Locked ${new Date(f.lockedAt).toLocaleString()}">&#128274; Locked</span>` : ''}
             <span class="muted-on-light" style="margin-left:auto; font-size:11px;">locks ${new Date(f.deadline).toLocaleString()}</span>
           </div>
           <div class="player-row-actions" style="justify-content:flex-end;">

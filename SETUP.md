@@ -22,6 +22,13 @@ and an auto-generated API, all on the free tier.
    row-level security so people can only edit their own squad, adds the shared
    `lock_test()`/`resolve_join_code()` actions, and seeds a default series/
    league (England vs Australia) plus the player pool and placeholder fixtures.
+   It also schedules a `pg_cron` job that locks any Test whose deadline has
+   passed automatically, once a minute, so a Test never sits unlocked just
+   because nobody happened to click the button in time — an admin can still
+   lock (or reset) one manually at any point regardless. `pg_cron` ships
+   enabled on every Supabase project; if this specific step errors, enable it
+   first under **Database → Extensions** and re-run just that part of the
+   file.
 4. If the app can't find newly-created tables afterward (e.g. a 404 on `series`,
    or a 400 on any query joining `squads` to `leagues`), Supabase's API layer
    just hasn't picked up the schema change yet — go to **Project Settings → API**

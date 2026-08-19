@@ -15,7 +15,7 @@ async function fetchFixtures(seriesId){
   if(!seriesId) return [];
   const {data, error} = await supabaseClient.from('fixtures').select('*').eq('series_id', seriesId).order('test');
   if(error){ console.error(error); return []; }
-  return (data||[]).map(f=>({test:f.test, venue:f.venue, date:f.date, deadline: toDatetimeLocalValue(f.deadline)}));
+  return (data||[]).map(f=>({test:f.test, venue:f.venue, date:f.date, deadline: toDatetimeLocalValue(f.deadline), lockedAt: f.locked_at}));
 }
 async function loadPlayers(seriesId){
   PLAYERS = await fetchPlayers(seriesId);
