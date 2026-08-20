@@ -166,6 +166,14 @@ function renderPlayingXiTable(testNum){
   if(saveBtn) saveBtn.onclick = async ()=>{
     const {error} = await supabaseClient.from('match_stats').upsert({series_id: adminSeriesId, test: testNum, playing_xi: currentPlayingXiDraft});
     if(error){ showAlert(error.message); return; }
+    // Refreshes every score-consuming screen (Home, My Squads, My Leagues,
+    // the rankings/player totals) so a correction shows up immediately
+    // rather than only once you happen to navigate away and back — who's
+    // on playingXi feeds resolveEffectiveXi()'s automatic substitutions,
+    // which is read live on every one of those, same as the stats
+    // themselves (see saveStatsBtn below).
+    if(adminSeriesId === currentSeriesId) await loadSeriesPlayerTotals(currentSeriesId);
+    renderAll();
     showAlert('Playing XI saved for Test '+testNum+'.');
   };
 }
@@ -300,31 +308,21 @@ function statSum(pid, inn, keys){
 function categoryTotal(players, inn, keys){
   return players.reduce((sum,p)=> sum + statSum(p.id, inn, keys), 0);
 }
-/* Re-checks whether this table's cap (see CAP_KEYS) has been hit and, if so,
-   disables every row that isn't itself contributing to the total — done by
-   toggling .disabled directly on the existing inputs rather than
-   re-rendering the table, so it can run on every keystroke without stealing
-   focus mid-type. Rows already contributing stay editable (so a mistake can
-   still be corrected back down, which re-enables everyone else). */
-function applyCapLockouts(table, inn, category){
+/* Whether this table's cap (see CAP_KEYS — 10 wickets between the bowlers,
+   or 10 dismissals between catches/stumpings/run-outs) has been hit for this
+   innings — a WARNING banner in buildStatTable below, not something that
+   ever disables an input. It used to grey out whoever wasn't already
+   contributing once the cap was hit, but that got in the way of the one
+   thing it's most likely to matter for: fixing a mistake that put the total
+   over 10 in the first place (or over-credited the wrong bowler), which by
+   definition needs every field still editable to fix. Trusting the admin
+   (the only person who ever reaches this screen) over hard-blocking input. */
+function capWarningHtml(players, inn, category){
   const keys = CAP_KEYS[category];
-  if(!keys) return;
-  const rows = [...table.querySelectorAll('tr[data-pid]')];
-  const total = rows.reduce((sum,r)=> sum + statSum(r.dataset.pid, inn, keys), 0);
-  const capped = total >= 10;
-  rows.forEach(r=>{
-    const contributes = statSum(r.dataset.pid, inn, keys) > 0;
-    const lock = capped && !contributes;
-    r.querySelectorAll('input').forEach(inp=>{
-      // Only actually lock a column the cap is about (see CAP_KEYS) or a
-      // checkbox that's meaningless without it (a 4-/5-fer can't be true on
-      // 0 wickets) — NOT an unrelated number field like overs/runs
-      // conceded, which every bowler who bowled has regardless of whether
-      // they were credited a wicket.
-      const capLockable = inp.type==='checkbox' || keys.includes(inp.dataset.k);
-      inp.disabled = !session || (lock && capLockable);
-    });
-  });
+  if(!keys) return '';
+  const total = categoryTotal(players, inn, keys);
+  if(total < 10) return '';
+  return `<p class="muted-on-light" style="font-size:11px; margin:0 0 8px;">&#9888; ${keys.join(' + ')} already total ${total} this innings — only 10 possible; double check before adding more.</p>`;
 }
 
 function buildStatTable(nat, inn, category){
@@ -336,29 +334,20 @@ function buildStatTable(nat, inn, category){
   const players = adminPlayers
     .filter(p=>p.nat===nat && currentPlayingXiDraft.includes(p.id))
     .sort((a,b)=> currentPlayingXiDraft.indexOf(a.id) - currentPlayingXiDraft.indexOf(b.id));
-  const capKeys = CAP_KEYS[category];
-  const capped = capKeys && categoryTotal(players, inn, capKeys) >= 10;
   return `
+    ${capWarningHtml(players, inn, category)}
     <div class="table-scroll">
     <table class="stat-entry" data-category="${category}">
       <tr><th>Player</th>${cols.map(c=>`<th${c.title?` title="${c.title}"`:''}>${c.label}</th>`).join('')}</tr>
       ${players.length ? players.map(p=>{
         const playerStats = currentStatsDraft[p.id] || {};
         const s = playerStats[inn] || {};
-        const rowLockedOut = capped && capKeys.every(k=>!s[k]);
         return `<tr data-pid="${p.id}" data-inn="${inn}">
           <td>${p.name}</td>
-          ${cols.map(c=>{
-            // Same reasoning as applyCapLockouts() below: the cap only ever
-            // locks the column(s) it's actually about, plus checkboxes that
-            // are meaningless without them — not an unrelated number field
-            // like overs/runs conceded.
-            const capLockable = c.type==='checkbox' || capKeys.includes(c.key);
-            const disabled = !session || (rowLockedOut && capLockable);
-            return c.type==='checkbox'
-              ? `<td><input type="checkbox" data-k="${c.key}" ${s[c.key]?'checked':''} ${disabled?'disabled':''}></td>`
-              : `<td><input type="number" min="0" ${c.step?`step="${c.step}"`:''} data-k="${c.key}" value="${s[c.key]||''}" ${c.title?`title="${c.title}"`:''} ${disabled?'disabled':''}></td>`;
-          }).join('')}
+          ${cols.map(c=> c.type==='checkbox'
+            ? `<td><input type="checkbox" data-k="${c.key}" ${s[c.key]?'checked':''} ${session?'':'disabled'}></td>`
+            : `<td><input type="number" min="0" ${c.step?`step="${c.step}"`:''} data-k="${c.key}" value="${s[c.key]||''}" ${c.title?`title="${c.title}"`:''} ${session?'':'disabled'}></td>`
+          ).join('')}
         </tr>`;
       }).join('') : `<tr><td colspan="${cols.length+1}" class="muted-on-light">No ${teamNameForCode(nat)} players ticked in the Playing XI.</td></tr>`}
     </table>
@@ -369,6 +358,22 @@ function buildInningsPanel(entry, idx, isActive){
   const battingTeam = battingTeamFor(entry);
   const bowlingTeam = bowlingTeamFor(entry);
   const inn = 'inn'+entry.inn;
+  // Same "team lookup can come back empty" case inningsLabel() already
+  // guards against (a stale/mismatched adminSeriesTeams snapshot — see
+  // renderAdminHub()'s render-generation comment, js/admin-series.js) — this
+  // used to assume battingTeam/bowlingTeam always resolve and read .name/
+  // .short_code straight off them, which threw if they didn't, and since
+  // that throw happened while building this whole innings tab's HTML string
+  // (before renderStatsTable ever gets to assign it), the entire Scoring
+  // screen was left blank rather than just this one tab. Falling back to
+  // the raw code keeps every OTHER innings tab (and the rest of the page)
+  // rendering even if this one genuinely can't resolve a team.
+  if(!battingTeam || !bowlingTeam){
+    return `
+      <div class="admin-subpanel${isActive?' active':''}" data-inningspanel="${inningsKey(entry)}">
+        <p class="muted-on-light" style="font-size:12px;">Couldn't match ${entry.battingCode} to a team for this series — try switching away from this Test and back, or re-add this innings.</p>
+      </div>`;
+  }
   return `
     <div class="admin-subpanel${isActive?' active':''}" data-inningspanel="${inningsKey(entry)}">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
@@ -398,6 +403,14 @@ function renderStatsTable(testNum){
   document.getElementById('saveStatsBtn').onclick = async ()=>{
     const {error} = await supabaseClient.from('match_stats').upsert({series_id: adminSeriesId, test: testNum, stats: currentStatsDraft, innings: currentInningsDraft});
     if(error){ showAlert(error.message); return; }
+    // Every score-consuming screen (Home, My Squads, My Leagues, the
+    // rankings/player totals) reads match_stats fresh on its own next
+    // render, so a correction here already WOULD show up next time any of
+    // them are opened — this just makes it immediate rather than only once
+    // you happen to navigate away and back, same as lockTest()/resetTest()
+    // already do.
+    if(adminSeriesId === currentSeriesId) await loadSeriesPlayerTotals(currentSeriesId);
+    renderAll();
     showAlert('Stats saved for Test '+testNum+'.');
   };
   document.getElementById('lockTestBtn').onclick = async ()=> lockTest(testNum);
@@ -423,13 +436,25 @@ function renderStatsTable(testNum){
   }
 
   activeInningsIdx = Math.max(0, Math.min(activeInningsIdx, currentInningsDraft.length-1));
-  wrap.innerHTML = `
-    <div class="innings-tabrow admin-subnav light-subnav" style="margin-top:12px;">
-      ${currentInningsDraft.map((entry,i)=>`<button class="subtab-btn${i===activeInningsIdx?' active':''}" data-inningskey="${inningsKey(entry)}" data-inningsidx="${i}">${inningsLabel(entry)}</button>`).join('')}
-      ${addInningsButtonHtml()}
-    </div>
-    ${currentInningsDraft.map((entry,i)=> buildInningsPanel(entry, i, i===activeInningsIdx)).join('')}
-  `;
+  // Belt-and-braces around the actual table build: buildInningsPanel() now
+  // degrades gracefully instead of throwing on a bad team lookup (see its
+  // own comment), but this catches anything else unexpected too — an
+  // uncaught error here used to happen mid-way through building this
+  // template string, before wrap.innerHTML ever got assigned, leaving
+  // #statsTableWrap exactly as blank as it started and no clue why.
+  try{
+    wrap.innerHTML = `
+      <div class="innings-tabrow admin-subnav light-subnav" style="margin-top:12px;">
+        ${currentInningsDraft.map((entry,i)=>`<button class="subtab-btn${i===activeInningsIdx?' active':''}" data-inningskey="${inningsKey(entry)}" data-inningsidx="${i}">${inningsLabel(entry)}</button>`).join('')}
+        ${addInningsButtonHtml()}
+      </div>
+      ${currentInningsDraft.map((entry,i)=> buildInningsPanel(entry, i, i===activeInningsIdx)).join('')}
+    `;
+  }catch(e){
+    console.error('renderStatsTable failed', e);
+    wrap.innerHTML = `<div class="empty-state">Something went wrong showing this Test's innings (${e.message||e}) — try switching away and back, or check the console.</div>`;
+    return;
+  }
   wireAddInningsButton(wrap, testNum);
 
   wrap.querySelectorAll('[data-editinnings]').forEach(btn=>{
@@ -500,15 +525,6 @@ function renderStatsTable(testNum){
           if(fiveCb) fiveCb.checked = entryStats.fiveWkt;
         }
 
-        // An innings only has 10 wickets between the bowlers, and 10
-        // dismissals between catches/stumpings/run-outs — once either total
-        // is reached, grey out whoever isn't contributing so no one can
-        // enter an 11th. See applyCapLockouts().
-        const table = row.closest('table.stat-entry');
-        const category = table && table.dataset.category;
-        if((category==='bowling' || category==='fielding') && CAP_KEYS[category].includes(k)){
-          applyCapLockouts(table, inn, category);
-        }
       });
     });
   });
@@ -523,7 +539,10 @@ async function lockTest(testNum){
   const {error} = await supabaseClient.rpc('lock_test', {p_series_id: adminSeriesId, p_test: testNum});
   if(error){ showAlert('Could not lock Test: '+error.message); return; }
 
-  if(adminSeriesId === currentSeriesId) await loadMySquads();
+  if(adminSeriesId === currentSeriesId){
+    await loadMySquads();
+    await loadSeriesPlayerTotals(currentSeriesId);
+  }
   showAlert(`Test ${testNum} locked. All lineups on this series snapshotted and scored.`);
   renderAll();
 }

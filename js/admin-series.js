@@ -112,6 +112,26 @@ function adminBackBtnHtml(){
   return `<button type="button" class="btn secondary small" id="adminBackBtn">&larr; Back</button>`;
 }
 
+// Guards against overlapping renderAdminHub() calls stomping on each other.
+// Save actions (saveStatsBtn/savePlayingXiBtn, js/admin-match.js) now call
+// renderAll() — which calls this — to refresh scores immediately; if the
+// admin navigates on (Back, then into another screen) before that fetch has
+// come back, a SECOND call starts while the first is still awaiting. Both
+// write to the same adminPlayers/adminFixtures/adminSeriesTeams globals, and
+// whichever's fetch happens to resolve last "wins" the globals regardless of
+// which call actually reflects where the admin is now — e.g. the slow call
+// could finish after the fast one, quietly leaving adminSeriesTeams built
+// from a moment that's no longer current. buildInningsPanel then looks up a
+// battingCode against that mismatched adminSeriesTeams and gets nothing back
+// — which crashes on team.name with no fallback, mid-way through building
+// wrap.innerHTML, so the throw happens before that innerHTML assignment ever
+// runs and #statsTableWrap is left exactly as empty as it was, looking like
+// the innings/stats just vanished. Each call tags itself with an
+// ever-increasing generation number and checks, right after its fetches
+// come back, whether it's still the latest one in flight — if a newer call
+// has since started, it bails out before touching any shared state at all,
+// leaving that newer call to finish the job correctly instead.
+let adminHubRenderGen = 0;
 /* The one entry point for all of Admin now — fetches once (adminPlayers/
    adminFixtures/adminSeriesTeams, previously fetched separately by the old
    renderSeriesSetup()/renderMatchSetup()) and dispatches to whichever screen
@@ -122,6 +142,7 @@ function adminBackBtnHtml(){
    is what used to make switching screens jump to the top of the page on
    mobile. */
 async function renderAdminHub(){
+  const myGen = ++adminHubRenderGen;
   const c = document.getElementById('adminHubContent');
   if(!c) return;
   if(!supabaseClient){ c.innerHTML = `<div class="empty-state">Configure Supabase first.</div>`; return; }
@@ -135,9 +156,17 @@ async function renderAdminHub(){
     return;
   }
 
-  adminPlayers = await fetchPlayers(adminSeriesId);
+  // Fetched into locals first — only committed to the shared adminPlayers/
+  // adminFixtures/adminSeriesTeams globals (and only rendered) once this
+  // call's confirmed still current, below. A superseded call never touches
+  // either.
+  const fetchedPlayers = await fetchPlayers(adminSeriesId);
+  const fetchedFixtures = await fetchFixtures(adminSeriesId);
+  if(myGen !== adminHubRenderGen) return; // a newer render started while this one was fetching — let it win
+
+  adminPlayers = fetchedPlayers;
   adminPlayerMap = Object.fromEntries(adminPlayers.map(p=>[p.id,p]));
-  adminFixtures = await fetchFixtures(adminSeriesId);
+  adminFixtures = fetchedFixtures;
   adminSeriesTeams = resolveSeriesTeams(adminSeriesId, adminPlayers);
   const hasBothTeams = !!(currentSeries.teamA && currentSeries.teamB);
 
