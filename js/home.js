@@ -13,8 +13,8 @@ function computeSquadTotal(squad, matchDataByTest){
   let testsScored = 0;
   Object.keys(squad.lockedXiByTest||{}).forEach(t=>{
     const lockedEntry = squad.lockedXiByTest[t];
-    const {stats, playingXi} = matchDataByTest[t] || {stats:{}, playingXi:[]};
-    total += computeTestScore(lockedEntry, stats, playingXi);
+    const {stats, playingXi, innings} = matchDataByTest[t] || {stats:{}, playingXi:[], innings:[]};
+    total += computeTestScore(lockedEntry, stats, playingXi, innings);
     testsScored++;
   });
   return {total: Math.round(total*10)/10, testsScored};
@@ -43,7 +43,7 @@ function latestTeamOfTestPreview(fixturesList, matchDataByTest, n){
     .sort((a,b)=>a-b);
   if(testKeys.length===0) return {test: null, xi: []};
   const test = testKeys[testKeys.length-1];
-  const xi = computeTeamOfTest(PLAYERS, matchDataByTest[test].stats);
+  const xi = computeTeamOfTest(PLAYERS, matchDataByTest[test].stats, matchDataByTest[test].innings);
   return {test, xi: xi.slice(0, n)};
 }
 

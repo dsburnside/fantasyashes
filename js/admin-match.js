@@ -75,6 +75,11 @@ const STAT_COLUMN_GROUPS = {
     {key:'wickets', label:'Wkts', type:'number'},
     {key:'fourWkt', label:'4-fer', type:'checkbox'},
     {key:'fiveWkt', label:'5-fer', type:'checkbox'},
+    // Combined wides+no-balls over 10 in an innings costs this bowler -20
+    // (singleInningsPoints, js/scoring.js) — a flat penalty for a genuinely
+    // wayward spell, not doubled by an assigned Bowler role.
+    {key:'wides', label:'Wd', type:'number', title:'Wides conceded'},
+    {key:'noBalls', label:'NB', type:'number', title:'No-balls conceded'},
   ],
   fielding: [
     {key:'catches', label:'Ct', type:'number'},
@@ -383,6 +388,10 @@ function buildInningsPanel(entry, idx, isActive){
           <button type="button" class="row-icon-btn danger" data-delinnings="${idx}" ${session?'':'disabled'} title="Remove innings" aria-label="Remove innings">&times;</button>
         </span>
       </div>
+      <div style="display:flex; align-items:center; gap:8px; margin:0 0 10px;">
+        <label for="byes_${inningsKey(entry)}" class="muted-on-light" style="font-size:12px;" title="One figure for the whole innings, not per player — only one player's ever actually keeping wicket at a time. More than 5 costs ${bowlingTeam.name}'s wicketkeeper -20.">Extras — byes conceded by ${bowlingTeam.name}:</label>
+        <input type="number" min="0" id="byes_${inningsKey(entry)}" data-byesidx="${idx}" value="${entry.byes||''}" style="width:70px;" ${session?'':'disabled'}>
+      </div>
       <div class="admin-subnav light-subnav" style="margin:6px 0 10px;">
         <button class="subtab-btn active" data-statcat="batting">Batting</button>
         <button class="subtab-btn" data-statcat="bowling">Bowling</button>
@@ -462,6 +471,11 @@ function renderStatsTable(testNum){
   });
   wrap.querySelectorAll('[data-delinnings]').forEach(btn=>{
     btn.addEventListener('click', ()=> deleteInningsEntry(parseInt(btn.dataset.delinnings), testNum));
+  });
+  wrap.querySelectorAll('[data-byesidx]').forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      currentInningsDraft[parseInt(inp.dataset.byesidx)].byes = parseFloat(inp.value)||0;
+    });
   });
 
   // outer: innings tabs

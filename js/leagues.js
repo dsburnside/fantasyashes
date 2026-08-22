@@ -257,8 +257,8 @@ function buildSquadBreakdownRow(squad, matchDataByTest){
   const byTest = {};
   Object.keys(squad.lockedXiByTest||{}).forEach(t=>{
     const lockedEntry = squad.lockedXiByTest[t];
-    const {stats, playingXi} = matchDataByTest[t] || {stats:{}, playingXi:[]};
-    const pts = computeTestScore(lockedEntry, stats, playingXi);
+    const {stats, playingXi, innings} = matchDataByTest[t] || {stats:{}, playingXi:[], innings:[]};
+    const pts = computeTestScore(lockedEntry, stats, playingXi, innings);
     const {effectiveXi, captainDidNotPlay} = resolveEffectiveXi(lockedEntry, playingXi);
     const subs = effectiveXi.filter(e=>e.subFor).map(e=>({out:e.subFor, in:e.pid}));
     // Per-player detail for exactly this Test's locked XI/bench (not summed
@@ -275,7 +275,7 @@ function buildSquadBreakdownRow(squad, matchDataByTest){
         isViceCaptain: pid===lockedEntry.viceCaptain,
         subOutOf: subOutMap[pid] || null, // didn't play — replaced by this pid
         subInFor: subInMap[pid] || null,  // came on, replacing this pid
-        points: Math.round(playerPointsForTest(lockedEntry, stats, pid, captainDidNotPlay)*10)/10,
+        points: Math.round(playerPointsForTest(lockedEntry, stats, pid, captainDidNotPlay, innings, playingXi)*10)/10,
         runs: statMetricTotal(s,'runs'), wickets: statMetricTotal(s,'wickets'),
         catches: statMetricTotal(s,'catches'), stumpings: statMetricTotal(s,'stumpings'), runouts: statMetricTotal(s,'runouts'),
         ballsFaced: statMetricTotal(s,'ballsFaced'), economy: economyDisplayFor(s),
@@ -468,8 +468,8 @@ function openTeamOfTestOverlay(leaguePlayers, leagueFixtures, matchDataByTest){
   const defaultTest = testKeys[testKeys.length-1];
 
   const panelHtml = t=>{
-    const {stats} = matchDataByTest[t];
-    const xi = computeTeamOfTest(leaguePlayers, stats);
+    const {stats, innings} = matchDataByTest[t];
+    const xi = computeTeamOfTest(leaguePlayers, stats, innings);
     // Grouped by role (same Batters/Bowlers/All-rounders/Wicketkeepers order
     // as Player rankings — RANKING_ROLE_ORDER), each group already in points
     // order since computeTeamOfTest returns the whole XI points-sorted.

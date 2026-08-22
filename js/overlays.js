@@ -342,6 +342,7 @@ function renderPlayerDetailBody(pid, zone){
   const economy = totals.trueOvers ? (totals.runsConceded/totals.trueOvers).toFixed(2) : '–';
   const assignedRole = assignedPlayingRole(pid);
   const isCap = pid===draft.captain, isVc = pid===draft.viceCaptain;
+  const transferBlocked = transfersAtLimit(); // js/myxi.js — Sub is unaffected, only Transfer counts against the 2-transfer limit
   titleEl.textContent = p.name;
   document.getElementById('pdBody').innerHTML = `
     <div class="overlay-message" style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
@@ -373,7 +374,7 @@ function renderPlayerDetailBody(pid, zone){
     </div>
     <div style="display:flex; gap:10px; margin-top:18px;">
       <button type="button" class="btn secondary" id="pdSubBtn" style="flex:1;">Sub</button>
-      <button type="button" class="btn danger" id="pdTransferBtn" style="flex:1;">Transfer</button>
+      <button type="button" class="btn danger" id="pdTransferBtn" style="flex:1;" ${transferBlocked?'disabled':''} title="${transferBlocked?"You've used both free transfers since your last lock — arm your wildcard for more, or wait for the next Test to lock.":''}">Transfer</button>
     </div>
     <div class="overlay-actions" style="margin-top:14px;">
       <button type="button" class="btn secondary" id="pdCancelBtn" style="flex:1;">Cancel</button>

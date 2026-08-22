@@ -214,6 +214,23 @@ function emptySlotHtml(zone){
   return `<button type="button" class="squad-card empty" data-empty-zone="${zone}" data-action="add" data-zone="${zone}">+ Add player</button>`;
 }
 
+/* Whether the Transfer button should be blocked outright, rather than
+   letting a 3rd/4th/... swap through and only warning about it after the
+   fact (the transfer-count status chip's own warn-icon in renderMyXI() is
+   that after-the-fact indicator, for anyone who still gets there some other
+   way — e.g. undoing and reapplying the same swap without going back
+   through Transfer). Blocked once the draft's already at (not just past)
+   the free 2-transfer limit since the last lock, unless the wildcard's
+   armed to lift it — before a squad's first lock there's no limit at all,
+   same as everywhere else transfers are counted. */
+function transfersAtLimit(){
+  if(!mySquad || !draft) return false;
+  const hasLockedOnce = !!(mySquad.lockedXiByTest && Object.keys(mySquad.lockedXiByTest).length > 0);
+  if(!hasLockedOnce || mySquad.wildcardActiveNow) return false;
+  const baselineSquad14 = (mySquad.baselineSquad14 && mySquad.baselineSquad14.length) ? mySquad.baselineSquad14 : draft.squad14;
+  return countChanges(draft.squad14, baselineSquad14) >= 2;
+}
+
 /* "Transfer" — opens the full player picker (anyone in the series not
    already in your 14) and, on pick, swaps outId out of the squad entirely
    for whoever's chosen. The only caller is the player detail overlay's

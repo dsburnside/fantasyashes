@@ -55,13 +55,22 @@ function singleInningsPoints(inn, role){
   const wkMult = role==='WK' ? 2 : 1;
   if(inn.hundred) pts += 16*batMult;
   else if(inn.fifty) pts += 8*batMult;
-  if((inn.ballsFaced||0) > 50) pts += 20*batMult;
+  if((inn.ballsFaced||0) > 50) pts += 5*batMult;
   if(inn.duck) pts -= 20;
   pts += (inn.wickets||0) * 20;
   if(inn.fiveWkt) pts += 16*bowlMult;
   else if(inn.fourWkt) pts += 8*bowlMult;
+  // Needs a genuine spell to qualify — 5+ true overs, not just whatever's
+  // enough for economyFor() to return a number at all (it only guards
+  // against exactly 0 overs, since it's also used for plain economy
+  // DISPLAY — see economyDisplayFor — where a 2-over figure is still worth
+  // showing even though it wouldn't earn this bonus).
   const econ = economyFor(inn);
-  if(econ !== null && econ < 3.5) pts += 20*bowlMult;
+  if(econ !== null && trueOvers(inn.overs) >= 5 && econ < 3.5) pts += 5*bowlMult;
+  // Flat penalty, not doubled by bowlMult — same treatment as the duck
+  // penalty above: it's a punishment for sloppy bowling, not something a
+  // manager's assigned Bowler role should make worse for them specifically.
+  if(((inn.wides||0) + (inn.noBalls||0)) > 10) pts -= 20;
   pts += (inn.catches||0) * 8*wkMult;
   pts += (inn.stumpings||0) * 12*wkMult;
   pts += (inn.runouts||0) * 8*wkMult;
@@ -87,13 +96,14 @@ function inningsPointsBreakdown(inn){
   let bat = (inn.runs||0) * 1;
   if(inn.hundred) bat += 16;
   else if(inn.fifty) bat += 8;
-  if((inn.ballsFaced||0) > 50) bat += 20;
+  if((inn.ballsFaced||0) > 50) bat += 5;
   if(inn.duck) bat -= 20;
   let bowl = (inn.wickets||0) * 20;
   if(inn.fiveWkt) bowl += 16;
   else if(inn.fourWkt) bowl += 8;
   const econ = economyFor(inn);
-  if(econ !== null && econ < 3.5) bowl += 20;
+  if(econ !== null && trueOvers(inn.overs) >= 5 && econ < 3.5) bowl += 5;
+  if(((inn.wides||0) + (inn.noBalls||0)) > 10) bowl -= 20;
   const field = (inn.catches||0)*8 + (inn.stumpings||0)*12 + (inn.runouts||0)*8;
   return {bat, bowl, field};
 }
@@ -110,6 +120,27 @@ function statMetricTotal(s, key){
   if(!s) return 0;
   if(s.inn1 || s.inn2) return ((s.inn1&&s.inn1[key])||0) + ((s.inn2&&s.inn2[key])||0);
   return s[key]||0;
+}
+// -20 for a wicketkeeper who let 6+ byes through in an innings they kept
+// wicket for. Extras are tracked once per innings rather than per player
+// (see the "Extras" input in buildInningsPanel, js/admin-match.js) since
+// only one player's actually behind the stumps at a time — this works out
+// who that was for a given innings by matching base role WK against
+// whichever team was bowling (i.e. NOT the team batting that innings), and
+// (when playingXi is known) that they actually took the field. A flat
+// penalty, not doubled by any assigned-role multiplier — same treatment as
+// the wides/no-balls bowling penalty and the duck penalty.
+function wkByesPenalty(pid, innings, playingXi){
+  const player = getPlayer(pid);
+  if(!player || player.role !== 'WK') return 0;
+  if(Array.isArray(playingXi) && playingXi.length>0 && !playingXi.includes(pid)) return 0;
+  if(!Array.isArray(innings)) return 0;
+  let pts = 0;
+  innings.forEach(entry=>{
+    if(!entry || entry.battingCode===player.nat) return; // this player's team was batting, not keeping, this innings
+    if((entry.byes||0) > 5) pts -= 20;
+  });
+  return pts;
 }
 /* Works out who actually took the field for a locked XI once the real Playing XI
    is known. Anyone locked in who isn't on `playingXi` is treated as a non-player
@@ -144,20 +175,21 @@ function resolveEffectiveXi(lockedEntry, playingXi){
 // armband's 2x bonus passes to the vice-captain instead — but only if the
 // VC actually played too; otherwise the bonus is simply lost, same as if
 // neither had played.
-function playerPointsForTest(lockedEntry, statsForTest, pid, captainDidNotPlay){
+function playerPointsForTest(lockedEntry, statsForTest, pid, captainDidNotPlay, innings, playingXi){
   const role = (lockedEntry.playingRoles && lockedEntry.playingRoles[pid]) || defaultPlayingRole(getPlayer(pid).role);
   let pts = statPoints(statsForTest ? statsForTest[pid] : null, role);
+  pts += wkByesPenalty(pid, innings, playingXi);
   if(pid === lockedEntry.captain && !captainDidNotPlay) pts *= 2;
   else if(pid === lockedEntry.viceCaptain && captainDidNotPlay) pts *= 2;
   return pts;
 }
-function computeTestScore(lockedEntry, statsForTest, playingXi){
+function computeTestScore(lockedEntry, statsForTest, playingXi, innings){
   if(!lockedEntry) return 0;
   const {effectiveXi, captainDidNotPlay} = resolveEffectiveXi(lockedEntry, playingXi);
   let total = 0;
   effectiveXi.forEach(({pid})=>{
     if(!pid) return;
-    total += playerPointsForTest(lockedEntry, statsForTest, pid, captainDidNotPlay);
+    total += playerPointsForTest(lockedEntry, statsForTest, pid, captainDidNotPlay, innings, playingXi);
   });
   return Math.round(total*10)/10;
 }
@@ -174,11 +206,11 @@ function computeTestScore(lockedEntry, statsForTest, playingXi){
    played that Test) — a non-participant defaulting to 0 points must never
    outrank a real performer who had a quiet game. Returns [] if nobody in
    `stats` has an entry yet. */
-function computeTeamOfTest(players, stats){
+function computeTeamOfTest(players, stats, innings){
   if(!stats) return [];
   const eligible = players
     .filter(p => stats[p.id] !== undefined)
-    .map(p => ({p, pts: statPoints(stats[p.id])}))
+    .map(p => ({p, pts: statPoints(stats[p.id]) + wkByesPenalty(p.id, innings, [])}))
     .sort((a,b)=> b.pts - a.pts);
   if(eligible.length===0) return [];
   let xi = eligible.slice(0, 11);
