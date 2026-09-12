@@ -94,9 +94,18 @@ async function loadMyLeagues(){
   const {data, error} = await supabaseClient.from('league_members').select('league_id, leagues(id, name, series_id, join_code, created_by, created_by_name)').eq('user_id', session.user.id);
   if(error){ console.error(error); myLeagues = []; return; }
   myLeagues = (data||[]).filter(m=>m.leagues).map(m=>({id:m.leagues.id, name:m.leagues.name, seriesId:m.leagues.series_id, joinCode:m.leagues.join_code, createdBy:m.leagues.created_by, createdByName:m.leagues.created_by_name}));
+  // currentLeagueId only ever resolves onto a league on a still-active
+  // series — a league on an archived one (js/honours.js) is retired from
+  // My Leagues' everyday picker the same way loadMySquads() retires
+  // currentSeriesId from landing on an archived series, even though the
+  // user's still a member of it. myLeagues itself keeps every league
+  // regardless (Honours' own past-leagues section reads straight from it),
+  // only this resolution is filtered.
+  const activeIds = new Set(activeSeriesList().map(s=>s.id));
+  const eligibleLeagues = myLeagues.filter(l=>activeIds.has(l.seriesId));
   const stored = localStorage.getItem('currentLeagueId');
-  if(!(currentLeagueId && myLeagues.some(l=>l.id===currentLeagueId))){
-    currentLeagueId = (stored && myLeagues.some(l=>l.id===stored)) ? stored : (myLeagues[0] ? myLeagues[0].id : null);
+  if(!(currentLeagueId && eligibleLeagues.some(l=>l.id===currentLeagueId))){
+    currentLeagueId = (stored && eligibleLeagues.some(l=>l.id===stored)) ? stored : (eligibleLeagues[0] ? eligibleLeagues[0].id : null);
   }
   if(currentLeagueId) localStorage.setItem('currentLeagueId', currentLeagueId);
 }

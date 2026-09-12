@@ -9,7 +9,12 @@ function genJoinCode(){
    here instead. "Create or join a league" folds in openLeagueAddOverlay
    underneath, replacing what used to be the tab strip's own "+". */
 function openLeagueSwitchOverlay(){
-  const rows = myLeagues.map(l=>({id: l.id, label: l.name, current: l.id===currentLeagueId}));
+  // Only leagues on a still-active series are offered here — one on an
+  // archived series (js/honours.js) lives there instead, even for a member
+  // still in it; loadMyLeagues() (js/data.js) already keeps currentLeagueId
+  // from ever landing on one, so this keeps the switcher list consistent.
+  const activeIds = new Set(activeSeriesList().map(s=>s.id));
+  const rows = myLeagues.filter(l=>activeIds.has(l.seriesId)).map(l=>({id: l.id, label: l.name, current: l.id===currentLeagueId}));
   const extraHtml = `
     <div class="overlay-actions" style="margin-top:14px;">
       <button type="button" class="btn secondary" id="leagueSwitchAddBtn" style="width:100%;">Create or join a league</button>
@@ -121,12 +126,18 @@ async function renderLeaderboard(){
   if(!session){ c.innerHTML = `<div class="empty-state"><div class="big">Log in to see My Leagues</div></div>`; return; }
 
   const league = myLeagues.find(l=>l.id===currentLeagueId);
+  // Same active-series filter loadMyLeagues()/openLeagueSwitchOverlay use —
+  // a league on an archived series doesn't count toward "you have leagues"
+  // here, since My Leagues can't actually show it (see Honours instead).
+  const activeMyLeagues = myLeagues.filter(l=>activeSeriesList().some(s=>s.id===l.seriesId));
   let bodyHtml;
   let postWire = ()=>{};
 
   if(!league){
-    bodyHtml = myLeagues.length===0
-      ? `<div class="empty-state"><div class="big">No leagues yet</div>Tap the pill above to create one or join with a code.</div>`
+    bodyHtml = activeMyLeagues.length===0
+      ? (myLeagues.length===0
+        ? `<div class="empty-state"><div class="big">No leagues yet</div>Tap the pill above to create one or join with a code.</div>`
+        : `<div class="empty-state">Every league you're in is on an archived series — see the Honours tab.</div>`)
       : `<div class="empty-state">Tap the pill above to pick a league and see its standings.</div>`;
   } else {
     const canManage = isAdmin || league.createdBy === session.user.id;
@@ -237,7 +248,7 @@ async function renderLeaderboard(){
   c.innerHTML = `
     <div class="flex-between" style="margin-bottom:14px;">
       <h2 class="panel-title" style="margin-bottom:0;">My Leagues <button type="button" class="help-icon" id="myLeaguesHelpBtn" title="What's this?" aria-label="Help">?</button></h2>
-      ${switcherPillHtml('leaguePillBtn', league ? league.name : (myLeagues.length ? 'Pick a league' : 'No leagues yet'), 'Switch league')}
+      ${switcherPillHtml('leaguePillBtn', league ? league.name : (activeMyLeagues.length ? 'Pick a league' : 'No leagues yet'), 'Switch league')}
     </div>
     <div id="leaderboardBody">${bodyHtml}</div>
   `;
