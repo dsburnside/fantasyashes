@@ -142,6 +142,13 @@ function resolveKeeperForEntry(entry, fieldingRoster){
 // js/admin-match.js) since only one player's actually behind the stumps at
 // a time. A flat penalty, not doubled by any assigned-role multiplier —
 // same treatment as the wides/no-balls bowling penalty and the duck penalty.
+// Deliberately takes no `lockedEntry`/playingRoles and never will: a manager
+// can freely declare any safe pair of hands (a slip fielder, say) as their
+// assigned Wicketkeeper to double that player's catches (see
+// singleInningsPoints' wkMult) — that's a fantasy scoring choice about
+// bonus points, not a claim about who's actually got the gloves on, so it
+// must never feed into who wears THIS penalty. Only resolveKeeperForEntry's
+// real-world answer (the admin's pick, or a team's sole base-role WK) does.
 function wkByesPenalty(pid, innings, playingXi){
   const player = getPlayer(pid);
   if(!player) return 0;
