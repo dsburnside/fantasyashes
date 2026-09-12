@@ -138,12 +138,19 @@ each one by hand — you still review and correct it before saving, nothing
 commits automatically. It needs one small piece of server-side code deployed
 first, since a browser can't fetch another site's page directly:
 
-1. Install the Supabase CLI if you haven't already — `npm install -g
-   supabase`, or see [supabase.com/docs/guides/cli](https://supabase.com/docs/guides/cli/getting-started)
-   for other install methods.
-2. From this project's folder: `supabase login`, then `supabase link
-   --project-ref <your-project-ref>` (the ref is in your project's Supabase
-   dashboard URL, `supabase.com/dashboard/project/<ref>`).
+1. Install the Supabase CLI if you haven't already — on a Mac, `brew
+   install supabase/tap/supabase` (this is the officially recommended way
+   on macOS; `npm install -g supabase` is an alternative if you have
+   Node/npm already and would rather use that). See
+   [supabase.com/docs/guides/cli](https://supabase.com/docs/guides/cli/getting-started)
+   for other platforms.
+2. From this project's folder: `supabase login` (opens your browser to
+   authorize), then `supabase init` if this folder doesn't already have a
+   `supabase/config.toml` (safe to run even with `supabase/functions/...`
+   already there), then `supabase link --project-ref <your-project-ref>`
+   (the ref is in your project's Supabase dashboard URL,
+   `supabase.com/dashboard/project/<ref>`) — it may ask for your database
+   password (Project Settings → Database) to finish linking.
 3. Deploy it: `supabase functions deploy import-bbc-scorecard`.
 
 That's it — no environment variables or secrets to set, it only ever fetches
