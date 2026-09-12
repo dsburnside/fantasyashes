@@ -121,24 +121,45 @@ function statMetricTotal(s, key){
   if(s.inn1 || s.inn2) return ((s.inn1&&s.inn1[key])||0) + ((s.inn2&&s.inn2[key])||0);
   return s[key]||0;
 }
-// -20 for a wicketkeeper who let 6+ byes through in an innings they kept
-// wicket for. Extras are tracked once per innings rather than per player
-// (see the "Extras" input in buildInningsPanel, js/admin-match.js) since
-// only one player's actually behind the stumps at a time — this works out
-// who that was for a given innings by matching base role WK against
-// whichever team was bowling (i.e. NOT the team batting that innings), and
-// (when playingXi is known) that they actually took the field. A flat
-// penalty, not doubled by any assigned-role multiplier — same treatment as
-// the wides/no-balls bowling penalty and the duck penalty.
+// Who actually kept wicket for the fielding side in one innings entry —
+// the admin's explicit pick (entry.keeper, see the "Wicketkeeper" select in
+// buildInningsPanel, js/admin-match.js) if one was made, else (innings
+// recorded before that picker existed) whichever of `fieldingRoster` is a
+// base-role WK, but ONLY if that's unambiguous. A squad can carry two
+// recognised wicketkeepers with just one of them actually gloved up that
+// Test (the other playing as a specialist batter) — matching on base role
+// alone can't tell those two apart, so an ambiguous case (0 or 2+ base-role
+// WKs on the field) resolves to nobody rather than guessing wrong.
+function resolveKeeperForEntry(entry, fieldingRoster){
+  if(entry.keeper) return entry.keeper;
+  const wks = (fieldingRoster||[]).filter(pid=>{ const p = getPlayer(pid); return p && p.role==='WK'; });
+  return wks.length===1 ? wks[0] : null;
+}
+// -20 for whoever actually kept wicket in an innings where the fielding
+// side conceded 6+ byes (see resolveKeeperForEntry above for how "actually
+// kept wicket" is worked out). Extras are tracked once per innings rather
+// than per player (see the "Extras" input in buildInningsPanel,
+// js/admin-match.js) since only one player's actually behind the stumps at
+// a time. A flat penalty, not doubled by any assigned-role multiplier —
+// same treatment as the wides/no-balls bowling penalty and the duck penalty.
 function wkByesPenalty(pid, innings, playingXi){
   const player = getPlayer(pid);
-  if(!player || player.role !== 'WK') return 0;
+  if(!player) return 0;
   if(Array.isArray(playingXi) && playingXi.length>0 && !playingXi.includes(pid)) return 0;
   if(!Array.isArray(innings)) return 0;
   let pts = 0;
   innings.forEach(entry=>{
     if(!entry || entry.battingCode===player.nat) return; // this player's team was batting, not keeping, this innings
-    if((entry.byes||0) > 5) pts -= 20;
+    if((entry.byes||0) <= 5) return;
+    // Ambiguity check (see resolveKeeperForEntry) needs to know who else was
+    // on the field for this player's side — from the announced Playing XI
+    // when there is one, else (computeTeamOfTest, which has no single
+    // manager's XI to check) just this player alone, same as the old
+    // base-role-only check effectively did for that caller.
+    const fieldingRoster = (Array.isArray(playingXi) && playingXi.length>0)
+      ? playingXi.filter(id=>{ const p = getPlayer(id); return p && p.nat===player.nat; })
+      : [pid];
+    if(resolveKeeperForEntry(entry, fieldingRoster) === pid) pts -= 20;
   });
   return pts;
 }
@@ -208,9 +229,14 @@ function computeTestScore(lockedEntry, statsForTest, playingXi, innings){
    `stats` has an entry yet. */
 function computeTeamOfTest(players, stats, innings){
   if(!stats) return [];
+  // No single manager's Playing XI to check here (see the doc comment
+  // above), so the pids with a stats entry this Test stand in for "who was
+  // on the field" — same thing wkByesPenalty's ambiguity check needs an
+  // announced Playing XI for.
+  const playedPids = Object.keys(stats);
   const eligible = players
     .filter(p => stats[p.id] !== undefined)
-    .map(p => ({p, pts: statPoints(stats[p.id]) + wkByesPenalty(p.id, innings, [])}))
+    .map(p => ({p, pts: statPoints(stats[p.id]) + wkByesPenalty(p.id, innings, playedPids)}))
     .sort((a,b)=> b.pts - a.pts);
   if(eligible.length===0) return [];
   let xi = eligible.slice(0, 11);

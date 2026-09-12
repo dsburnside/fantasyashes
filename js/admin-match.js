@@ -379,6 +379,18 @@ function buildInningsPanel(entry, idx, isActive){
         <p class="muted-on-light" style="font-size:12px;">Couldn't match ${entry.battingCode} to a team for this series — try switching away from this Test and back, or re-add this innings.</p>
       </div>`;
   }
+  // Who's eligible to be marked as this innings' keeper — the bowling
+  // (fielding) team's own Playing XI members, same order they were added on
+  // Player Selection. Needed because a squad can carry two recognised
+  // wicketkeepers with only one of them actually gloved up a given Test —
+  // see resolveKeeperForEntry, js/scoring.js — so it can no longer just be
+  // inferred from base role once that happens; auto-picked here only as a
+  // convenience default when it's still unambiguous (exactly one).
+  const keeperCandidates = adminPlayers
+    .filter(p=>p.nat===bowlingTeam.short_code && currentPlayingXiDraft.includes(p.id))
+    .sort((a,b)=> currentPlayingXiDraft.indexOf(a.id) - currentPlayingXiDraft.indexOf(b.id));
+  const baseRoleWks = keeperCandidates.filter(p=>p.role==='WK');
+  const keeperVal = entry.keeper || (baseRoleWks.length===1 ? baseRoleWks[0].id : '');
   return `
     <div class="admin-subpanel${isActive?' active':''}" data-inningspanel="${inningsKey(entry)}">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
@@ -388,9 +400,16 @@ function buildInningsPanel(entry, idx, isActive){
           <button type="button" class="row-icon-btn danger" data-delinnings="${idx}" ${session?'':'disabled'} title="Remove innings" aria-label="Remove innings">&times;</button>
         </span>
       </div>
-      <div style="display:flex; align-items:center; gap:8px; margin:0 0 10px;">
+      <div style="display:flex; align-items:center; gap:8px; margin:0 0 10px; flex-wrap:wrap;">
         <label for="byes_${inningsKey(entry)}" class="muted-on-light" style="font-size:12px;" title="One figure for the whole innings, not per player — only one player's ever actually keeping wicket at a time. More than 5 costs ${bowlingTeam.name}'s wicketkeeper -20.">Extras — byes conceded by ${bowlingTeam.name}:</label>
         <input type="number" min="0" id="byes_${inningsKey(entry)}" data-byesidx="${idx}" value="${entry.byes||''}" style="width:70px;" ${session?'':'disabled'}>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; margin:0 0 10px; flex-wrap:wrap;">
+        <label for="keeper_${inningsKey(entry)}" class="muted-on-light" style="font-size:12px;" title="Who actually had the gloves for ${bowlingTeam.name} this innings — decides who wears the byes penalty above. Only matters if the squad has more than one recognised wicketkeeper.">${bowlingTeam.name}'s keeper this innings:</label>
+        <select id="keeper_${inningsKey(entry)}" data-keeperidx="${idx}" ${session?'':'disabled'}>
+          <option value="">Not sure / no penalty</option>
+          ${keeperCandidates.map(p=>`<option value="${p.id}" ${keeperVal===p.id?'selected':''}>${p.name}${p.role==='WK'?' (WK)':''}</option>`).join('')}
+        </select>
       </div>
       <div class="admin-subnav light-subnav" style="margin:6px 0 10px;">
         <button class="subtab-btn active" data-statcat="batting">Batting</button>
@@ -475,6 +494,11 @@ function renderStatsTable(testNum){
   wrap.querySelectorAll('[data-byesidx]').forEach(inp=>{
     inp.addEventListener('input', ()=>{
       currentInningsDraft[parseInt(inp.dataset.byesidx)].byes = parseFloat(inp.value)||0;
+    });
+  });
+  wrap.querySelectorAll('[data-keeperidx]').forEach(sel=>{
+    sel.addEventListener('change', ()=>{
+      currentInningsDraft[parseInt(sel.dataset.keeperidx)].keeper = sel.value || null;
     });
   });
 
