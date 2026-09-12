@@ -989,6 +989,11 @@
     <div id="leaderboardContent"></div>
   </section>
 
+  <!-- HONOURS -->
+  <section class="tab-panel" id="tab-honours">
+    <div id="honoursContent"></div>
+  </section>
+
   <!-- ADMIN HUB: a 2-card drill-down (Teams > Players, Fixtures > Match Setup
        > Player Selection/Scoring) rather than a wall of tabs — see
        renderAdminHub() in js/admin-series.js for the whole navigation tree. -->
@@ -1028,6 +1033,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15c-3 0-5-2-5-5V4h10v6c0 3-2 5-5 5z"/><path d="M12 15v3M9 21h6M5 5H3v2a3 3 0 0 0 3 3M19 5h2v2a3 3 0 0 1-3 3"/></svg>
     <span>Leagues</span>
   </button>
+  <button class="tab-btn nav-item" data-tab="honours" aria-label="Honours">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l2.9 6.3 6.6.8-4.9 4.7 1.2 6.7L12 17.7 6.2 21l1.2-6.7-4.9-4.7 6.6-.8L12 2.5z"/></svg>
+    <span>Honours</span>
+  </button>
   <button class="tab-btn nav-item" data-tab="rules" aria-label="Rules">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/></svg>
     <span>Rules</span>
@@ -1056,6 +1065,7 @@
 <script src="js/admin-match.js"></script>
 <script src="js/leagues.js"></script>
 <script src="js/home.js"></script>
+<script src="js/honours.js"></script>
 <script src="js/init.js"></script>
 </body>
 </html>

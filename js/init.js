@@ -122,6 +122,7 @@ function applyTabSwitch(tab){
   if(tab==='home') renderHome();
   if(tab==='leaderboard') renderLeaderboard();
   if(tab==='myxi') renderMyXI();
+  if(tab==='honours') renderHonours();
   if(tab==='admin') renderAdminHub();
 }
 

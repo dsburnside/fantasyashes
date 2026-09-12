@@ -311,7 +311,7 @@ function renderMyXI(){
   if(!session){ c.innerHTML = `<div class="empty-state"><div class="big">Log in to see your XI</div></div>`; return; }
 
   if(!currentSeriesId){
-    if(seriesList.length===0){
+    if(activeSeriesList().length===0){
       c.innerHTML = `<div class="empty-state"><div class="big">No series available yet</div>Ask an admin to set one up under Admin Hub.</div>`;
       return;
     }
@@ -319,7 +319,7 @@ function renderMyXI(){
       <div class="card">
         <h3 style="margin-top:0; font-family:var(--font-display);">Pick a series</h3>
         <p class="panel-sub" style="margin-top:0;">Choose which series to build your team for — that's all it takes to start. Joining a league to compare against friends is a separate, optional step under My Leagues.</p>
-        ${seriesList.map(s=>`
+        ${activeSeriesList().map(s=>`
           <div class="player-row" data-sid="${s.id}">
             <div class="player-name-wrap"><span class="player-name">${s.name}</span></div>
             <div class="player-row-actions"><button class="btn small" data-action="pickSeries" data-sid="${s.id}">Start team</button></div>
@@ -364,9 +364,10 @@ function renderMyXI(){
   const draftBench = draft.squad14.filter(id=>!draft.xi11.includes(id));
   const draftDiffersFromCommitted = hasUncommittedMyXiChanges();
   // Which series/squad options the header pill's overlay should offer (see
-  // openSeriesSwitchOverlay) — every series that isn't the one showing now
-  // and doesn't already have a squad on it.
-  const newSeriesOptions = seriesList.filter(s=> s.id!==currentSeriesId && !mySquads.some(sq=>sq.seriesId===s.id));
+  // openSeriesSwitchOverlay) — every still-active series (activeSeriesList(),
+  // js/state.js — never an archived one) that isn't the one showing now and
+  // doesn't already have a squad on it.
+  const newSeriesOptions = activeSeriesList().filter(s=> s.id!==currentSeriesId && !mySquads.some(sq=>sq.seriesId===s.id));
 
   const xiSlotsHtml = Array.from({length:11}, (_,i)=> draft.xi11[i] ? squadCardHtml(draft.xi11[i], 'xi', baselineSquad14) : emptySlotHtml('xi')).join('');
   const benchSlotsHtml = Array.from({length:3}, (_,i)=> draftBench[i] ? squadCardHtml(draftBench[i], 'bench', baselineSquad14) : emptySlotHtml('bench')).join('');

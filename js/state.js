@@ -39,7 +39,17 @@ let myFirstName = '';     // signed-in user's first name (from profiles), copied
 let myLastName = '';      // signed-in user's last name (from profiles)
 let didInitialLoad = false; // true once init()'s own sequential first load has finished — see onAuthStateChange below
 
-let seriesList = [];        // every series (anyone picks a team from these; admin sets up their fixtures/players)
+let seriesList = [];        // every series, archived included (anyone picks a team from these; admin sets up their fixtures/players)
+// Series still open for ordinary play — every player-facing series picker
+// (Home/My XI/My Leagues' "start a team"/"switch series"/"new league"
+// pickers) should read from this, never seriesList directly, so an archived
+// series (see js/honours.js) drops out of everyday navigation the moment
+// it's archived. Admin Hub is the one deliberate exception — it still reads
+// seriesList itself, since un-archiving or applying a late score adjustment
+// both need to still be able to reach an archived series.
+function activeSeriesList(){
+  return seriesList.filter(s=>!s.archived);
+}
 let teamsList = [];         // every team (shared master data — a series picks two of these)
 let venuesList = [];        // every venue (shared master data — a fixture picks or adds one of these)
 let mySquads = [];          // every squad row (camelCase) the signed-in user holds — one per series they've picked a team for

@@ -83,8 +83,23 @@ create trigger on_auth_user_created
 create table if not exists public.series (
   id         uuid primary key default gen_random_uuid(),
   name       text not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Retires a finished series from ordinary play: it drops out of every
+  -- player-facing series picker (activeSeriesList(), js/state.js — Home/My
+  -- XI/My Leagues' "start a team"/"switch series"/"new league" pickers all
+  -- read from that, not seriesList directly) and its squads stop being
+  -- editable (squad_edit_allowed below), but nothing about it is deleted —
+  -- it lives on as an entry on the Honours tab (js/honours.js) instead, and
+  -- an admin can still reach and un-archive it from Admin Hub at any time
+  -- (series_write_admin below already grants admins full read/write on this
+  -- column like any other — no separate RPC needed). archived_at is display
+  -- only (Honours' "Archived <date>"), not read by any check.
+  archived    boolean not null default false,
+  archived_at timestamptz
 );
+
+alter table public.series add column if not exists archived boolean not null default false;
+alter table public.series add column if not exists archived_at timestamptz;
 
 alter table public.series enable row level security;
 
@@ -568,6 +583,13 @@ alter table public.squads enable row level security;
 -- series (i.e. you're both members of at least one common league there), or
 -- to site admins. This is what keeps one league's leaderboard private from
 -- another's even though squads themselves aren't tied to a single league.
+-- A FOURTH case, once a series is archived: every squad on it becomes
+-- readable by anyone, signed in or not, league membership or not — the
+-- Honours tab (js/honours.js, browsable the same as Rules with no account)
+-- ranks EVERY squad in a finished series to find its overall winner, not
+-- just whichever league the viewer happens to share with each one, so it
+-- needs to see all of them. Never true for a still-active series — only
+-- archiving opens this up.
 drop policy if exists "squads_select_all" on public.squads;
 drop policy if exists "squads_select_member_or_admin" on public.squads;
 create policy "squads_select_member_or_admin" on public.squads
@@ -583,6 +605,7 @@ create policy "squads_select_member_or_admin" on public.squads
         and l.series_id = squads.series_id
     )
     or exists (select 1 from public.profiles where user_id = auth.uid() and is_admin)
+    or exists (select 1 from public.series se where se.id = squads.series_id and se.archived)
   );
 
 -- Only the owner can create, edit or delete their own squad.
@@ -612,6 +635,8 @@ language sql
 stable
 as $$
   select not exists (
+    select 1 from public.series se where se.id = p_series_id and se.archived
+  ) and not exists (
     select 1 from public.fixtures f
     where f.series_id = p_series_id
       and f.locked_at is null

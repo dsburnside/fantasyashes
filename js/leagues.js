@@ -29,11 +29,11 @@ function openLeagueAddOverlay(){
       <button class="subtab-btn" data-addsub="join">Join with code</button>
     </div>
     <div data-addpanel="create">
-      ${seriesList.length===0 ? '<div class="empty-state">No series available yet — ask an admin to set one up.</div>' : `
+      ${activeSeriesList().length===0 ? '<div class="empty-state">No series available yet — ask an admin to set one up.</div>' : `
       <div class="field-group"><label for="newLeagueName">Name</label><input type="text" id="newLeagueName" placeholder="e.g. Office League"></div>
       <div class="field-group">
         <label for="newLeagueSeries">Series</label>
-        <select class="pick" id="newLeagueSeries">${seriesList.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
+        <select class="pick" id="newLeagueSeries">${activeSeriesList().map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
       </div>
       <div class="auth-error" id="createLeagueError"></div>
       <div class="overlay-actions"><button class="btn" id="createLeagueBtn">Create league</button></div>

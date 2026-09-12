@@ -193,7 +193,13 @@ function openSwitcherOverlay(title, options, onPick, extraHtml){
 function openSeriesSwitchOverlay(newSeriesOptions){
   const activeSeries = seriesList.find(s=>s.id===currentSeriesId) || {id: currentSeriesId, name: 'this series'};
   const isBuilding = !mySquad;
-  const rows = mySquads.map(s=>({
+  // Only squads on a still-active series are offered here — an archived one
+  // (js/honours.js) is retired from ordinary navigation even for a user who
+  // has a squad sitting on it; loadMySquads() (js/data.js) already keeps
+  // currentSeriesId from ever landing on one, so this keeps the switcher
+  // list consistent with that.
+  const activeIds = new Set(activeSeriesList().map(s=>s.id));
+  const rows = mySquads.filter(s=>activeIds.has(s.seriesId)).map(s=>({
     id: s.seriesId,
     label: (seriesList.find(x=>x.id===s.seriesId)||{}).name || 'Unknown series',
     current: s.seriesId===currentSeriesId,

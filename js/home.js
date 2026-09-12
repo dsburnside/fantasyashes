@@ -84,17 +84,19 @@ async function renderHome(){
   if(!currentSeriesId || !mySquad){
     const activeSeries = seriesList.find(s=>s.id===currentSeriesId);
     // Same pill (and same overlay) My Squads' own header uses — see
-    // openSeriesSwitchOverlay, js/overlays.js.
-    const newSeriesOptions = seriesList.filter(s=> s.id!==currentSeriesId && !mySquads.some(sq=>sq.seriesId===s.id));
+    // openSeriesSwitchOverlay, js/overlays.js. activeSeriesList() (js/state.js),
+    // not seriesList — an archived series is never offered as somewhere to
+    // start a fresh squad.
+    const newSeriesOptions = activeSeriesList().filter(s=> s.id!==currentSeriesId && !mySquads.some(sq=>sq.seriesId===s.id));
     c.innerHTML = `
       <div class="flex-between" style="margin-bottom:14px;">
         <h2 class="home-greeting" style="margin-bottom:0;">Welcome${myFirstName ? ', '+myFirstName : ''}</h2>
         ${currentSeriesId ? switcherPillHtml('homeSeriesPillBtn', activeSeries ? activeSeries.name : 'this series', 'Switch series') : ''}
       </div>
-      <p class="panel-sub">${seriesList.length===0
+      <p class="panel-sub">${activeSeriesList().length===0
         ? 'No series available yet — ask an admin to set one up.'
         : `You haven't built a squad${activeSeries ? ' for '+activeSeries.name : ''} yet — that's the only thing standing between you and a spot on the board.`}</p>
-      ${seriesList.length ? `<div class="card"><button class="btn" id="homeBuildBtn">Build your XI</button></div>` : ''}
+      ${activeSeriesList().length ? `<div class="card"><button class="btn" id="homeBuildBtn">Build your XI</button></div>` : ''}
     `;
     const seriesPillBtn = document.getElementById('homeSeriesPillBtn');
     if(seriesPillBtn) seriesPillBtn.addEventListener('click', ()=> openSeriesSwitchOverlay(newSeriesOptions));
@@ -142,7 +144,7 @@ async function renderHome(){
 
   // Same pill (and same overlay) My Squads' own header uses — see
   // openSeriesSwitchOverlay, js/overlays.js.
-  const newSeriesOptions = seriesList.filter(s=> s.id!==currentSeriesId && !mySquads.some(sq=>sq.seriesId===s.id));
+  const newSeriesOptions = activeSeriesList().filter(s=> s.id!==currentSeriesId && !mySquads.some(sq=>sq.seriesId===s.id));
 
   c.innerHTML = `
     <div class="flex-between" style="margin-bottom:18px;">

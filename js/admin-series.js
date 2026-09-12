@@ -38,8 +38,10 @@ function openAdminSeriesSwitchOverlay(onChange){
           <div class="player-name-wrap">
             <span class="player-name">${s.name}</span>
             ${s.id===adminSeriesId ? '<span class="nat-pill">Current</span>' : ''}
+            ${s.archived ? '<span class="nat-pill" title="Retired from My XI/My Leagues\' pickers — see the Honours tab">Archived</span>' : ''}
           </div>
           <div class="player-row-actions">
+            <button type="button" class="btn secondary small" data-action="toggleArchiveSeries" data-sid="${s.id}" title="${s.archived ? 'Bring this series back into ordinary play' : "Retire this finished series to the Honours tab"}">${s.archived ? 'Unarchive' : 'Archive'}</button>
             <button type="button" class="row-icon-btn primary" data-action="renameSeries" data-sid="${s.id}" title="Rename series" aria-label="Rename series">&#9998;</button>
             <button type="button" class="row-icon-btn danger" data-action="deleteSeries" data-sid="${s.id}" title="Delete series" aria-label="Delete series">&times;</button>
           </div>
@@ -60,6 +62,19 @@ function openAdminSeriesSwitchOverlay(onChange){
       adminSeriesId = row.dataset.sid;
       adminScreen = 'top'; // land back at the top rather than a screen that belonged to the old series
       onChange();
+    });
+  });
+  backdrop.querySelectorAll('[data-action="toggleArchiveSeries"]').forEach(btn=>{
+    btn.addEventListener('click', async e=>{
+      e.stopPropagation();
+      const s = seriesList.find(x=>x.id===btn.dataset.sid);
+      await toggleSeriesArchived(s, onChange);
+      // Reopens on the now-updated list rather than leaving this overlay
+      // showing stale Archive/Unarchive labels — unlike rename/delete below,
+      // there's nothing else to navigate to afterward, so staying right here
+      // (rather than just closing) lets several series get archived in one go.
+      closeOverlay();
+      openAdminSeriesSwitchOverlay(onChange);
     });
   });
   backdrop.querySelectorAll('[data-action="renameSeries"]').forEach(btn=>{
@@ -586,6 +601,23 @@ function openRenameSeriesOverlay(s, onChange){
     await loadSeriesList();
     (onChange || renderAdminHub)();
   });
+}
+/* Retires a finished series from ordinary play (or brings one back) — see
+   the `archived` column's own comment, supabase-schema.sql, for what
+   actually changes: it drops out of every player-facing series picker
+   (activeSeriesList(), js/state.js) and its squads stop being editable, but
+   nothing is deleted — it's just a flag. No confirmation dialog (unlike
+   deleteSeries below): it's a plain, harmless toggle, reversible from this
+   same menu at any time. */
+async function toggleSeriesArchived(s, onChange){
+  const archiving = !s.archived;
+  const {error} = await supabaseClient.from('series').update({
+    archived: archiving,
+    archived_at: archiving ? new Date().toISOString() : null,
+  }).eq('id', s.id);
+  if(error){ showAlert(error.message); return; }
+  await loadSeriesList();
+  (onChange || renderAdminHub)();
 }
 /* Requires the admin's own account password (showPasswordConfirm, same
    two-step are-you-sure-then-reauth pattern deleteLeagueBtn — js/leagues.js

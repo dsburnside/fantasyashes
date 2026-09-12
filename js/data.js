@@ -68,9 +68,17 @@ async function loadMySquads(){
   const {data, error} = await supabaseClient.from('squads').select('*').eq('user_id', session.user.id);
   if(error){ console.error(error); mySquads = []; mySquad = null; return; }
   mySquads = (data||[]).map(rowToSquad);
+  // currentSeriesId only ever resolves onto a still-active series — an
+  // archived one (js/honours.js) is retired from ordinary navigation even
+  // if the user has a squad sitting on it, so it's excluded here the same
+  // way activeSeriesList() (js/state.js) excludes it from every picker.
+  // mySquads itself keeps every squad regardless (the Honours tab still
+  // needs to read archived ones), only this resolution is filtered.
+  const activeIds = new Set(activeSeriesList().map(s=>s.id));
+  const eligibleSquads = mySquads.filter(s=>activeIds.has(s.seriesId));
   const stored = localStorage.getItem('currentSeriesId');
-  if(!(currentSeriesId && mySquads.some(s=>s.seriesId===currentSeriesId))){
-    currentSeriesId = (stored && mySquads.some(s=>s.seriesId===stored)) ? stored : (mySquads[0] ? mySquads[0].seriesId : null);
+  if(!(currentSeriesId && eligibleSquads.some(s=>s.seriesId===currentSeriesId))){
+    currentSeriesId = (stored && eligibleSquads.some(s=>s.seriesId===stored)) ? stored : (eligibleSquads[0] ? eligibleSquads[0].seriesId : null);
   }
   if(currentSeriesId) localStorage.setItem('currentSeriesId', currentSeriesId);
   mySquad = mySquads.find(s=>s.seriesId===currentSeriesId) || null;
@@ -97,14 +105,18 @@ async function saveMySquad(){
   const {error} = await supabaseClient.from('squads').update(squadToRow(mySquad)).eq('user_id', session.user.id).eq('series_id', mySquad.seriesId);
   if(error){
     // 42501 here specifically means squad_edit_allowed()'s WITH CHECK
-    // rejected the write (supabase-schema.sql) — this series has a fixture
+    // rejected the write (supabase-schema.sql) — either this series has
+    // been archived outright, or (the more everyday case) it has a fixture
     // whose deadline has passed but hasn't been locked yet (whether that's
     // because auto-locking hasn't run yet, or an admin just hasn't gotten
     // to Lock Test). Worth a message of its own rather than surfacing the
     // raw Postgres wording, since it's the one error here a player can
     // actually expect to hit in normal use, not a bug to report.
     if(error.code === '42501'){
-      showAlert("This series' next Test has already reached its selection deadline, so squads are locked for it — nothing you change here will save until it's been scored and the following Test opens up.", 'Deadline passed');
+      const series = seriesList.find(s=>s.id===mySquad.seriesId);
+      showAlert(series && series.archived
+        ? `${series.name} has been archived, so squads on it are closed for editing — see the Honours tab for how it finished.`
+        : "This series' next Test has already reached its selection deadline, so squads are locked for it — nothing you change here will save until it's been scored and the following Test opens up.", 'Deadline passed');
     } else {
       showAlert('Could not save: '+error.message);
     }
