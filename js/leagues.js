@@ -275,6 +275,7 @@ function buildSquadBreakdownRow(squad, matchDataByTest){
         isViceCaptain: pid===lockedEntry.viceCaptain,
         subOutOf: subOutMap[pid] || null, // didn't play — replaced by this pid
         subInFor: subInMap[pid] || null,  // came on, replacing this pid
+        role: effectivePlayingRoleForTest(lockedEntry, pid, innings, playingXi),
         points: Math.round(playerPointsForTest(lockedEntry, stats, pid, captainDidNotPlay, innings, playingXi)*10)/10,
         runs: statMetricTotal(s,'runs'), wickets: statMetricTotal(s,'wickets'),
         catches: statMetricTotal(s,'catches'), stumpings: statMetricTotal(s,'stumpings'), runouts: statMetricTotal(s,'runouts'),
@@ -334,7 +335,13 @@ function squadBreakdownPanelsHtml(byTest, getP, playerName){
         ? `<span class="sub-swap-icon" title="Came on for ${playerName(row.subInFor)}">&#8646;</span>`
         : '';
     const econ = row.economy===null ? '–' : row.economy.toFixed(2);
-    return `<tr><td><span class="row-badge-slot">${badges}</span>${p.name}${swap}</td><td class="pts">${row.points}</td><td>${row.runs}</td><td>${row.ballsFaced}</td><td>${row.wickets}</td><td>${econ}</td><td>${row.catches}</td><td>${row.stumpings}</td><td>${row.runouts}</td></tr>`;
+    // Same read-only icon squadCardHtml (js/myxi.js) shows for the assigned
+    // playing role — here it's the role this Test was actually SCORED
+    // against (row.role, from effectivePlayingRoleForTest, js/scoring.js),
+    // which can differ from a player's base role (and, for a backup
+    // wicketkeeper who didn't glove up, even from their own default).
+    const roleIcon = `<span class="role-icon-badge" title="Playing role: ${ROLE_LABEL[row.role]}"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ROLE_ICON_PATH[row.role]}</svg></span>`;
+    return `<tr><td><span class="row-badge-slot">${badges}</span>${p.name} ${roleIcon}${swap}</td><td class="pts">${row.points}</td><td>${row.runs}</td><td>${row.ballsFaced}</td><td>${row.wickets}</td><td>${econ}</td><td>${row.catches}</td><td>${row.stumpings}</td><td>${row.runouts}</td></tr>`;
   };
   const defaultTest = testKeys[testKeys.length-1]; // most recently locked, i.e. the current-looking team
   const html = `

@@ -163,6 +163,41 @@ function wkByesPenalty(pid, innings, playingXi){
   });
   return pts;
 }
+// Whether pid actually kept wicket for their side in at least one innings
+// this Test — same "who's the keeper" resolution wkByesPenalty uses above
+// (explicit admin pick, or, when unambiguous, the side's sole base-role WK),
+// just without the byes>5 condition since this isn't about the penalty.
+// Feeds effectivePlayingRoleForTest below: a base-role WK who never actually
+// gloved up shouldn't quietly default to the WK bonus for a Test they spent
+// as a specialist bat.
+function wasKeeperThisTest(pid, innings, playingXi){
+  const player = getPlayer(pid);
+  if(!player || !Array.isArray(innings)) return false;
+  return innings.some(entry=>{
+    if(!entry || entry.battingCode===player.nat) return false; // this player's team was batting, not keeping, this innings
+    const fieldingRoster = (Array.isArray(playingXi) && playingXi.length>0)
+      ? playingXi.filter(id=>{ const p = getPlayer(id); return p && p.nat===player.nat; })
+      : [pid];
+    return resolveKeeperForEntry(entry, fieldingRoster) === pid;
+  });
+}
+// The playing role actually used to score pid for this Test: the manager's
+// explicit pick (lockedEntry.playingRoles) if they made one, else a default
+// — same idea as defaultPlayingRole (js/state.js) falling an all-rounder
+// back to Batter, just carrying one more correction: a base-role
+// wicketkeeper who wasn't this Test's actual gloveman (see
+// wasKeeperThisTest — most often the backup of a squad carrying two)
+// defaults to Batter too, rather than silently doubling a specialist
+// batting stint's catches as if it were their WK bonus. Only ever changes
+// the DEFAULT — a manager who explicitly assigns them WK anyway is
+// unaffected. Exposed (not just inlined in playerPointsForTest) so the
+// league breakdown table can label each row with this same resolved role
+// rather than recomputing — or worse, showing the uncorrected default.
+function effectivePlayingRoleForTest(lockedEntry, pid, innings, playingXi){
+  const baseDefault = defaultPlayingRole(getPlayer(pid).role);
+  const effectiveDefault = (baseDefault==='WK' && !wasKeeperThisTest(pid, innings, playingXi)) ? 'BAT' : baseDefault;
+  return (lockedEntry.playingRoles && lockedEntry.playingRoles[pid]) || effectiveDefault;
+}
 /* Works out who actually took the field for a locked XI once the real Playing XI
    is known. Anyone locked in who isn't on `playingXi` is treated as a non-player
    and replaced by their team's first bench player (in squad order) who is on
@@ -197,7 +232,7 @@ function resolveEffectiveXi(lockedEntry, playingXi){
 // VC actually played too; otherwise the bonus is simply lost, same as if
 // neither had played.
 function playerPointsForTest(lockedEntry, statsForTest, pid, captainDidNotPlay, innings, playingXi){
-  const role = (lockedEntry.playingRoles && lockedEntry.playingRoles[pid]) || defaultPlayingRole(getPlayer(pid).role);
+  const role = effectivePlayingRoleForTest(lockedEntry, pid, innings, playingXi);
   let pts = statPoints(statsForTest ? statsForTest[pid] : null, role);
   pts += wkByesPenalty(pid, innings, playingXi);
   if(pid === lockedEntry.captain && !captainDidNotPlay) pts *= 2;
