@@ -344,6 +344,16 @@ function squadToRow(squad){
     wildcard_used: squad.wildcardUsed,
     wildcard_active_now: squad.wildcardActiveNow,
     wildcard_committed_pending: squad.wildcardCommittedPending,
+    // Stamped here (not left to a DB default, which only ever fires on
+    // INSERT) so this genuinely tracks the owner's own last commit — the
+    // server-side lock/reset RPCs (lock_test_core/reset_test,
+    // supabase-schema.sql) deliberately leave this column alone, so it
+    // never gets overwritten by someone else's admin action. Lets a late
+    // edit (one that landed after a Test's deadline but before it happened
+    // to get locked) actually be spotted after the fact, by comparing this
+    // against that fixture's deadline/locked_at — on top of, not instead
+    // of, squad_edit_allowed() now refusing such a write outright.
+    updated_at: new Date().toISOString(),
     locked_xi_by_test: squad.lockedXiByTest,
     playing_roles: squad.playingRoles || {},
   };

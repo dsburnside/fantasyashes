@@ -95,7 +95,21 @@ async function loadMyLeagues(){
 async function saveMySquad(){
   if(!mySquad) return;
   const {error} = await supabaseClient.from('squads').update(squadToRow(mySquad)).eq('user_id', session.user.id).eq('series_id', mySquad.seriesId);
-  if(error){ showAlert('Could not save: '+error.message); console.error(error); }
+  if(error){
+    // 42501 here specifically means squad_edit_allowed()'s WITH CHECK
+    // rejected the write (supabase-schema.sql) — this series has a fixture
+    // whose deadline has passed but hasn't been locked yet (whether that's
+    // because auto-locking hasn't run yet, or an admin just hasn't gotten
+    // to Lock Test). Worth a message of its own rather than surfacing the
+    // raw Postgres wording, since it's the one error here a player can
+    // actually expect to hit in normal use, not a bug to report.
+    if(error.code === '42501'){
+      showAlert("This series' next Test has already reached its selection deadline, so squads are locked for it — nothing you change here will save until it's been scored and the following Test opens up.", 'Deadline passed');
+    } else {
+      showAlert('Could not save: '+error.message);
+    }
+    console.error(error);
+  }
 }
 async function getMatchDataForTest(seriesId, testNum){
   const {data, error} = await supabaseClient.from('match_stats').select('stats, playing_xi, innings').eq('series_id', seriesId).eq('test', testNum).maybeSingle();

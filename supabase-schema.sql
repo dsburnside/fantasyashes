@@ -578,9 +578,39 @@ drop policy if exists "squads_insert_own" on public.squads;
 create policy "squads_insert_own" on public.squads
   for insert with check (auth.uid() = user_id);
 
+-- Whether a player is still allowed to write to their own squad for this
+-- series right now — false whenever this series has a fixture whose
+-- deadline has passed but hasn't been locked yet either way (the same
+-- condition auto_lock_overdue_tests() itself watches for, further below).
+-- This is the actual enforcement of "squads lock at the deadline": the
+-- on-screen countdown (js/countdown.js) is only ever a display, and
+-- auto_lock_overdue_tests() only runs once a minute AND depends on pg_cron
+-- actually being scheduled — neither one stops a write reaching the table
+-- on its own. Checked directly in squads_update_own's WITH CHECK below
+-- rather than relying on either of those, so a slow/late admin lock (or a
+-- cron job that silently isn't running — worth checking Database ->
+-- Extensions, and `select * from cron.job` in the SQL editor, if fixtures
+-- are ever seen locking long after their deadline) can never leave a window
+-- where edits still land. The trusted SECURITY DEFINER functions
+-- (lock_test_core, reset_test) write to squads directly and aren't subject
+-- to this policy at all, so admin actions are never blocked by it.
+create or replace function public.squad_edit_allowed(p_series_id uuid)
+returns boolean
+language sql
+stable
+as $$
+  select not exists (
+    select 1 from public.fixtures f
+    where f.series_id = p_series_id
+      and f.locked_at is null
+      and f.deadline <= now()
+  );
+$$;
+
 drop policy if exists "squads_update_own" on public.squads;
 create policy "squads_update_own" on public.squads
-  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id and public.squad_edit_allowed(series_id));
 
 drop policy if exists "squads_delete_own" on public.squads;
 create policy "squads_delete_own" on public.squads
@@ -643,8 +673,16 @@ begin
     -- hand exactly that wildcard back and no other.
     wildcard_used_test = case when wildcard_active_now and wildcard_committed_pending and locked_xi_by_test <> '{}'::jsonb then p_test else wildcard_used_test end,
     wildcard_active_now = false,
-    wildcard_committed_pending = false,
-    updated_at = now()
+    wildcard_committed_pending = false
+    -- Deliberately NOT touching updated_at here (it used to be stamped
+    -- `now()` on every squad this lock swept up) — that overwrote the one
+    -- signal of when a player last actually touched their own squad with
+    -- the lock's own timestamp, for every squad alike, which is exactly the
+    -- thing you'd want to check if a lock ever runs late enough that
+    -- someone might have snuck an edit in after the deadline (see
+    -- squad_edit_allowed above, which now stops that write from landing at
+    -- all — but this keeps the historical signal intact for anything locked
+    -- before that existed, and as a second, independent way to notice it).
   where jsonb_array_length(xi11) = 11
     and series_id = p_series_id;
 end;
@@ -706,14 +744,26 @@ revoke all on function public.auto_lock_overdue_tests() from public, authenticat
 -- ever needs enabling by hand) — this just runs the function above once a
 -- minute. Unschedule-then-reschedule so re-running this file doesn't pile up
 -- duplicate jobs under the same name.
-create extension if not exists pg_cron with schema extensions;
+-- Wrapped so a plan/permissions issue here (pg_cron not available, or the
+-- role running this script not allowed to create extensions/schedule jobs)
+-- surfaces as a NOTICE instead of an error that aborts every statement
+-- after it in the same script run — squad_edit_allowed() above is already
+-- the actual enforcement of the deadline regardless of whether this job
+-- ends up running, so a fixture just sits unlocked (edits refused, nothing
+-- mis-scored) rather than silently open until this succeeds. Check
+-- `select * from cron.job` in the SQL editor after running this to confirm
+-- 'auto-lock-overdue-tests' is actually there if Tests still aren't
+-- locking themselves at their deadline.
 do $$
 begin
+  create extension if not exists pg_cron with schema extensions;
   if exists (select 1 from cron.job where jobname = 'auto-lock-overdue-tests') then
     perform cron.unschedule('auto-lock-overdue-tests');
   end if;
+  perform cron.schedule('auto-lock-overdue-tests', '* * * * *', $cron$select public.auto_lock_overdue_tests();$cron$);
+exception when others then
+  raise notice 'pg_cron scheduling skipped (%). Tests will only lock via the admin Lock Test button and squad_edit_allowed() until this is resolved — see Database -> Extensions.', sqlerrm;
 end $$;
-select cron.schedule('auto-lock-overdue-tests', '* * * * *', $$select public.auto_lock_overdue_tests();$$);
 
 -- ---------- reset_test(): the inverse of lock_test() ----------
 -- Puts a Test back to how it was before anyone touched it: every stat, the
@@ -766,8 +816,11 @@ begin
     wildcard_used = case when s.wildcard_used_test = p_test then false else s.wildcard_used end,
     wildcard_active_now = case when s.wildcard_used_test = p_test then true else s.wildcard_active_now end,
     wildcard_committed_pending = case when s.wildcard_used_test = p_test then true else s.wildcard_committed_pending end,
-    wildcard_used_test = case when s.wildcard_used_test = p_test then null else s.wildcard_used_test end,
-    updated_at = now()
+    wildcard_used_test = case when s.wildcard_used_test = p_test then null else s.wildcard_used_test end
+    -- Not touching updated_at here either — same reasoning as
+    -- lock_test_core above: it's an admin action on every squad in the
+    -- series, not the owner's own edit, so it shouldn't overwrite the one
+    -- signal of when they last touched it themselves.
   where s.series_id = p_series_id;
 end;
 $$;
