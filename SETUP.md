@@ -130,6 +130,35 @@ series and league (join code `ASHES2026`) and backfills all your existing
 players, fixtures, stats, squads and league memberships into them, so
 nothing is lost.
 
+## 9. (Optional) Deploy the BBC Sport scorecard importer
+
+Admin → a Test → "Import from BBC Sport" fills in Playing XI and every
+stat from a `bbc.co.uk/sport/cricket/scorecard/...` URL, instead of typing
+each one by hand — you still review and correct it before saving, nothing
+commits automatically. It needs one small piece of server-side code deployed
+first, since a browser can't fetch another site's page directly:
+
+1. Install the Supabase CLI if you haven't already — `npm install -g
+   supabase`, or see [supabase.com/docs/guides/cli](https://supabase.com/docs/guides/cli/getting-started)
+   for other install methods.
+2. From this project's folder: `supabase login`, then `supabase link
+   --project-ref <your-project-ref>` (the ref is in your project's Supabase
+   dashboard URL, `supabase.com/dashboard/project/<ref>`).
+3. Deploy it: `supabase functions deploy import-bbc-scorecard`.
+
+That's it — no environment variables or secrets to set, it only ever fetches
+the URL you give it and reshapes the response. Skip this step entirely if
+you're happy typing stats in by hand; every other admin screen works exactly
+as before without it, the Import button just won't find the function to call
+(you'll get an error naming it, not a broken screen).
+
+Cricinfo scorecards can't be used the same way — they block automated
+requests outright (confirmed against a live scorecard while building this:
+a plain server-side fetch and even Cricinfo's own internal API both got a
+403 from their edge/CDN layer, not something worth trying to route around).
+BBC Sport's scorecard pages embed the same structured data their own page
+reads from, and fetch cleanly.
+
 ## What changed since the last version
 
 - **Teams are self-service and no longer need a league; leagues are

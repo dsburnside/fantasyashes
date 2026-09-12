@@ -7,6 +7,7 @@ function renderAdminMatchScreen(){
   const html = `
     ${adminBackBtnHtml()}
     <h3 style="margin:12px 0 14px; font-family:var(--font-display);">Test ${adminMatchTest}${fixture ? ' — '+fixture.venue : ''} <button type="button" class="help-icon" id="matchSetupHelpBtn" title="What's this?" aria-label="Help">?</button></h3>
+    ${adminSeriesTeams.length<2 ? '' : `<div class="save-bar" style="margin:0 0 14px;"><button class="btn secondary" id="bbcImportBtn" ${session?'':'disabled'}>Import from BBC Sport</button></div>`}
     ${adminSeriesTeams.length<2 ? '<div class="empty-state">This series needs both teams assigned first — set them under Teams.</div>' : adminHubGridHtml([
       {goto:'xi', title:'Player Selection', sub: `${currentPlayingXiDraft.length} added`},
       {goto:'scoring', title:'Scoring', sub: currentInningsDraft.length ? `${currentInningsDraft.length} innings` : 'No innings yet'},
@@ -21,7 +22,9 @@ function renderAdminMatchScreen(){
   `;
   const wire = c=>{
     c.querySelector('#adminBackBtn').addEventListener('click', ()=>{ adminScreen='fixtures'; renderAdminHub(); });
-    c.querySelector('#matchSetupHelpBtn').addEventListener('click', ()=> showAlert("Player Selection is who actually took the field — add them once the real teams are announced, in batting order. Scoring is where each innings' runs/wickets/catches etc. get entered (in that same order), and where a Test gets locked in for every league's scoring once it's done.", 'Match Setup'));
+    c.querySelector('#matchSetupHelpBtn').addEventListener('click', ()=> showAlert("Player Selection is who actually took the field — add them once the real teams are announced, in batting order. Scoring is where each innings' runs/wickets/catches etc. get entered (in that same order), and where a Test gets locked in for every league's scoring once it's done. \"Import from BBC Sport\" fills both in for you from a scorecard URL — review before saving either.", 'Match Setup'));
+    const bbcBtn = c.querySelector('#bbcImportBtn');
+    if(bbcBtn) bbcBtn.addEventListener('click', openBbcImportOverlay);
     const xiCard = c.querySelector('[data-goto="xi"]');
     if(xiCard) xiCard.addEventListener('click', ()=>{ adminScreen='xi'; renderAdminHub(); });
     const scoringCard = c.querySelector('[data-goto="scoring"]');
