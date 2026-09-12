@@ -175,10 +175,14 @@ function applyBbcImport(scorecard){
       const s = statsFor(p.id)[innKey] = statsFor(p.id)[innKey] || {};
       s.runs = runs;
       s.ballsFaced = parseInt(b.balls, 10) || 0;
-      // Same rule the manual-entry Runs field auto-ticks by (admin-match.js) —
-      // keyed on the score alone, not on how they got there, so this stays
-      // identical whether admin typed it or it came from here.
-      s.duck = runs===0;
+      // A duck is being DISMISSED for zero, not just finishing an innings on
+      // zero — stranded not out (last batter at the end of an innings, say)
+      // doesn't count. The manual-entry Runs field can only auto-tick on
+      // runs===0 alone (admin-match.js) since there's no isOut field in that
+      // form to check — a deliberate simplification, correctable by hand —
+      // but BBC's data actually says whether they were out, so the importer
+      // has no excuse not to use it.
+      s.duck = runs===0 && !!b.isOut;
       s.hundred = runs>=100;
       s.fifty = runs>=50 && runs<100;
     });
