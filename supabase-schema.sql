@@ -464,6 +464,17 @@ create table if not exists public.squads (
   -- "spent here, hand it back" from "spent two Tests ago, leave it alone".
   wildcard_used_test       int,
   locked_xi_by_test        jsonb not null default '{}'::jsonb,
+  -- Manual admin point correction to this squad's total for one Test —
+  -- {test: {points, note, adjustedBy, adjustedAt}} — see
+  -- set_squad_score_adjustment() below. For rectifying a specific known
+  -- scoring problem on just this one team (e.g. a squad change that landed
+  -- after a deadline but before the Test happened to get locked, back when
+  -- nothing stopped that write — see squad_edit_allowed) without altering
+  -- the underlying match stats, which would move every team's score, not
+  -- just this one. Never written by the owner's own commit (squadToRow,
+  -- js/scoring.js, deliberately leaves it out) — only by an admin, through
+  -- that function.
+  score_adjustments        jsonb not null default '{}'::jsonb,
   updated_at               timestamptz not null default now(),
   unique (user_id, series_id),
   unique (series_id, team_name)
@@ -536,6 +547,7 @@ alter table public.squads add column if not exists wildcard_committed_pending bo
 -- leaves those wildcards used rather than handing one back by guesswork.
 alter table public.squads add column if not exists wildcard_used_test int;
 alter table public.squads add column if not exists playing_roles jsonb not null default '{}'::jsonb;
+alter table public.squads add column if not exists score_adjustments jsonb not null default '{}'::jsonb;
 alter table public.squads drop column if exists swaps_used_this_window;
 alter table public.squads drop column if exists baseline_xi11;
 alter table public.squads drop column if exists baseline_bench3;
@@ -827,6 +839,44 @@ $$;
 
 revoke all on function public.reset_test(uuid, int) from public;
 grant execute on function public.reset_test(uuid, int) to authenticated;
+
+-- ---------- set_squad_score_adjustment(): manual per-Test point correction ----------
+-- Sets (p_points not null) or clears (p_points null) an admin's manual
+-- points correction to one squad's total for one Test — see
+-- score_adjustments' own column comment above for what it's for. Same
+-- admin-only SECURITY DEFINER shape as lock_test/reset_test: this is the
+-- only way score_adjustments ever gets written (squads_update_own's own
+-- WITH CHECK doesn't grant the owner write access to it — see that policy
+-- above — and this function bypasses RLS entirely as SECURITY DEFINER, so
+-- it isn't affected by that squad's own deadline lock either; an admin can
+-- apply an adjustment regardless of squad_edit_allowed()).
+create or replace function public.set_squad_score_adjustment(p_series_id uuid, p_user_id uuid, p_test int, p_points numeric, p_note text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from public.profiles where user_id = auth.uid() and is_admin) then
+    raise exception 'Only admins can adjust a squad''s score';
+  end if;
+
+  if p_points is null then
+    update public.squads
+    set score_adjustments = score_adjustments - p_test::text
+    where series_id = p_series_id and user_id = p_user_id;
+  else
+    update public.squads
+    set score_adjustments = score_adjustments || jsonb_build_object(
+      p_test::text,
+      jsonb_build_object('points', p_points, 'note', coalesce(p_note, ''), 'adjustedBy', auth.uid(), 'adjustedAt', now())
+    )
+    where series_id = p_series_id and user_id = p_user_id;
+  end if;
+end;
+$$;
+revoke all on function public.set_squad_score_adjustment(uuid, uuid, int, numeric, text) from public;
+grant execute on function public.set_squad_score_adjustment(uuid, uuid, int, numeric, text) to authenticated;
 
 -- ============================================================
 -- Seed data — safe to re-run, existing rows are left untouched

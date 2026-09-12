@@ -262,6 +262,16 @@ function computeTestScore(lockedEntry, statsForTest, playingXi, innings){
   });
   return Math.round(total*10)/10;
 }
+// A manual point correction an admin applied to this squad's total for one
+// Test (score_adjustments, set via set_squad_score_adjustment — see its own
+// comments, supabase-schema.sql), or null if none was made. Takes the whole
+// squad (not just a lockedEntry, unlike computeTestScore above) since
+// score_adjustments lives on the squad row itself, independent of any one
+// Test's locked snapshot — callers add adjustment.points on top of
+// computeTestScore's own total wherever they show a Test's score.
+function squadAdjustmentForTest(squad, test){
+  return (squad && squad.scoreAdjustments && squad.scoreAdjustments[test]) || null;
+}
 /* The best legal XI for one Test, picked from the full player pool of both
    series teams (not any one manager's squad) purely on how they actually
    performed — plain undoubled points (statPoints with no role), same rate
@@ -328,6 +338,7 @@ function rowToSquad(row){
     wildcardCommittedPending: row.wildcard_committed_pending,
     lockedXiByTest: row.locked_xi_by_test || {},
     playingRoles: row.playing_roles || {},
+    scoreAdjustments: row.score_adjustments || {},
   };
 }
 function squadToRow(squad){
@@ -356,6 +367,11 @@ function squadToRow(squad){
     updated_at: new Date().toISOString(),
     locked_xi_by_test: squad.lockedXiByTest,
     playing_roles: squad.playingRoles || {},
+    // score_adjustments deliberately NOT included — it's admin-only (see
+    // its own column comment, supabase-schema.sql), written solely through
+    // set_squad_score_adjustment(). Including a stale local copy here on
+    // every ordinary commit would risk silently reverting an admin's
+    // adjustment made since this squad was last loaded.
   };
 }
 

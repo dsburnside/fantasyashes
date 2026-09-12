@@ -15,6 +15,7 @@ function computeSquadTotal(squad, matchDataByTest){
     const lockedEntry = squad.lockedXiByTest[t];
     const {stats, playingXi, innings} = matchDataByTest[t] || {stats:{}, playingXi:[], innings:[]};
     total += computeTestScore(lockedEntry, stats, playingXi, innings);
+    total += (squadAdjustmentForTest(squad, t) || {}).points || 0;
     testsScored++;
   });
   return {total: Math.round(total*10)/10, testsScored};

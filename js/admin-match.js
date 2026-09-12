@@ -10,6 +10,7 @@ function renderAdminMatchScreen(){
     ${adminSeriesTeams.length<2 ? '<div class="empty-state">This series needs both teams assigned first — set them under Teams.</div>' : adminHubGridHtml([
       {goto:'xi', title:'Player Selection', sub: `${currentPlayingXiDraft.length} added`},
       {goto:'scoring', title:'Scoring', sub: currentInningsDraft.length ? `${currentInningsDraft.length} innings` : 'No innings yet'},
+      {goto:'adjustments', title:'Score Adjustments', sub: 'Per-team manual correction'},
     ])}
     <div style="margin-top:22px; padding-top:14px; border-top:1px solid var(--parchment-dim);">
       <p class="muted-on-light" style="font-size:12px; margin:0 0 10px;">Wipes this Test back to how it started — every stat, the Playing XI, the innings, and its lock (including any wildcard it used up).</p>
@@ -25,6 +26,8 @@ function renderAdminMatchScreen(){
     if(xiCard) xiCard.addEventListener('click', ()=>{ adminScreen='xi'; renderAdminHub(); });
     const scoringCard = c.querySelector('[data-goto="scoring"]');
     if(scoringCard) scoringCard.addEventListener('click', ()=>{ adminScreen='scoring'; renderAdminHub(); });
+    const adjustmentsCard = c.querySelector('[data-goto="adjustments"]');
+    if(adjustmentsCard) adjustmentsCard.addEventListener('click', ()=> goToAdminAdjustments(adminMatchTest));
     c.querySelector('#resetTestBtn').addEventListener('click', ()=> resetTest(adminMatchTest));
   };
   return {html, wire};
@@ -52,6 +55,97 @@ let currentInningsDraft = []; // [{battingCode, inn}] in the order they were add
 let activeInningsIdx = 0;
 let adminSeriesTeams = []; // the two {id,name,short_code} teams for adminSeriesId — see resolveSeriesTeams()
 let playingXiPoolTeam = null; // which team's XI tab is showing in renderPlayingXiTable — short_code, re-defaulted whenever stale
+let adminSquads = []; // every squad on adminSeriesId, for the Score Adjustments screen — see goToAdminAdjustments
+
+/* ---- Score Adjustments (under Match) ---- */
+// Every squad on this series, admin-visible regardless of league membership
+// (squads_select_member_or_admin, supabase-schema.sql grants admins SELECT
+// on all of them) — just enough columns to list teams and show/edit this
+// Test's adjustment, not the full roster/XI a manager's own squads fetch
+// pulls.
+async function fetchAdminSquads(seriesId){
+  const {data, error} = await supabaseClient.from('squads').select('id,user_id,team_name,manager_name,score_adjustments').eq('series_id', seriesId).order('team_name');
+  if(error){ console.error(error); return []; }
+  return data || [];
+}
+async function goToAdminAdjustments(testNum){
+  adminSquads = await fetchAdminSquads(adminSeriesId);
+  adminMatchTest = testNum;
+  adminScreen = 'adjustments';
+  renderAdminHub();
+}
+function renderAdminAdjustmentsScreen(){
+  const html = `
+    ${adminBackBtnHtml()}
+    <h4 style="margin:12px 0 10px; font-family:var(--font-display);">Score adjustments &mdash; Test ${adminMatchTest} <button type="button" class="help-icon" id="adjustmentsHelpBtn" title="What's this?" aria-label="Help">?</button></h4>
+    <div id="adjustmentsWrap"></div>
+  `;
+  const wire = c=>{
+    c.querySelector('#adminBackBtn').addEventListener('click', ()=>{ adminScreen='match'; renderAdminHub(); });
+    c.querySelector('#adjustmentsHelpBtn').addEventListener('click', ()=> showAlert("A manual points correction added to one team's total for this Test only — the match stats themselves are untouched, so every other team's score is unaffected. Use it to put right a specific known problem with just this one team's score (for example a squad change that landed after the deadline but before this Test happened to get locked). Visible to that team's manager as a note on their own score breakdown.", 'Score adjustments'));
+    renderAdjustmentsList();
+  };
+  return {html, wire};
+}
+function renderAdjustmentsList(){
+  const wrap = document.getElementById('adjustmentsWrap');
+  if(!wrap) return;
+  if(adminSquads.length===0){
+    wrap.innerHTML = `<div class="empty-state">No squads on this series yet.</div>`;
+    return;
+  }
+  wrap.innerHTML = adminSquads.map(sq=>{
+    const adj = (sq.score_adjustments||{})[adminMatchTest];
+    return `
+      <div class="player-row" style="flex-wrap:wrap; align-items:flex-start; row-gap:6px;">
+        <div class="player-name-wrap" style="flex-direction:column; align-items:flex-start; gap:1px;">
+          <span class="player-name">${sq.team_name}</span>
+          ${sq.manager_name ? `<span class="muted-on-light" style="font-size:11px;">${sq.manager_name}</span>` : ''}
+        </div>
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-left:auto;">
+          <input type="number" step="0.1" placeholder="+/- pts" data-adjpts="${sq.id}" value="${adj ? adj.points : ''}" style="width:80px;" title="Points to add (negative to subtract) to this team's Test ${adminMatchTest} total" ${session?'':'disabled'}>
+          <input type="text" placeholder="Reason (shown to the manager)" data-adjnote="${sq.id}" value="${adj ? (adj.note||'') : ''}" style="width:220px; max-width:100%;" ${session?'':'disabled'}>
+          <button type="button" class="btn secondary small" data-adjsave="${sq.id}" ${session?'':'disabled'}>Save</button>
+          ${adj ? `<button type="button" class="row-icon-btn danger" data-adjclear="${sq.id}" ${session?'':'disabled'} title="Clear adjustment" aria-label="Clear adjustment">&times;</button>` : ''}
+        </div>
+        ${adj ? `<p class="muted-on-light" style="font-size:11px; margin:0; width:100%;">Currently applied: ${adj.points>0?'+':''}${adj.points} pts${adj.note ? ' — '+adj.note : ''}</p>` : ''}
+      </div>`;
+  }).join('');
+
+  wrap.querySelectorAll('[data-adjsave]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const sqId = btn.dataset.adjsave;
+      const sq = adminSquads.find(s=>s.id===sqId);
+      const pts = parseFloat(wrap.querySelector(`[data-adjpts="${sqId}"]`).value);
+      if(isNaN(pts)){ showAlert('Enter a points value (positive to add, negative to subtract).'); return; }
+      const note = wrap.querySelector(`[data-adjnote="${sqId}"]`).value.trim();
+      const {error} = await supabaseClient.rpc('set_squad_score_adjustment', {
+        p_series_id: adminSeriesId, p_user_id: sq.user_id, p_test: adminMatchTest, p_points: pts, p_note: note || null,
+      });
+      if(error){ showAlert(error.message); return; }
+      adminSquads = await fetchAdminSquads(adminSeriesId);
+      if(adminSeriesId === currentSeriesId) await loadMySquads();
+      renderAdjustmentsList();
+      renderAll();
+      showAlert(`Adjustment saved for ${sq.team_name}.`);
+    });
+  });
+  wrap.querySelectorAll('[data-adjclear]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const sqId = btn.dataset.adjclear;
+      const sq = adminSquads.find(s=>s.id===sqId);
+      if(!(await showConfirm(`Remove the score adjustment for ${sq.team_name} on Test ${adminMatchTest}?`, 'Clear adjustment'))) return;
+      const {error} = await supabaseClient.rpc('set_squad_score_adjustment', {
+        p_series_id: adminSeriesId, p_user_id: sq.user_id, p_test: adminMatchTest, p_points: null, p_note: null,
+      });
+      if(error){ showAlert(error.message); return; }
+      adminSquads = await fetchAdminSquads(adminSeriesId);
+      if(adminSeriesId === currentSeriesId) await loadMySquads();
+      renderAdjustmentsList();
+      renderAll();
+    });
+  });
+}
 const STAT_COLUMN_GROUPS = {
   batting: [
     {key:'runs', label:'Runs', type:'number'},

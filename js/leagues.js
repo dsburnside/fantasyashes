@@ -258,7 +258,8 @@ function buildSquadBreakdownRow(squad, matchDataByTest){
   Object.keys(squad.lockedXiByTest||{}).forEach(t=>{
     const lockedEntry = squad.lockedXiByTest[t];
     const {stats, playingXi, innings} = matchDataByTest[t] || {stats:{}, playingXi:[], innings:[]};
-    const pts = computeTestScore(lockedEntry, stats, playingXi, innings);
+    const adjustment = squadAdjustmentForTest(squad, t);
+    const pts = Math.round((computeTestScore(lockedEntry, stats, playingXi, innings) + (adjustment ? adjustment.points : 0))*10)/10;
     const {effectiveXi, captainDidNotPlay} = resolveEffectiveXi(lockedEntry, playingXi);
     const subs = effectiveXi.filter(e=>e.subFor).map(e=>({out:e.subFor, in:e.pid}));
     // Per-player detail for exactly this Test's locked XI/bench (not summed
@@ -283,7 +284,7 @@ function buildSquadBreakdownRow(squad, matchDataByTest){
       };
     };
     byTest[t] = {
-      pts, captainDidNotPlay,
+      pts, captainDidNotPlay, adjustment,
       xiRows: (lockedEntry.xi||[]).map(playerRow),
       benchRows: (lockedEntry.bench||[]).map(playerRow),
     };
@@ -362,6 +363,7 @@ function squadBreakdownPanelsHtml(byTest, getP, playerName){
         </table>
         </div>
         <p style="font-size:11px; margin-top:8px; color:var(--parchment-dim);">${d.pts} pts this Test${d.captainDidNotPlay ? ' — Captain sat out, armband passed to Vice-Captain' : ''}</p>
+        ${d.adjustment ? `<p style="font-size:11px; margin:2px 0 0; color:var(--gilt-bright);">Includes an admin adjustment of ${d.adjustment.points>0?'+':''}${d.adjustment.points} pts${d.adjustment.note ? ' — '+d.adjustment.note : ''}</p>` : ''}
       </div>`;
     }).join('')}
   `;

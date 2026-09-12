@@ -174,7 +174,7 @@ async function renderAdminHub(){
   // (needs teams first) or a Test that no longer has a fixture (deleted, or
   // just switched series) bounces back rather than rendering broken.
   if(adminScreen==='players' && !hasBothTeams) adminScreen = 'teams';
-  if((adminScreen==='match'||adminScreen==='xi'||adminScreen==='scoring') && !adminFixtures.some(f=>f.test===adminMatchTest)) adminScreen = 'fixtures';
+  if((adminScreen==='match'||adminScreen==='xi'||adminScreen==='scoring'||adminScreen==='adjustments') && !adminFixtures.some(f=>f.test===adminMatchTest)) adminScreen = 'fixtures';
 
   let built;
   if(adminScreen==='teams') built = renderAdminTeamsScreen(currentSeries, hasBothTeams);
@@ -183,6 +183,7 @@ async function renderAdminHub(){
   else if(adminScreen==='match') built = renderAdminMatchScreen();
   else if(adminScreen==='xi') built = renderAdminXiScreen();
   else if(adminScreen==='scoring') built = renderAdminScoringScreen();
+  else if(adminScreen==='adjustments') built = renderAdminAdjustmentsScreen();
   else built = renderAdminTopScreen(currentSeries, hasBothTeams);
 
   c.innerHTML = built.html;
