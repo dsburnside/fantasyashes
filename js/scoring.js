@@ -136,20 +136,26 @@ function resolveKeeperForEntry(entry, fieldingRoster){
   return wks.length===1 ? wks[0] : null;
 }
 // -20 for whoever actually kept wicket in an innings where the fielding
-// side conceded 6+ byes (see resolveKeeperForEntry above for how "actually
-// kept wicket" is worked out). Extras are tracked once per innings rather
-// than per player (see the "Extras" input in buildInningsPanel,
-// js/admin-match.js) since only one player's actually behind the stumps at
-// a time. A flat penalty, not doubled by any assigned-role multiplier —
-// same treatment as the wides/no-balls bowling penalty and the duck penalty.
-// Deliberately takes no `lockedEntry`/playingRoles and never will: a manager
-// can freely declare any safe pair of hands (a slip fielder, say) as their
-// assigned Wicketkeeper to double that player's catches (see
-// singleInningsPoints' wkMult) — that's a fantasy scoring choice about
-// bonus points, not a claim about who's actually got the gloves on, so it
-// must never feed into who wears THIS penalty. Only resolveKeeperForEntry's
-// real-world answer (the admin's pick, or a team's sole base-role WK) does.
-function wkByesPenalty(pid, innings, playingXi){
+// side conceded 6+ byes — but ONLY if that same player is also the one
+// their fantasy squad has assigned the Wicketkeeper playing role to
+// (`declaredRole`, see effectivePlayingRoleForTest for a manager's squad, or
+// defaultPlayingRole for the no-manager "team of the Test" ranking). Both
+// have to hold at once:
+//   - actually gloved up (resolveKeeperForEntry above) but assigned some
+//     OTHER role — e.g. a manager deliberately running their real keeper as
+//     a Batter instead — carries no penalty, since that manager isn't
+//     claiming the WK bonus for them either.
+//   - assigned WK but not actually keeping — e.g. a safe pair of hands at
+//     slip declared WK purely to double their catches (singleInningsPoints'
+//     wkMult) — never has to risk it, since they were never really behind
+//     the stumps.
+// Extras are tracked once per innings rather than per player (see the
+// "Extras" input in buildInningsPanel, js/admin-match.js) since only one
+// player's actually behind the stumps at a time. A flat penalty, not
+// doubled by any assigned-role multiplier — same treatment as the
+// wides/no-balls bowling penalty and the duck penalty.
+function wkByesPenalty(pid, innings, playingXi, declaredRole){
+  if(declaredRole !== 'WK') return 0;
   const player = getPlayer(pid);
   if(!player) return 0;
   if(Array.isArray(playingXi) && playingXi.length>0 && !playingXi.includes(pid)) return 0;
@@ -241,7 +247,7 @@ function resolveEffectiveXi(lockedEntry, playingXi){
 function playerPointsForTest(lockedEntry, statsForTest, pid, captainDidNotPlay, innings, playingXi){
   const role = effectivePlayingRoleForTest(lockedEntry, pid, innings, playingXi);
   let pts = statPoints(statsForTest ? statsForTest[pid] : null, role);
-  pts += wkByesPenalty(pid, innings, playingXi);
+  pts += wkByesPenalty(pid, innings, playingXi, role);
   if(pid === lockedEntry.captain && !captainDidNotPlay) pts *= 2;
   else if(pid === lockedEntry.viceCaptain && captainDidNotPlay) pts *= 2;
   return pts;
@@ -276,9 +282,12 @@ function computeTeamOfTest(players, stats, innings){
   // on the field" — same thing wkByesPenalty's ambiguity check needs an
   // announced Playing XI for.
   const playedPids = Object.keys(stats);
+  // No manager's own role assignment to check here either (see wkByesPenalty's
+  // declaredRole condition) — a player's own base role stands in for it, same
+  // as statPoints() below already treats this as the plain, unassigned rate.
   const eligible = players
     .filter(p => stats[p.id] !== undefined)
-    .map(p => ({p, pts: statPoints(stats[p.id]) + wkByesPenalty(p.id, innings, playedPids)}))
+    .map(p => ({p, pts: statPoints(stats[p.id]) + wkByesPenalty(p.id, innings, playedPids, defaultPlayingRole(p.role))}))
     .sort((a,b)=> b.pts - a.pts);
   if(eligible.length===0) return [];
   let xi = eligible.slice(0, 11);
